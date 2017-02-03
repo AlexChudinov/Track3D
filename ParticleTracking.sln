@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParticleTracking3D", "ParticleTracking.vcxproj", "{9097A245-3F0E-4189-9BCE-49C6CE202042}"
+	ProjectSection(ProjectDependencies) = postProject
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D} = {6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637} = {B68AF6CE-F741-4518-B9DD-81D3299D8637}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LaplacianSolver", "LaplacianSolver\LaplacianSolver.vcxproj", "{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libIntegrators", "Integrators\Integrators_lib.vcxproj", "{B68AF6CE-F741-4518-B9DD-81D3299D8637}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Debug|Win32.Build.0 = Debug|Win32
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Debug|x64.ActiveCfg = Debug|x64
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Debug|x64.Build.0 = Debug|x64
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Release|Win32.ActiveCfg = Release|Win32
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Release|Win32.Build.0 = Release|Win32
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Release|x64.ActiveCfg = Release|x64
+		{9097A245-3F0E-4189-9BCE-49C6CE202042}.Release|x64.Build.0 = Release|x64
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Debug|Win32.Build.0 = Debug|Win32
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Debug|x64.ActiveCfg = Debug|x64
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Debug|x64.Build.0 = Debug|x64
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Release|Win32.ActiveCfg = Release|Win32
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Release|Win32.Build.0 = Release|Win32
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Release|x64.ActiveCfg = Release|x64
+		{6C89EF73-6B13-4FD9-B0A2-E7C092743D3D}.Release|x64.Build.0 = Release|x64
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Debug|Win32.Build.0 = Debug|Win32
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Debug|x64.ActiveCfg = Debug|x64
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Debug|x64.Build.0 = Debug|x64
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Release|Win32.ActiveCfg = Release|Win32
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Release|Win32.Build.0 = Release|Win32
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Release|x64.ActiveCfg = Release|x64
+		{B68AF6CE-F741-4518-B9DD-81D3299D8637}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,1417 @@
+
+#include "stdafx.h"
+
+#include "DrawTrack.h"
+#include "Tracker.hpp"
+
+#include "float.h"
+#include "constant.hpp"
+
+#include "ExecutionDialog.h"
+#include "ParticleTracking.h"
+#include "MainFrm.h"
+
+#include <sstream>
+#include <algorithm>
+
+namespace EvaporatingParticle
+{
+
+//-------------------------------------------------------------------------------------------------
+//
+//-------------------------------------------------------------------------------------------------
+CTrackDraw::CTrackDraw()
+  : m_pTracker(NULL), m_hWnd(NULL), m_hDC(NULL), m_hRC(NULL), m_Color(clLtGray), m_pRegUnderCursor(NULL)
+{
+  m_bDrawTracks = true;
+  m_nDrawMode = dmFlat;
+
+  m_bWireframeReady = false;
+  m_bFacesReady = false;
+
+  m_bNewData = true;
+  m_bSelFlag = false;
+
+  m_fScale = 1.;
+  m_vShift = Vector2D(0, 0);
+  m_nRegime = nRegimeNone;
+  m_fOpacity = 1.0f;
+
+  set_bkgr_color(clLtGray);
+  m_bRotCenter = true;
+
+  m_nOvrAxis = 0;
+  m_bBusy = false;
+}
+
+CTrackDraw::~CTrackDraw()
+{
+  m_vFaceVert.clear();
+
+  HGLRC hRC = wglGetCurrentContext();
+  if(m_hRC == hRC)
+    wglMakeCurrent(NULL, NULL);
+
+  if(m_hRC)
+    wglDeleteContext(m_hRC);
+
+  if(m_hDC)
+    ReleaseDC(m_hWnd, m_hDC);
+}
+
+void CTrackDraw::clear()
+{
+  m_vFaceVert.clear();
+  m_vWireFrame.clear();
+
+  m_vCrossSectVert.clear();
+  m_vSelRegVert.clear();
+}
+
+void CTrackDraw::set_window_handle(HWND hwnd)
+{
+  m_hWnd = hwnd;
+  m_hDC = GetDC(hwnd);
+
+  create_window_layer();
+}
+
+void CTrackDraw::set_tracker(CTracker* pTr)
+{
+  if(m_pTracker == NULL || !m_pTracker->is_ready())
+  {
+    m_pTracker = pTr;
+    if(m_bNewData)
+      set_view();
+
+    set_hidden_reg_names();
+  }
+}
+
+bool CTrackDraw::create_window_layer()
+{
+  PIXELFORMATDESCRIPTOR pfd ;
+  memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR)) ;
+  pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);  
+  pfd.nVersion = 1;
+  pfd.dwFlags = PFD_DOUBLEBUFFER | PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW;
+  pfd.iPixelType = PFD_TYPE_RGBA;
+
+  pfd.cColorBits = 24;             // 24 of bits for color
+  pfd.cDepthBits = 32;             // 32-bit depth buffer
+
+// Choose the pixel format:
+  int nPixelFormat = ChoosePixelFormat(m_hDC, &pfd);
+  if(nPixelFormat == 0)
+  {
+    TRACE("ChoosePixelFormat Failed %d\r\n", GetLastError()) ;
+    return false ;
+  }
+  TRACE("Pixel Format %d\r\n", nPixelFormat) ;
+
+// Set the pixel format:
+  BOOL bResult = SetPixelFormat(m_hDC, nPixelFormat, &pfd);
+  if(!bResult)
+  {
+    TRACE("SetPixelFormat Failed %d\r\n", GetLastError()) ;
+    return false ;
+  }
+  
+// Create a rendering context:
+  m_hRC = wglCreateContext(m_hDC);
+  if(!m_hRC)
+  {
+    TRACE("wglCreateContext Failed %x\r\n", GetLastError()) ;
+    return false;
+  }
+
+// Make the rendering context the calling thread's current rendering context:
+  BOOL bOK = wglMakeCurrent(m_hDC, m_hRC);
+  if(!bOK)
+  {
+    TRACE("wglMakeCurrent Failed %x\r\n", GetLastError()) ;
+    return false;
+  }
+
+  return true;
+}
+
+void CTrackDraw::set_view(int nViewDir)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  long nResX, nResY;
+  get_resolution(nResX, nResY);
+  if(nResX < 1)
+    return;
+
+  double fAspect = (double)nResY / nResX;
+
+  const CBox& box = m_pTracker->get_box();
+  Vector3D vC = box.get_center();
+
+  double fSizeX, fSizeY, fRotX, fRotY, fRotZ;
+  switch(nViewDir)
+  {
+    case dirNone:
+    {
+      fSizeX = box.vMax.x - box.vMin.x;
+      fSizeY = box.vMax.y - box.vMin.y;
+      fRotX = -70;
+      fRotY = 0;
+      fRotZ = -135;
+      break;
+    }
+    case dirPlusX:
+    {
+      fSizeX = box.vMax.z - box.vMin.z;
+      fSizeY = box.vMax.y - box.vMin.y;
+      fRotX = 0;
+      fRotY = -90;
+      fRotZ = 0;
+      break;
+    }
+    case dirMinusX:
+    {
+      fSizeX = box.vMax.z - box.vMin.z;
+      fSizeY = box.vMax.y - box.vMin.y;
+      fRotX = 0;
+      fRotY = 90;
+      fRotZ = 0;
+      break;
+    }
+    case dirPlusY:
+    {
+      fSizeX = box.vMax.x - box.vMin.x;
+      fSizeY = box.vMax.z - box.vMin.z;
+      fRotX = 90;
+      fRotY = 180;
+      fRotZ = 0;
+      break;
+    }
+    case dirMinusY:
+    {
+      fSizeX = box.vMax.x - box.vMin.x;
+      fSizeY = box.vMax.z - box.vMin.z;
+      fRotX = -90;
+      fRotY = 0;
+      fRotZ = 0;
+      break;
+    }
+    case dirPlusZ:
+    {
+      fSizeX = box.vMax.x - box.vMin.x;
+      fSizeY = box.vMax.y - box.vMin.y;
+      fRotX = 0;
+      fRotY = 0;
+      fRotZ = 0;
+      break;
+    }
+    case dirMinusZ:
+    {
+      fSizeX = box.vMax.x - box.vMin.x;
+      fSizeY = box.vMax.y - box.vMin.y;
+      fRotX = 0;
+      fRotY = 180;
+      fRotZ = 0;
+      break;
+    }
+  }
+
+  if((fSizeY < fSizeX) && ((fSizeY / fSizeX) < fAspect))
+    m_fScrWidth = fSizeX;
+  else
+    m_fScrWidth = fSizeY / fAspect;
+
+  m_nRegime = nRegimeNone;
+  m_vShift = Vector2D(0, 0);
+  m_fRotAngleX = 0;
+  m_fRotAngleY = 0;
+  m_fScale = 1;
+
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  glTranslated(vC.x, vC.y, vC.z);
+  glRotated(fRotX, 1., 0., 0.);
+  glRotated(fRotY, 0., 1., 0.);
+  glRotated(fRotZ, 0., 0., 1.);
+  glTranslated(-vC.x, -vC.y, -vC.z);
+}
+
+void CTrackDraw::get_resolution(long& nx, long& ny) const
+{
+  RECT rect;
+  if(m_hWnd == NULL || !GetClientRect(m_hWnd, &rect))
+    return;
+
+  nx = rect.right - rect.left;
+  ny = rect.bottom - rect.top;
+}
+
+void CTrackDraw::set_projection()
+{
+// Dimensions of the viewport.
+  long nResX, nResY;
+  get_resolution(nResX, nResY);
+  if(nResX < 1)
+    return;
+
+  glViewport(0, 0, nResX, nResY);
+
+  double fAspect = (double)nResY / nResX;
+
+// Dimensions of the 3D object.
+  Vector3D vC = m_pTracker->get_center();
+
+  m_fScrWidth *= m_fScale;
+  m_fPix2cm = m_fScrWidth / nResX;
+
+  double fHalfW = 0.5 * m_fScrWidth;
+  double fMinX = vC.x - fHalfW;
+  double fMaxX = vC.x + fHalfW;
+
+  double fHalfH = fAspect * fHalfW;
+  double fMinY = vC.y - fHalfH;
+  double fMaxY = vC.y + fHalfH;
+
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glOrtho(fMinX - m_vShift.x, fMaxX - m_vShift.x, fMinY - m_vShift.y, fMaxY - m_vShift.y, vC.z - 10000, vC.z + 10000);
+
+  glMatrixMode(GL_MODELVIEW);
+
+  if(m_bRotCenter)
+    glTranslated(vC.x, vC.y, vC.z);
+
+  glRotated(m_fRotAngleX, 1., 0., 0.);
+  glRotated(m_fRotAngleY, 0., 1., 0.);
+  glRotated(m_fRotAngleZ, 0., 0., 1.);
+
+  if(m_bRotCenter)
+    glTranslated(-vC.x, -vC.y, -vC.z);
+
+  m_fRotAngleX = 0;
+  m_fRotAngleY = 0;
+  m_fRotAngleZ = 0;
+  m_fScale = 1;  
+}
+
+void CTrackDraw::build_arrays()
+{
+  if(!m_pTracker->is_ready())
+    return; // nothing to draw.
+
+  build_wireframe_array();
+
+  if(!m_bFacesReady)
+  {
+    build_faces_array();
+    build_aux_array();
+    m_bFacesReady = true;
+  }
+
+  if(m_bNewData)
+  {
+    set_view();
+    m_bNewData = false;
+  }
+}
+
+void CTrackDraw::build_faces_array()
+{
+  glFrontFace(GL_CCW);
+  glDisable(GL_NORMALIZE);
+  glDisable(GL_CULL_FACE);
+
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+
+  m_vFaceVert.clear();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+
+  size_t nRegCount = regions.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    pReg = regions.at(i);
+    if(!pReg->bEnabled || pReg->bSelected)
+      continue;
+
+    const CFacesCollection& faces = pReg->vFaces;
+    size_t nFaceCount = faces.size();
+    for(size_t j = 0; j < nFaceCount; j++)
+    {
+      pFace = faces.at(j);
+      m_vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+      m_vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+      m_vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+    }
+
+    set_progress("Building faces", 100 * i / nRegCount);
+  }
+}
+
+void CTrackDraw::build_aux_array()
+{
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+
+  m_vSelFaceVert.clear();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    pReg = regions.at(i);
+    if(!pReg->bEnabled || !pReg->bSelected)
+      continue;
+
+    const CFacesCollection& faces = pReg->vFaces;
+    size_t nFaceCount = faces.size();
+    for(size_t j = 0; j < nFaceCount; j++)
+    {
+      pFace = faces.at(j);
+      m_vSelFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+      m_vSelFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+      m_vSelFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+    }
+  }
+}
+
+void CTrackDraw::build_wireframe_array()
+{
+  if(m_bWireframeReady)
+    return;
+
+  m_vWireFrame.clear();
+#ifndef _DEBUG
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+
+  size_t nRegCount = regions.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    set_progress("Building wireframe", 100 * i / nRegCount);
+
+    pReg = regions.at(i);
+    if(pReg->bCrossSection)
+      continue;
+
+    CEdgesVector vEdges;
+    std::vector<CEdge>::iterator iter;
+
+    const CFacesCollection& faces = pReg->vFaces;
+    size_t nFaceCount = faces.size();
+    for(size_t j = 0; j < nFaceCount; j++)
+    {
+      pFace = faces.at(j);
+      CEdge edges[] = { CEdge(pFace->p0, pFace->p1, pFace), CEdge(pFace->p1, pFace->p2, pFace), CEdge(pFace->p2, pFace->p0, pFace) };
+      for(UINT k = 0; k < 3; k++)
+      {
+        iter = std::find(vEdges.begin(), vEdges.end(), edges[k]);
+        if(iter != vEdges.end())
+          (*iter).pFace1 = pFace;
+        else
+          vEdges.push_back(edges[k]);
+      }
+    }
+
+    size_t nEdgeCount = vEdges.size();
+    for(size_t l = 0; l < nEdgeCount; l++)
+    {
+      const CEdge& edge = vEdges.at(l);
+      if(edge.pFace1 != NULL)
+        continue;
+
+      m_vWireFrame.push_back(CEdgeVertex(edge.pNode0->pos));
+      m_vWireFrame.push_back(CEdgeVertex(edge.pNode1->pos));
+    }
+  }
+#endif
+  m_bWireframeReady = true;
+}
+
+void CTrackDraw::set_region_under_cursor(CRegion* pReg)
+{
+  m_pRegUnderCursor = pReg;
+  if(m_pRegUnderCursor == NULL)
+    return;
+
+  CFace* pFace = NULL;
+  m_vSelRegVert.clear();
+
+  const CFacesCollection& faces = m_pRegUnderCursor->vFaces;
+  size_t nFaceCount = faces.size();
+  for(size_t i = 0; i < nFaceCount; i++)
+  {
+    pFace = faces.at(i);
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p0->pos));
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p1->pos));
+
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p1->pos));
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p2->pos));
+
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p2->pos));
+    m_vSelRegVert.push_back(CEdgeVertex(pFace->p0->pos));
+  }
+}
+
+// Cross-sections of the calculators suppport:
+void CTrackDraw::set_cross_sections_array(CExternalFaces* pFacesColl)
+{
+  m_vCrossSectVert.clear();
+  if(pFacesColl == NULL)
+    return;
+
+  CFace* pFace = NULL;
+  size_t nFaceCount = pFacesColl->size();
+  for(size_t i = 0; i < nFaceCount; i++)
+  {
+    pFace = pFacesColl->at(i);
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p0->pos));
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p1->pos));
+
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p1->pos));
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p2->pos));
+
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p2->pos));
+    m_vCrossSectVert.push_back(CEdgeVertex(pFace->p0->pos));
+  }
+}
+
+void CTrackDraw::draw()
+{
+  if(m_pTracker == NULL)
+    return;
+
+  m_bBusy = true;
+  build_arrays();
+
+  set_global();
+  set_projection();
+
+  glClearColor(m_fBkgrRed, m_fBkgrGreen, m_fBkgrBlue, 1.0f);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  glEnableClientState(GL_VERTEX_ARRAY);
+
+  if(m_bWireframeReady && m_bFacesReady)  // execution could be terminated by the user, so this check is necessary.
+  {
+    draw_geometry();
+    draw_tracks();
+
+    draw_contours();
+    draw_sel_region();
+    draw_cross_sections();
+  }
+
+  draw_axes();
+
+  glDisableClientState(GL_VERTEX_ARRAY);
+
+  glFinish();
+  glFlush();
+
+  BOOL bOK = SwapBuffers(m_hDC);
+  m_bBusy = false;
+
+  set_progress("Ready", -1);
+}
+
+void CTrackDraw::draw_tracks()
+{
+  if(m_bDrawTracks)
+    m_ColoredTracks.draw();
+}
+
+void CTrackDraw::draw_sel_region()
+{
+  if(m_pRegUnderCursor == NULL || m_vSelRegVert.size() == 0)
+    return;
+
+  glDisable(GL_LIGHTING);
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+
+  glColor3ub(120, 190, 230);
+  UINT nStride = 3 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelRegVert[0].x));
+
+  glDrawArrays(GL_LINES, 0, m_vSelRegVert.size());
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void CTrackDraw::draw_cross_sections()
+{
+  size_t nSize = m_vCrossSectVert.size();
+  if(nSize == 0)
+    return;
+
+  glDisable(GL_LIGHTING);
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+
+  glColor3ub(255, 200, 0);
+  UINT nStride = 3 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vCrossSectVert[0].x));
+
+  glDrawArrays(GL_LINES, 0, nSize);
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void CTrackDraw::draw_geometry()
+{
+  switch(m_nDrawMode)
+  {
+    case dmNone: return;
+    case dmWire: draw_selected_faces(); draw_wire(); return;
+    case dmFlat: draw_flat(); draw_selected_faces(); draw_wire(); return;
+  }
+}
+
+void CTrackDraw::draw_wire()
+{
+  size_t nSize = m_vWireFrame.size();
+  if(nSize == 0)
+    return;
+
+  glDisable(GL_LIGHTING);
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+
+  glColor3ub(200, 200, 200);
+  UINT nStride = 3 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vWireFrame[0].x));
+
+  glDrawArrays(GL_LINES, 0, nSize);
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void CTrackDraw::draw_flat()
+{
+  if(m_vFaceVert.size() == 0)
+    return;
+
+  set_lights();
+  set_materials();
+  glEnableClientState(GL_NORMAL_ARRAY);
+
+  UINT nStride = 6 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].x));
+  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].nx));
+
+  glColor4ub(GetRValue(m_Color), GetGValue(m_Color), GetBValue(m_Color), (unsigned char)(255 * m_fOpacity));
+  glDrawArrays(GL_TRIANGLES, 0, m_vFaceVert.size());
+
+  glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void CTrackDraw::draw_selected_faces()
+{
+  if(m_vSelFaceVert.size() == 0)
+    return;
+
+  set_lights();
+  set_materials();
+  glEnableClientState(GL_NORMAL_ARRAY);
+
+  UINT nStride = 6 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].x));
+  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].nx));
+
+  glColor4ub(130, 200, 130, (unsigned char)(255 * m_fOpacity));
+  glDrawArrays(GL_TRIANGLES, 0, m_vSelFaceVert.size());
+
+  glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void CTrackDraw::set_global()
+{
+  glEnable(GL_DEPTH_TEST);
+}
+
+void CTrackDraw::set_lights()
+{
+  glEnable(GL_LIGHTING);
+
+  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+
+  float pLight_0_Dir[4] = { -0.5f, -1.0f, -1.0f, 0.0f };  // this is direction of the parallel type of light.
+  float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.2f, 1.0f };
+  float pLight_0_Diffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+  float pLight_0_Spec[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+  glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
+  glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, pLight_0_Diffuse);
+  glLightfv(GL_LIGHT0, GL_SPECULAR, pLight_0_Spec);
+
+  glEnable(GL_LIGHT0);
+
+  float pLight_1_Dir[4] = { 0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
+  float pLight_1_Ambient[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+  float pLight_1_Diffuse[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
+  float pLight_1_Spec[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+
+  glLightfv(GL_LIGHT1, GL_POSITION, pLight_1_Dir);
+  glLightfv(GL_LIGHT1, GL_AMBIENT, pLight_1_Ambient);
+  glLightfv(GL_LIGHT1, GL_DIFFUSE, pLight_1_Diffuse);
+  glLightfv(GL_LIGHT1, GL_SPECULAR, pLight_1_Spec);
+
+  glEnable(GL_LIGHT1);
+}
+
+void CTrackDraw::set_materials()
+{
+  glEnable(GL_COLOR_MATERIAL);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_NORMALIZE);
+
+/*
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
+*/
+  glEnable(GL_ALPHA_TEST);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glShadeModel(GL_FLAT);
+}
+
+// Mouse events support
+void CTrackDraw::on_mouse_move(const CPoint& point)
+{
+  if(m_nRegime != nRegimeNone)
+  {
+    CPoint dp = point - m_StartPoint;
+    if(m_nRegime == nRegimeMove)
+    { // the shifts are in cm.
+      m_vShift.x += m_fPix2cm * dp.x;
+      m_vShift.y -= m_fPix2cm * dp.y;
+    }
+    else
+    { // degrees, the coefficient is taken from experience.
+      if(m_nContext == nContextRotX)
+        m_fRotAngleX = -0.2 * dp.y;
+      if(m_nContext == nContextRotY)
+        m_fRotAngleY = 0.2 * dp.y;
+      if(m_nContext == nContextRotZ)
+        m_fRotAngleZ = 0.2 * dp.y;
+    }
+
+    m_StartPoint = point;
+    draw();
+  }
+  else if(m_bSelFlag)
+  {
+    CRay ray = get_view_dir(point);
+    CRegion* pReg = intersect(ray);
+    set_region_under_cursor(pReg);
+    draw();
+  }
+  else
+  {
+    int nOldOvrAxis = m_nOvrAxis;
+    get_over_axis(point);
+    if(nOldOvrAxis != m_nOvrAxis)
+      draw();
+  }
+
+  if(!m_pTracker || !m_pTracker->is_ready())
+    return;
+
+  Vector3D w;
+  screen_to_world(point, w);
+  CBox& box = m_pTracker->get_box();
+  bool bIntersect = (w.x >= box.vMin.x) && (w.x <= box.vMax.x)
+                 && (w.y >= box.vMin.y) && (w.y <= box.vMax.y)
+                 && (w.z >= box.vMin.z) && (w.z <= box.vMax.z);
+
+  std::string cTextX = bIntersect ? "X = " + dbl_to_str(10 * w.x) : "";
+  std::string cTextY = bIntersect ? "Y = " + dbl_to_str(10 * w.y) : "";
+  std::string cTextZ = bIntersect ? "Z = " + dbl_to_str(10 * w.z) : "";
+
+  CMainFrame* pMainWnd = (CMainFrame*)(CParticleTrackingApp::Get()->m_pMainWnd);
+  if(pMainWnd == NULL)
+    return;
+
+  CMFCStatusBar* pStatusBar = pMainWnd->GetStatusBar();
+  if(pStatusBar)
+  {
+    pStatusBar->SetPaneText(1, cTextX.c_str());
+    pStatusBar->SetPaneText(2, cTextY.c_str());
+    pStatusBar->SetPaneText(3, cTextZ.c_str());
+  }
+}
+
+void CTrackDraw::on_mouse_wheel(short nDelta, const CPoint& point)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  if(nDelta > 0)
+  {
+    m_fScale = 0.95;
+  }
+  else if(nDelta < 0)
+  {
+    m_fScale = 1.0526;
+  }
+}
+
+void CTrackDraw::on_left_button_down(const CPoint& point)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  if(m_nContext == nContextMove)
+    m_nRegime = nRegimeMove;
+  else
+    m_nRegime = nRegimeRotate;
+
+  m_StartPoint = point;
+}
+
+void CTrackDraw::on_left_button_up(const CPoint& point)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  m_nRegime = nRegimeNone;
+
+  if(m_bSelFlag && (m_pRegUnderCursor != NULL) && (m_StartPoint == point))
+  {
+    m_pRegUnderCursor->bSelected = !m_pRegUnderCursor->bSelected;
+    invalidate_hidden();
+    draw();
+  }
+}
+
+void CTrackDraw::on_right_button_up(const CPoint& point)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  set_view(m_nOvrAxis);
+}
+
+bool CTrackDraw::capture_image()
+{
+  return m_WndImage.CaptureWindow(m_hWnd);
+}
+
+bool CTrackDraw::save_image(const CString& cFileName)
+{
+  HRESULT hRes = m_WndImage.Save(cFileName);
+  if(FAILED(hRes))
+    return false;
+
+  return true;
+}
+
+// Cursor coordinates in the status line:
+void CTrackDraw::screen_to_world(const CPoint& p, Vector3D& w, bool bWorldDepth) const
+{
+  double pModelMtx[16], pProjMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pModelMtx);
+  glGetDoublev(GL_PROJECTION_MATRIX, pProjMtx);
+
+  int pViewPort[4];
+  glGetIntegerv(GL_VIEWPORT, pViewPort);
+
+  float x = float(p.x), y = (float)pViewPort[3] - float(p.y), z;
+  glReadPixels(p.x, int(y), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &z);
+  if(bWorldDepth)
+    gluUnProject(x, y, z, pModelMtx, pProjMtx, pViewPort, &w.x, &w.y, &w.z);
+  else
+    gluUnProject(x, y, 0.5f, pModelMtx, pProjMtx, pViewPort, &w.x, &w.y, &w.z);
+}
+
+CRay CTrackDraw::get_view_dir(const CPoint& point) const
+{
+  double pModelMtx[16], pProjMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pModelMtx);
+  glGetDoublev(GL_PROJECTION_MATRIX, pProjMtx);
+
+  int pViewPort[4];
+  glGetIntegerv(GL_VIEWPORT, pViewPort);
+
+  Vector3D vPos, vDir;
+  float x = float(point.x), y = (float)pViewPort[3] - float(point.y);
+  gluUnProject(x, y, 0, pModelMtx, pProjMtx, pViewPort, &vPos.x, &vPos.y, &vPos.z);
+  gluUnProject(x, y, 1, pModelMtx, pProjMtx, pViewPort, &vDir.x, &vDir.y, &vDir.z);
+
+  vDir -= vPos;
+  vDir.normalize();
+  return CRay(vPos, vDir);
+}
+
+std::string CTrackDraw::dbl_to_str(double val) const
+{
+  double trunc = val >= 0 ? 0.001 * int(0.5 + 1000 * val) : 0.001 * int(-0.5 + 1000 * val);
+  std::ostringstream buffer;
+  buffer << trunc;
+  return buffer.str();
+}
+
+// Text output support:
+void CTrackDraw::get_inv_rot(double* pInvMtx)
+{
+  double pRotMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pRotMtx);
+
+  pInvMtx[15] = 1;
+  pInvMtx[3] = pInvMtx[7] = pInvMtx[11] = pInvMtx[12] = pInvMtx[13] = pInvMtx[14] = 0;
+  for(UINT i = 0; i < 3; i++)
+    for(UINT j = 0; j < 3; j++)
+      pInvMtx[j + 4 * i] = pRotMtx[i + 4 * j];
+}
+
+void CTrackDraw::draw_axes()
+{
+  glDisable(GL_LIGHTING);
+  glDisable(GL_DEPTH_TEST);
+  glLineWidth(2.5f);
+
+// Screen position of the axes triad:
+  long nResX, nResY;
+  get_resolution(nResX, nResY);
+
+// World position of the axes:
+  Vector3D vWorldPos(0, 0, 0);
+  CPoint cScrPos(int(0.92 * nResX), int(0.92 * nResY));
+  screen_to_world(cScrPos, vWorldPos, false);
+
+  m_fAxisLen = 0.05 * m_fScrWidth;
+
+  m_pAxesTriad[0] = m_pAxesTriad[6] = m_pAxesTriad[9] = m_pAxesTriad[12] = m_pAxesTriad[15] = vWorldPos.x;
+  m_pAxesTriad[1] = m_pAxesTriad[4] = m_pAxesTriad[7] = m_pAxesTriad[13] = m_pAxesTriad[16] = vWorldPos.y;
+  m_pAxesTriad[2] = m_pAxesTriad[5] = m_pAxesTriad[8] = m_pAxesTriad[11] = m_pAxesTriad[14] = vWorldPos.z;
+
+  m_pAxesTriad[3] = vWorldPos.x + m_fAxisLen;
+  m_pAxesTriad[10] = vWorldPos.y + m_fAxisLen;
+  m_pAxesTriad[17] = vWorldPos.z + m_fAxisLen;
+
+  UINT nStride = 3 * sizeof(GLdouble);
+  glColor3ub(255, 0, 0);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_pAxesTriad[0]));
+  glDrawArrays(GL_LINES, 0, 2);
+
+  glColor3ub(0, 128, 0);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_pAxesTriad[6]));
+  glDrawArrays(GL_LINES, 0, 2);
+
+  glColor3ub(0, 0, 255);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_pAxesTriad[12]));
+  glDrawArrays(GL_LINES, 0, 2);
+
+  double fHalfH = 0.0035 * m_fScrWidth;
+  double fHalfW = 0.67 * fHalfH;
+  for(UINT i = 0; i < 48; i++)
+    m_pXYZ[i] = 0.;
+
+// X:
+  m_pXYZ[0] = -fHalfW; m_pXYZ[1] = +fHalfH;
+  m_pXYZ[3] = +fHalfW; m_pXYZ[4] = -fHalfH;
+
+  m_pXYZ[6] = +fHalfW; m_pXYZ[7] = +fHalfH;
+  m_pXYZ[9] = -fHalfW; m_pXYZ[10] = -fHalfH;
+
+// Y:
+  m_pXYZ[12] = -fHalfW; m_pXYZ[13] = +fHalfH;
+  m_pXYZ[15] = 0; m_pXYZ[16] = 0;
+
+  m_pXYZ[18] = +fHalfW; m_pXYZ[19] = +fHalfH;
+  m_pXYZ[21] = 0; m_pXYZ[22] = 0;
+
+  m_pXYZ[24] = 0; m_pXYZ[25] = 0;
+  m_pXYZ[27] = 0; m_pXYZ[28] = -fHalfH;
+
+// Z:
+  fHalfH *= 0.9;
+  m_pXYZ[30] = -fHalfW; m_pXYZ[31] = +fHalfH;
+  m_pXYZ[33] = +fHalfW; m_pXYZ[34] = +fHalfH;
+
+  m_pXYZ[36] = +fHalfW; m_pXYZ[37] = +fHalfH;
+  m_pXYZ[39] = -fHalfW; m_pXYZ[40] = -fHalfH;
+
+  m_pXYZ[42] = -fHalfW; m_pXYZ[43] = -fHalfH;
+  m_pXYZ[45] = +1.05 * fHalfW; m_pXYZ[46] = -fHalfH;
+
+// The minus sign:
+  m_pXYZ[48] = -3 * fHalfW;  m_pXYZ[51] = -1.5 * fHalfW;
+
+  double pInvRot[16];
+  get_inv_rot(pInvRot); // the inversion of the rotational part of the model view matrix.
+
+  glMatrixMode(GL_MODELVIEW);
+
+  m_fLetDist = 1.13 * m_fAxisLen;
+  draw_letter(pInvRot, vWorldPos, dirPlusX);
+  draw_letter(pInvRot, vWorldPos, dirPlusY);
+  draw_letter(pInvRot, vWorldPos, dirPlusZ);
+  if(m_nOvrAxis == dirMinusX)
+    draw_letter(pInvRot, vWorldPos, dirMinusX);
+  else if(m_nOvrAxis == dirMinusY)
+    draw_letter(pInvRot, vWorldPos, dirMinusY);
+  else if(m_nOvrAxis == dirMinusZ)
+    draw_letter(pInvRot, vWorldPos, dirMinusZ);
+
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_LIGHTING);
+  glLineWidth(1.0f);
+}
+
+void CTrackDraw::draw_letter(double* pInvRot, const Vector3D& vWorldPos, int nLetterType)
+{
+  UINT nStart, nLength;
+  Vector3D vLetterPos = vWorldPos;
+  switch(nLetterType)
+  {
+    case dirPlusX:  vLetterPos.x += m_fLetDist; nStart =  0; nLength = 4; glColor3ub(255, 0, 0); break;
+    case dirMinusX: vLetterPos.x -= m_fAxisLen; nStart =  0; nLength = 4; glColor3ub(255, 0, 0); break;
+    case dirPlusY:  vLetterPos.y += m_fLetDist; nStart = 12; nLength = 6; glColor3ub(0, 128, 0); break;
+    case dirMinusY: vLetterPos.y -= m_fAxisLen; nStart = 12; nLength = 6; glColor3ub(0, 128, 0); break;
+    case dirPlusZ:  vLetterPos.z += m_fLetDist; nStart = 30; nLength = 6; glColor3ub(0, 0, 255); break;
+    case dirMinusZ: vLetterPos.z -= m_fAxisLen; nStart = 30; nLength = 6; glColor3ub(0, 0, 255); break;
+  }
+
+  float fLineWidth = 2.5f;
+  if(m_nOvrAxis == nLetterType)
+  {
+    fLineWidth = 3.0f;
+    if(nLetterType == dirMinusX || nLetterType == dirMinusY || nLetterType == dirMinusZ)
+      fLineWidth = 2.5f;
+  }
+
+  glLineWidth(fLineWidth);
+
+  UINT nStride = 3 * sizeof(GLdouble);
+
+  glPushMatrix();
+  glTranslated(vLetterPos.x, vLetterPos.y, vLetterPos.z);
+  glMultMatrixd(pInvRot);   // rotate the text making it look always into the camera.
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_pXYZ[nStart]));
+  glDrawArrays(GL_LINES, 0, nLength);
+  if(nLetterType == dirMinusX || nLetterType == dirMinusY || nLetterType == dirMinusZ)
+  {
+    glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_pXYZ[48]));
+    glDrawArrays(GL_LINES, 0, 2);
+  }
+  glPopMatrix();
+}
+
+void CTrackDraw::get_over_axis(const CPoint& point)
+{
+  m_nOvrAxis = 0;
+
+  long nResX, nResY, nLimX, nLimY;
+  get_resolution(nResX, nResY);
+
+  nLimX = 3 * nResX / 4;
+  if(point.x < nLimX)
+    return;
+
+  nLimY = 3 * nResY / 4;
+  if(point.y < nLimY)
+    return;
+
+// World position of the axes:
+  Vector3D vWorldPos(0, 0, 0);
+  CPoint cScrPos(int(0.92 * nResX), int(0.92 * nResY));
+
+  double pModelMtx[16], pProjMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pModelMtx);
+  glGetDoublev(GL_PROJECTION_MATRIX, pProjMtx);
+
+  int pViewPort[4];
+  glGetIntegerv(GL_VIEWPORT, pViewPort);
+
+  float x = float(cScrPos.x), y = (float)pViewPort[3] - float(cScrPos.y);
+  gluUnProject(x, y, 0.5f, pModelMtx, pProjMtx, pViewPort, &vWorldPos.x, &vWorldPos.y, &vWorldPos.z);
+
+  double fScrX, fScrY, fScrZ;
+  const int nTol = 15;
+
+// Try X:
+  Vector3D vAxis = Vector3D(vWorldPos.x + m_fLetDist, vWorldPos.y, vWorldPos.z);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  double fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirPlusX;
+    return;
+  }
+// Try -X:
+  vAxis = Vector3D(vWorldPos.x - m_fAxisLen, vWorldPos.y, vWorldPos.z);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirMinusX;
+    return;
+  }
+// Try Y:
+  vAxis = Vector3D(vWorldPos.x, vWorldPos.y + m_fLetDist, vWorldPos.z);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirPlusY;
+    return;
+  }
+// Try -Y:
+  vAxis = Vector3D(vWorldPos.x, vWorldPos.y - m_fAxisLen, vWorldPos.z);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirMinusY;
+    return;
+  }
+// Try Z:
+  vAxis = Vector3D(vWorldPos.x, vWorldPos.y, vWorldPos.z + m_fLetDist);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirPlusZ;
+    return;
+  }
+// Try -Z:
+  vAxis = Vector3D(vWorldPos.x, vWorldPos.y, vWorldPos.z - m_fAxisLen);
+  gluProject(vAxis.x, vAxis.y, vAxis.z, pModelMtx, pProjMtx, pViewPort, &fScrX, &fScrY, &fScrZ);
+  fScrRevY = (double)pViewPort[3] - fScrY;
+  if((point.x >= fScrX - nTol) && (point.x <= fScrX + nTol) && (point.y >= fScrRevY - nTol) && (point.y <= fScrRevY + nTol))
+  {
+    m_nOvrAxis = dirMinusZ;
+    return;
+  }
+}
+
+void CTrackDraw::set_progress(const char* cJobName, int nPercent) const
+{
+  CMainFrame* pMainWnd = (CMainFrame*)(CParticleTrackingApp::Get()->m_pMainWnd);
+  if(pMainWnd == NULL)
+    return;
+
+  CMFCStatusBar* pStatusBar = pMainWnd->GetStatusBar();
+  if(pStatusBar == NULL)
+    return;
+
+  char buff[4];
+  std::string cPercentage("");
+  if((nPercent >= 0) && (nPercent <= 100) && (_itoa_s(nPercent, buff, 4, 10) == 0))
+    cPercentage = std::string("  ") + std::string(buff) + std::string(" %");
+
+  std::string cStatusLine = std::string(cJobName) + cPercentage;
+
+  pStatusBar->SetPaneText(0, cStatusLine.c_str());
+}
+
+// Streaming:
+void CTrackDraw::save(CArchive& ar)
+{
+  const UINT nVersion = 5;  // 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
+  ar << nVersion;
+
+  ar << m_nDrawMode; // ar << m_bDrawFaces;
+  ar << m_fOpacity;
+  ar << m_Color;
+
+// Projection parameters:
+  ar << m_fScrWidth;
+  ar << m_vShift.x;
+  ar << m_vShift.y;
+
+  double pMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pMtx);
+  for(UINT i = 0; i < 16; i++)
+    ar << pMtx[i];
+
+// Since version 1:
+  ar << m_BkgrColor;
+
+  size_t nHiddenRegCount = m_vHiddenRegNames.size();
+  ar << nHiddenRegCount;
+  for(size_t j = 0; j < nHiddenRegCount; j++)
+  {
+    CString cName(m_vHiddenRegNames.at(j).c_str());
+    ar << cName;
+  }
+
+  ar << m_bDrawTracks;
+  size_t nContCount = m_vContours.size();
+  ar << nContCount;
+  for(size_t k = 0; k < nContCount; k++)
+  {
+    CColorContour* pObj = m_vContours.at(k);
+    pObj->save(ar);
+  }
+
+  m_ColoredTracks.save(ar); // since version 4.
+}
+
+void CTrackDraw::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  if(nVersion >= 5)
+  {
+    ar >> m_nDrawMode;
+  }
+  else
+  {
+    bool bDrawFaces;
+    ar >> bDrawFaces;
+    m_nDrawMode = bDrawFaces ? dmFlat : dmNone;
+  }
+
+  ar >> m_fOpacity;
+  ar >> m_Color;
+
+// Projection parameters:
+  ar >> m_fScrWidth;
+  ar >> m_vShift.x;
+  ar >> m_vShift.y;
+
+  double pMtx[16];
+  for(UINT i = 0; i < 16; i++)
+    ar >> pMtx[i];
+
+  if(nVersion == 1)
+  {
+    bool bHideSymm;
+    ar >> bHideSymm;
+  }
+  if(nVersion >= 1)
+  {
+    ar >> m_BkgrColor;
+    set_bkgr_color(m_BkgrColor);
+  }
+
+  if(nVersion >= 2)
+  {
+    size_t nHiddenRegCount;
+    ar >> nHiddenRegCount;
+    m_vHiddenRegNames.clear();
+    for(size_t j = 0; j < nHiddenRegCount; j++)
+    {
+      CString cName;
+      ar >> cName;
+      std::string sName((const char*)cName);
+      m_vHiddenRegNames.push_back(sName);
+    }
+  }
+
+  if(nVersion >= 3)
+  {
+    ar >> m_bDrawTracks;
+    size_t nContCount;
+    ar >> nContCount;
+    m_vContours.clear();
+    for(size_t k = 0; k < nContCount; k++)
+    {
+      CColorContour* pObj = new CColorContour();
+      pObj->load(ar);
+      m_vContours.push_back(pObj);
+    }
+  }
+
+  if(nVersion >= 4)
+    m_ColoredTracks.load(ar);
+
+  glMatrixMode(GL_MODELVIEW);
+  glLoadMatrixd(pMtx);
+
+  m_bNewData = false;
+}
+
+void CTrackDraw::set_hidden_reg_names()
+{
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    pReg->bEnabled = std::find(m_vHiddenRegNames.begin(), m_vHiddenRegNames.end(), pReg->sName) == m_vHiddenRegNames.end();
+  }
+
+  invalidate_hidden();
+}
+
+CString CTrackDraw::get_hidden_names_str() const
+{
+  return CObject::compile_string(m_vHiddenRegNames);
+}
+
+void CTrackDraw::enter_sel_context(CNamesVector* pRegNames, bool bAllowSelect)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    pReg->bSelected = std::find(pRegNames->begin(), pRegNames->end(), pReg->sName) != pRegNames->end();
+  }
+
+  m_bSelFlag = bAllowSelect;
+  invalidate_hidden();
+}
+
+void CTrackDraw::exit_sel_context(CNamesVector* pRegNames)
+{
+  if(m_pTracker == NULL)
+    return;
+
+  pRegNames->clear();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    if(pReg->bSelected)
+      pRegNames->push_back(pReg->sName);
+  }
+
+// We do not know whose collection pRegNames is, but if its owner is "this", the CRegion::bEnabled flag must be updated.
+  if(pRegNames == &m_vHiddenRegNames)
+    set_hidden_reg_names();
+  else
+    CParticleTrackingApp::Get()->SelectedRegionChanged(pRegNames);
+
+  m_bSelFlag = false;
+  set_region_under_cursor(NULL);
+  invalidate_hidden();
+}
+
+void CTrackDraw::hide_selected()
+{
+  if(m_pTracker == NULL)
+    return;
+
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    pReg->bSelected = false;
+  }
+
+  invalidate_hidden();
+}
+
+void CTrackDraw::show_all_regions()
+{
+  if(m_pTracker == NULL)
+    return;
+
+  m_vHiddenRegNames.clear();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    if(pReg->bCrossSection)
+      continue;
+
+    pReg->bEnabled = true;
+  }
+
+  invalidate_hidden();
+}
+
+CRegion* CTrackDraw::intersect(const CRay& ray) const
+{
+  if(m_pTracker == NULL)
+    return NULL;
+
+  CRegion* pSelReg = NULL;
+  double fMinDist = FLT_MAX, fDist;
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    if(pReg->bEnabled && pReg->intersect(ray, fDist) && (fDist < fMinDist))
+    {
+      fMinDist = fDist;
+      pSelReg = pReg;
+    }
+  }
+
+  return pSelReg;
+}
+
+const char* CTrackDraw::get_draw_mode_name(int nMode) const
+{
+  switch(nMode)
+  {
+    case dmWire: return _T("Wireframe");
+    case dmFlat: return _T("Flat");
+  }
+
+  return _T("None");
+}
+
+//-------------------------------------------------------------------------------------------------
+//  Contours and vector plots:
+//-------------------------------------------------------------------------------------------------
+void CTrackDraw::add_contour()
+{
+  m_vContours.push_back(new CColorContour());
+}
+
+void CTrackDraw::remove_contour(CColorContour* pItem)
+{
+  size_t nCount = m_vContours.size();
+  for(size_t i = 0; i < nCount; i++)
+  {
+    if(pItem == m_vContours.at(i))
+    {
+      delete pItem;
+      m_vContours.erase(m_vContours.begin() + i);
+      break;
+    }
+  }
+}
+
+void CTrackDraw::invalidate_contour(DWORD_PTR pRegNames)
+{
+  size_t nCount = m_vContours.size();
+  for(size_t i = 0; i < nCount; i++)
+  {
+    CColorContour* pObj = m_vContours.at(i);
+    if(pObj->get_drawn_reg_names_ptr() == pRegNames)
+    {
+      pObj->invalidate();
+      break;
+    }
+  }
+}
+
+void CTrackDraw::draw_contours()
+{
+  size_t nContCount = get_contours_count();
+  for(size_t i = 0; i < nContCount; i++)
+  {
+    CColorContour* pObj = get_contour(i);
+    if(pObj->get_enable_image())
+      pObj->draw();
+  }
+}
+
+};  // namespace EvaporatingParticle

@@ -1,0 +1,355 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectName>ParticleTracking3D</ProjectName>
+    <ProjectGuid>{9097A245-3F0E-4189-9BCE-49C6CE202042}</ProjectGuid>
+    <RootNamespace>ParticleTracking</RootNamespace>
+    <Keyword>MFCProj</Keyword>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>Dynamic</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>Static</UseOfMfc>
+    <UseOfAtl>Static</UseOfAtl>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <UseOfMfc>Static</UseOfMfc>
+    <UseOfAtl>Static</UseOfAtl>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>14.0.25431.1</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)\output\$(Configuration)\exe\</OutDir>
+    <IntDir>$(SolutionDir)\output\$(Configuration)\obj\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)\</IntDir>
+    <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)\output\$(Configuration)\exe\</OutDir>
+    <IntDir>$(SolutionDir)\output\$(Configuration)\obj\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(SolutionDir)\$(Platform)\$(Configuration)</OutDir>
+    <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)</IntDir>
+    <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <ValidateAllParameters>true</ValidateAllParameters>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(SolutionDir)\track3d\;$(SolutionDir)\ui\;$(SolutionDir)\MathPhys\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level2</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>Opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(SolutionDir)\track3d\;$(SolutionDir)\ui\;$(SolutionDir)\MathPhys\;$(SolutionDir)\LaplacianSolver\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level2</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>Opengl32.lib;glu32.lib;libIntegrators.lib;LaplacianSolver.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <TargetMachine>MachineX64</TargetMachine>
+      <AdditionalLibraryDirectories>$(SolutionDir)\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <ValidateAllParameters>true</ValidateAllParameters>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\track3d\;$(SolutionDir)\ui\;$(SolutionDir)\MathPhys\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level2</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>Opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\track3d\;$(SolutionDir)\ui\;$(SolutionDir)\MathPhys\;$(SolutionDir)\LaplacianSolver\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level2</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>Opengl32.lib;glu32.lib;libIntegrators.lib;LaplacianSolver.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="MathPhys\libIntegrators.h" />
+    <ClInclude Include="MathPhys\Symmetry.hpp" />
+    <ClInclude Include="track3d\BarnesHut.h" />
+    <ClInclude Include="track3d\BeamCrossSection.h" />
+    <ClInclude Include="track3d\CalcThread.h" />
+    <ClInclude Include="track3d\Calculator.h" />
+    <ClInclude Include="track3d\CObject.h" />
+    <ClInclude Include="track3d\ColorContour.h" />
+    <ClInclude Include="track3d\ColorImage.h" />
+    <ClInclude Include="track3d\constant.hpp" />
+    <ClInclude Include="track3d\DomainCrossSection.h" />
+    <ClInclude Include="track3d\DrawTrack.h" />
+    <ClInclude Include="track3d\ElectricField.h" />
+    <ClInclude Include="track3d\Elements.h" />
+    <ClInclude Include="track3d\EvaporationModel.h" />
+    <ClInclude Include="track3d\ExportOpenFOAM.h" />
+    <ClInclude Include="track3d\ImportOpenFOAM.h" />
+    <ClInclude Include="track3d\mathematics.h" />
+    <ClInclude Include="track3d\matrix3d.hpp" />
+    <ClInclude Include="track3d\OutputEngine.h" />
+    <ClInclude Include="track3d\ParticleSource.h" />
+    <ClInclude Include="track3d\Perturbation.h" />
+    <ClInclude Include="track3d\ScreenCapture.h" />
+    <ClInclude Include="track3d\Tracker.hpp" />
+    <ClInclude Include="track3d\TrackItem.h" />
+    <ClInclude Include="track3d\vector2d.hpp" />
+    <ClInclude Include="track3d\vector3d.hpp" />
+    <ClInclude Include="ui\AddCalculatorDialog.h" />
+    <ClInclude Include="ui\AddFieldPtbDialog.h" />
+    <ClInclude Include="ui\Base.h" />
+    <ClInclude Include="ui\Button.h" />
+    <ClInclude Include="ui\Exception.h" />
+    <ClInclude Include="ui\ExecutionDialog.h" />
+    <ClInclude Include="ui\MainFrm.h" />
+    <ClInclude Include="ui\ParticleTracking.h" />
+    <ClInclude Include="ui\ParticleTrackingDoc.h" />
+    <ClInclude Include="ui\ParticleTrackingView.h" />
+    <ClInclude Include="ui\PropertiesWnd.h" />
+    <ClInclude Include="ui\Resource.h" />
+    <ClInclude Include="ui\ResponseProperty.h" />
+    <ClInclude Include="ui\stdafx.h" />
+    <ClInclude Include="ui\targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="track3d\BarnesHut.cpp" />
+    <ClCompile Include="track3d\BeamCrossSection.cpp" />
+    <ClCompile Include="track3d\CalcThread.cpp" />
+    <ClCompile Include="track3d\Calculator.cpp" />
+    <ClCompile Include="track3d\CObject.cpp" />
+    <ClCompile Include="track3d\ColorContour.cpp" />
+    <ClCompile Include="track3d\ColorImage.cpp" />
+    <ClCompile Include="track3d\DomainCrossSection.cpp" />
+    <ClCompile Include="track3d\DrawTrack.cpp" />
+    <ClCompile Include="track3d\ElectricField.cpp" />
+    <ClCompile Include="track3d\Elements.cpp" />
+    <ClCompile Include="track3d\EvaporationModel.cpp" />
+    <ClCompile Include="track3d\ExportOpenFOAM.cpp" />
+    <ClCompile Include="track3d\ImportOpenFOAM.cpp" />
+    <ClCompile Include="track3d\mathematics.cpp" />
+    <ClCompile Include="track3d\matrix3d.cpp" />
+    <ClCompile Include="track3d\OutputEngine.cpp" />
+    <ClCompile Include="track3d\ParticleSource.cpp" />
+    <ClCompile Include="track3d\Perturbation.cpp" />
+    <ClCompile Include="track3d\ScreenCapture.cpp" />
+    <ClCompile Include="track3d\Tracker.cpp" />
+    <ClCompile Include="track3d\TrackItem.cpp" />
+    <ClCompile Include="track3d\vector2d.cpp" />
+    <ClCompile Include="track3d\vector3d.cpp" />
+    <ClCompile Include="ui\AddCalculatorDialog.cpp" />
+    <ClCompile Include="ui\AddFieldPtbDialog.cpp" />
+    <ClCompile Include="ui\Button.cpp" />
+    <ClCompile Include="ui\Exception.cpp" />
+    <ClCompile Include="ui\ExecutionDialog.cpp" />
+    <ClCompile Include="ui\MainFrm.cpp" />
+    <ClCompile Include="ui\ParticleTracking.cpp" />
+    <ClCompile Include="ui\ParticleTrackingDoc.cpp" />
+    <ClCompile Include="ui\ParticleTrackingView.cpp" />
+    <ClCompile Include="ui\PropertiesWnd.cpp" />
+    <ClCompile Include="ui\ResponseProperty.cpp" />
+    <ClCompile Include="ui\stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ui\TabCalculators.cpp" />
+    <ClCompile Include="ui\TabDrawing.cpp" />
+    <ClCompile Include="ui\TabEvaporation.cpp" />
+    <ClCompile Include="ui\TabField.cpp" />
+    <ClCompile Include="ui\TabFieldPerturb.cpp" />
+    <ClCompile Include="ui\TabIonParam.cpp" />
+    <ClCompile Include="ui\TabMain.cpp" />
+    <ClCompile Include="ui\TabOpenFoamExport.cpp" />
+    <ClCompile Include="ui\TabOpenFoamImport.cpp" />
+    <ClCompile Include="ui\TabSource.cpp" />
+    <ClCompile Include="ui\TabTracking.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="MoveRotateToolbar.bmp" />
+    <Image Include="res\MoveRotateToolbar.bmp" />
+    <Image Include="ui\MoveRotateToolbar.bmp" />
+    <Image Include="ui\res\MoveRotateToolbar.bmp" />
+    <Image Include="ui\res\ParticleTracking.ico" />
+    <Image Include="ui\res\ParticleTrackingDoc.ico" />
+    <Image Include="ui\res\properties.bmp" />
+    <Image Include="ui\res\properties_hc.bmp" />
+    <Image Include="ui\res\properties_wnd.ico" />
+    <Image Include="ui\res\properties_wnd_hc.ico" />
+    <Image Include="ui\res\Toolbar.bmp" />
+    <Image Include="ui\res\toolbar1.bmp" />
+    <Image Include="ui\res\Toolbar256.bmp" />
+    <Image Include="ui\res\toolbar_.bmp" />
+    <Image Include="ui\UserImages.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ui\ParticleTracking.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ui\ParticleTracking.reg" />
+    <None Include="ui\res\ParticleTracking.rc2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ui\ReadMe.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties RESOURCE_FILE="ui\ParticleTracking.rc" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

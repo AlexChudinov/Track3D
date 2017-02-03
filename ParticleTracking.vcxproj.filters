@@ -1,0 +1,361 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="track3d">
+      <UniqueIdentifier>{d607f30c-d1d4-41e9-b6bf-8d643a0d8edc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="track3d\Header Files">
+      <UniqueIdentifier>{02ecc5ec-a1db-4c01-aab3-618db3e5a6f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="track3d\Source Files">
+      <UniqueIdentifier>{09dddae6-4252-4794-a94b-0bd52c149de0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{937778bc-2dc3-4d40-9b3d-924d673bbaaf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui\Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="ui\Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ui\Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="track3d\BarnesHut.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\BeamCrossSection.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\CalcThread.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\Calculator.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\CObject.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ColorContour.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ColorImage.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\constant.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\DomainCrossSection.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\DrawTrack.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ElectricField.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\Elements.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\EvaporationModel.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ExportOpenFOAM.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ImportOpenFOAM.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MathPhys\libIntegrators.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\mathematics.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\matrix3d.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\OutputEngine.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ParticleSource.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\Perturbation.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\ScreenCapture.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MathPhys\Symmetry.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\Tracker.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\TrackItem.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\vector2d.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\vector3d.hpp">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\AddCalculatorDialog.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\AddFieldPtbDialog.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\Base.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\Button.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\Exception.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ExecutionDialog.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\MainFrm.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ParticleTracking.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ParticleTrackingDoc.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ParticleTrackingView.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\PropertiesWnd.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\Resource.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ResponseProperty.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\stdafx.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\targetver.h">
+      <Filter>ui\Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="track3d\BarnesHut.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\BeamCrossSection.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\CalcThread.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Calculator.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\CObject.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ColorContour.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ColorImage.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\DomainCrossSection.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\DrawTrack.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ElectricField.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Elements.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\EvaporationModel.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ExportOpenFOAM.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ImportOpenFOAM.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\mathematics.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\matrix3d.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\OutputEngine.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ParticleSource.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Perturbation.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\ScreenCapture.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Tracker.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\TrackItem.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\vector2d.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\vector3d.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\AddCalculatorDialog.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\AddFieldPtbDialog.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\Button.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\Exception.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ExecutionDialog.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\MainFrm.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ParticleTracking.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ParticleTrackingDoc.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ParticleTrackingView.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\PropertiesWnd.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ResponseProperty.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\stdafx.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabCalculators.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabDrawing.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabEvaporation.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabField.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabFieldPerturb.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabIonParam.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabMain.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabOpenFoamExport.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabOpenFoamImport.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabSource.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabTracking.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="ui\res\MoveRotateToolbar.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="res\MoveRotateToolbar.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="MoveRotateToolbar.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\MoveRotateToolbar.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\ParticleTracking.ico">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\ParticleTrackingDoc.ico">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\properties.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\properties_hc.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\properties_wnd.ico">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\properties_wnd_hc.ico">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\Toolbar.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\toolbar1.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\Toolbar256.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\res\toolbar_.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+    <Image Include="ui\UserImages.bmp">
+      <Filter>ui\Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ui\ParticleTracking.rc">
+      <Filter>ui\Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ui\res\ParticleTracking.rc2">
+      <Filter>ui\Resource Files</Filter>
+    </None>
+    <None Include="ui\ParticleTracking.reg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ui\ReadMe.txt" />
+  </ItemGroup>
+</Project>
