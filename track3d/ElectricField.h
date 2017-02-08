@@ -3,7 +3,8 @@
 
 #include "CObject.h"
 #include "constant.hpp"
-#include <LSExport.h>
+#include "../field_solver/MeshData.h"
+
 #include <vector>
 #include <string>
 
@@ -15,7 +16,7 @@ namespace EvaporatingParticle
 //---------------------------------------------------------------------------------------
 struct CPotentialBoundCond
 {
-  CPotentialBoundCond(PotentialField::BOUNDARY_TYPE type = PotentialField::FIXED_VAL, int val = fvPlusUnity)
+  CPotentialBoundCond(BoundaryMesh::BoundaryType type = BoundaryMesh::FIXED_VAL, int val = fvPlusUnity)
     : nType(type), nFixedValType(val)
   {
   }
@@ -27,12 +28,12 @@ struct CPotentialBoundCond
     fvCount       = 2
   };
 
-  PotentialField::BOUNDARY_TYPE nType;
+  BoundaryMesh::BoundaryType nType;
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
   int                           nFixedValType;  // the value at the boundary can be either +1V or -1V.
   std::string                   sName;
 
-  static const char*            get_bc_type_name(PotentialField::BOUNDARY_TYPE nType);
+  static const char*            get_bc_type_name(BoundaryMesh::BoundaryType nType);
   static const char*            get_fixed_value_name(int nType);
 
   void                          save(CArchive& ar);
@@ -93,17 +94,16 @@ protected:
   void                    set_default();
   void                    clear_bc();
 
-  Mesh*                   create_mesh();
   CRegion*                get_region(const std::string& sName) const; // returns a region pointer by its name or NULL if the name is not found.
   bool                    is_selected(CRegion* pReg) const;           // returns true if the region is selected for boundary conditions.
 
-  void                    set_boundary_conditions(PotentialField* pField);
-  void                    set_default_boundary_conditions(PotentialField* pField);
-  void                    set_boundary_values(PotentialField* pField, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
+  void                    set_boundary_conditions(CMeshAdapter& mesh);
+  void                    set_default_boundary_conditions(CMeshAdapter& mesh);
+  void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
 
-  V3D                     calc_norm(CNode3D* pNode) const;
+  Vector3D                calc_norm(CNode3D* pNode) const;
 
-  bool                    get_result(PotentialField* pField) const;
+  void                    get_result(const std::vector<double>& vFieldVals) const;
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
 private:

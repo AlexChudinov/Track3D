@@ -220,6 +220,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="MathPhys\libIntegrators.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
     <ClInclude Include="track3d\BarnesHut.h" />
@@ -264,6 +265,7 @@
     <ClInclude Include="ui\targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="field_solver\MeshData.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
     <ClCompile Include="track3d\BeamCrossSection.cpp" />
     <ClCompile Include="track3d\CalcThread.cpp" />

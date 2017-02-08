@@ -1,6 +1,7 @@
 
 #include "stdafx.h"
 
+#include "../field_solver/MeshData.h"
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "Button.h"
@@ -60,8 +61,8 @@ void CPropertiesWnd::add_field_ctrls()
 
       COleVariant var1(CPotentialBoundCond::get_bc_type_name(pBC->nType));
       CMFCPropertyGridProperty* pBCType = new CMFCPropertyGridProperty(_T("Boundary Conditions Type"), var1, _T("Set the boundary conditions type."), (DWORD_PTR)&(pBC->nType));
-      pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(PotentialField::FIXED_VAL));
-      pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(PotentialField::ZERO_GRAD));
+      pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::FIXED_VAL));
+      pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD));
       pBoundCondGroup->AddSubItem(pBCType);
 
       COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
@@ -129,10 +130,10 @@ void CPropertiesWnd::set_field_data()
       if(pProp != NULL)
       {
         CString cBCType = (CString)pProp->GetValue();
-        if(cBCType == CPotentialBoundCond::get_bc_type_name(PotentialField::FIXED_VAL))
-          pBC->nType = PotentialField::FIXED_VAL;
-        if(cBCType == CPotentialBoundCond::get_bc_type_name(PotentialField::ZERO_GRAD))
-          pBC->nType = PotentialField::ZERO_GRAD;
+        if(cBCType == CPotentialBoundCond::get_bc_type_name(BoundaryMesh::FIXED_VAL))
+          pBC->nType = BoundaryMesh::FIXED_VAL;
+        if(cBCType == CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD))
+          pBC->nType = BoundaryMesh::ZERO_GRAD;
       }
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nFixedValType));

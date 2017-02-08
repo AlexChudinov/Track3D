@@ -1,4 +1,4 @@
-
+#include <algorithm>
 #include <exception>
 
 #include "stdafx.h"
@@ -12,12 +12,12 @@ namespace EvaporatingParticle
 //---------------------------------------------------------------------------------------
 // CPotentialBoundCond
 //---------------------------------------------------------------------------------------
-const char* CPotentialBoundCond::get_bc_type_name(PotentialField::BOUNDARY_TYPE nType)
+const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nType)
 {
   switch(nType)
   {
-    case PotentialField::FIXED_VAL: return _T("Fixed Value");
-    case PotentialField::ZERO_GRAD: return _T("Zero Gradient");
+    case BoundaryMesh::FIXED_VAL: return _T("Fixed Value");
+    case BoundaryMesh::ZERO_GRAD: return _T("Zero Gradient");
   }
 
   return _T("None");
@@ -61,7 +61,7 @@ void CPotentialBoundCond::load(CArchive& ar)
 
   int nIntType;
   ar >> nIntType;
-  nType = (PotentialField::BOUNDARY_TYPE)nIntType;
+  nType = (BoundaryMesh::BoundaryType)nIntType;
 
   ar >> nFixedValType;
 
@@ -209,41 +209,25 @@ void CElectricFieldData::calc_field()
 {
 	try
 	{
-		Mesh* pMesh = create_mesh();
-		if (pMesh == NULL)
+		CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
+
+		set_default_boundary_conditions(mesh);
+		set_boundary_conditions(mesh);
+
+		std::vector<double> field(pObj->get_nodes().size(), 0.0);
+		mesh.boundaryMesh()->applyBoundaryVals(field);
+
+		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver);
+
+		for (int i = 0; i < m_nIterCount; ++i) field = pOp->applyToField(field);
+
+		if (!m_bTerminate)
 		{
-			AfxMessageBox(_T("NULL pointer is returned by create_mesh()."));
-			return;
+			get_result(field);
+			notify_scene();
 		}
 
-		PotentialField* pField = PotentialField::createZeros(pMesh);
-		Mesh::free(pMesh);
-
-    set_default_boundary_conditions(pField);
-		set_boundary_conditions(pField);
-
-    pField->applyBoundaryConditions();
-		ScalarFieldOperator* pSolver = ScalarFieldOperator::create(pField, ScalarFieldOperator::LaplacianSolver);
-
-		set_job_name("Calculating field...");
-		for(UINT i = 0; i < m_nIterCount; i++)
-		{
-			set_progress(100 * i / m_nIterCount);
-			if (m_bTerminate)
-				break;
-
-			pSolver->applyToField(pField);
-		}
-
-		if(!m_bTerminate)
-    {
-			if (get_result(pField))
-				notify_scene();
-			else
-				AfxMessageBox(_T("Size of result differs from the nodes count."));
-		}
-
-		PotentialField::free(pField);
 	}
 	catch (const std::exception& ex)
 	{
@@ -251,56 +235,7 @@ void CElectricFieldData::calc_field()
 	}
 }
 
-Mesh* CElectricFieldData::create_mesh()
-{
-  set_job_name("Creating mesh...");
-  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-
-  const CNodesCollection& vNodes = pObj->get_nodes();
-  size_t nNodeCount = vNodes.size();
-
-  CElementsCollection& vElems = pObj->get_elems();
-  size_t nElemCount = vElems.size();
-
-  Graph* g = Graph::create();
-
-  Vector3D v;
-  std::vector<V3D> vNodePos(nNodeCount);
-  for(size_t j = 0; j < nNodeCount; j++)
-  {
-    v = vNodes.at(j)->pos;
-    vNodePos[j].x = v.x;
-    vNodePos[j].y = v.y;
-    vNodePos[j].z = v.z;
-  }
-
-  CElem3D* pElem = NULL;
-  for(size_t i = 0; i < nElemCount; i++)
-  {
-    set_progress(100 * i / nElemCount);
-    if(m_bTerminate)
-      break;
-
-    pElem = vElems.at(i);
-    const CNodesCollection& vElNodes = pElem->vNodes;
-    switch(pElem->vNodes.size())
-    {
-      case 4: g->addTet(vElNodes[0]->nInd, vElNodes[1]->nInd, vElNodes[2]->nInd, vElNodes[3]->nInd); break;
-      case 5: g->addPyr(vElNodes[0]->nInd, vElNodes[1]->nInd, vElNodes[2]->nInd, vElNodes[3]->nInd, vElNodes[4]->nInd); break;
-      case 6: g->addWedge(vElNodes[0]->nInd, vElNodes[1]->nInd, vElNodes[2]->nInd, vElNodes[3]->nInd, vElNodes[4]->nInd, vElNodes[5]->nInd); break;
-      case 8: g->addHexa(vElNodes[0]->nInd, vElNodes[1]->nInd, vElNodes[3]->nInd, vElNodes[2]->nInd, vElNodes[4]->nInd, vElNodes[5]->nInd, vElNodes[7]->nInd, vElNodes[6]->nInd); break;
-    }
-  }
-
-  Mesh* pMesh = NULL;
-  if(!m_bTerminate)
-    pMesh = Mesh::create(g, vNodePos);
-
-  Graph::free(g);
-  return pMesh;
-}
-
-void CElectricFieldData::set_boundary_conditions(PotentialField* pField)
+void CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 {
   set_job_name("Setting boundary conditions...");
 
@@ -317,12 +252,12 @@ void CElectricFieldData::set_boundary_conditions(PotentialField* pField)
       if(pReg == NULL)
         continue;
 
-      set_boundary_values(pField, pReg, pBC);
+      set_boundary_values(mesh, pReg, pBC);
     }
   }
 }
 
-void CElectricFieldData::set_default_boundary_conditions(PotentialField* pField)
+void CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CRegionsCollection& vRegions = pObj->get_regions();
@@ -333,15 +268,15 @@ void CElectricFieldData::set_default_boundary_conditions(PotentialField* pField)
     if(is_selected(pReg) || pReg->bCrossSection)
       continue;
 
-    set_boundary_values(pField, pReg);
+    set_boundary_values(mesh, pReg);
   }
 }
 
-void CElectricFieldData::set_boundary_values(PotentialField* pField, CRegion* pReg, CPotentialBoundCond* pBC)
+void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC)
 {
   CFace* pFace = NULL;
   std::vector<UINT> vNodeIds;
-  std::vector<V3D> vNorms;
+  std::vector<Vector3D> vNorms;
   size_t nBndFacesCount = pReg->vFaces.size();
   for(size_t k = 0; k < nBndFacesCount; k++)
   {
@@ -357,19 +292,21 @@ void CElectricFieldData::set_boundary_values(PotentialField* pField, CRegion* pR
   }
 
   const std::string& sName = pReg->sName;
-  pField->addBoundary(sName, vNodeIds, vNorms);
+  mesh.boundaryMesh()->addBoundary(sName, vNodeIds, vNorms);
 
-  PotentialField::BOUNDARY_TYPE nType = pBC != NULL ? pBC->nType : PotentialField::FIXED_VAL;
-  pField->setBoundaryType(sName, nType);
+  BoundaryMesh::BoundaryType nType = pBC != NULL ? pBC->nType : BoundaryMesh::FIXED_VAL;
+  mesh.boundaryMesh()->boundaryType(sName, nType);
 
-  if(nType != PotentialField::FIXED_VAL)
+  if(nType != BoundaryMesh::FIXED_VAL)
     return;
 
   double fVal = 0;
-  if((pBC != NULL) && (nType == PotentialField::FIXED_VAL))
+  if((pBC != NULL) && (nType == BoundaryMesh::FIXED_VAL))
     fVal = pBC->nFixedValType == CPotentialBoundCond::fvPlusUnity ? 1 : -1;
     
-  pField->setBoundaryVal(sName, fVal);
+  mesh.boundaryMesh()->boundaryVals(
+	  sName, 
+	  std::vector<double>(mesh.boundaryMesh()->patchSize(sName), fVal));
 }
 
 CRegion* CElectricFieldData::get_region(const std::string& sName) const
@@ -387,7 +324,7 @@ CRegion* CElectricFieldData::get_region(const std::string& sName) const
   return NULL;
 }
 
-V3D CElectricFieldData::calc_norm(CNode3D* pNode) const
+Vector3D CElectricFieldData::calc_norm(CNode3D* pNode) const
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CRegionsCollection& vRegs = pObj->get_regions();
@@ -412,8 +349,7 @@ V3D CElectricFieldData::calc_norm(CNode3D* pNode) const
   }
 
   vNorm.normalize();
-  V3D v3d = { -vNorm.x, -vNorm.y, -vNorm.z };
-  return v3d;
+  return -vNorm;
 }
 
 bool CElectricFieldData::is_selected(CRegion* pReg) const
@@ -434,22 +370,14 @@ bool CElectricFieldData::is_selected(CRegion* pReg) const
   return false;
 }
 
-bool CElectricFieldData::get_result(PotentialField* pField) const
+void CElectricFieldData::get_result(const std::vector<double>& vFieldVals) const
 {
-  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CNodesCollection& vNodes = pObj->get_nodes();
-  size_t nNodeCount = vNodes.size();
-  const std::vector<double>& vRes = pField->getPotentialVals();
-  if(vRes.size() != nNodeCount)
-    return false;
-
-  for(size_t i = 0; i < nNodeCount; i++)
-  {
-    CNode3D* pNode = vNodes.at(i);
-    pNode->phi = (float)vRes.at(i);
-  }
-
-  return true;
+	const CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
+	for (size_t i = 0; i < vNodes.size(); i++)
+	{
+		CNode3D* pNode = vNodes[i];
+		pNode->phi = (float)vFieldVals[i];
+	}
 }
 
 const char* CElectricFieldData::get_field_type_name(int nType)
