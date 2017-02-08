@@ -110,7 +110,7 @@ const CMeshAdapter::Element * CMeshAdapter::element(
 	const CMeshAdapter::Label & nPrevNode) const
 {
 	std::vector<bool> visitedNodes(m_nodes.size(), false);
-	std::vector<bool> visitedElems(m_elems.size(), false);
+	std::set<const Element*> visitedElemets;
 	std::queue<const Node*> nodesQueue;
 	nodesQueue.push(m_nodes[nPrevNode]);
 	visitedNodes[m_nodes[nPrevNode]->nInd] = true;
@@ -120,11 +120,11 @@ const CMeshAdapter::Element * CMeshAdapter::element(
 		const Node* node = nodesQueue.front(); nodesQueue.pop();
 		nCurNode = node->nInd;
 		for (const Element* e : node->vNbrElems)
-			if (!visitedElems[e->nInd])
+			if (visitedElemets.find(e) == visitedElemets.end())
 				if (e->inside(v)) return e;
 				else
 				{
-					visitedElems[e->nInd] = true;
+					visitedElemets.insert(e);
 					for (const Node* n : e->vNodes)
 						if (!visitedNodes[n->nInd])
 						{

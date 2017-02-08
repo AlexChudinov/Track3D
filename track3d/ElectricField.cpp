@@ -209,6 +209,8 @@ void CElectricFieldData::calc_field()
 {
 	try
 	{
+		set_job_name("Field calculation...");
+
 		CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
 
@@ -220,7 +222,11 @@ void CElectricFieldData::calc_field()
 
 		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver);
 
-		for (int i = 0; i < m_nIterCount; ++i) field = pOp->applyToField(field);
+		for (int i = 0; i < m_nIterCount; ++i)
+		{
+			field = pOp->applyToField(field);
+			set_progress(100 * i / m_nIterCount);
+		}
 
 		if (!m_bTerminate)
 		{
@@ -254,6 +260,7 @@ void CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 
       set_boundary_values(mesh, pReg, pBC);
     }
+	set_progress(100 * i / nBoundCondCount);
   }
 }
 

@@ -9,6 +9,7 @@
 #include <memory>
 #include <numeric>
 #include <algorithm>
+#include <unordered_map>
 
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"
@@ -221,16 +222,12 @@ public:
 		if (m_matrix.size() != f.size())
 			throw std::runtime_error("CFieldOperator::applyToField:"
 				" Matrix and field sizes are different!");
-		Field result(f.size());
-		std::transform(m_matrix.begin(), m_matrix.end(), result.begin(),
-			[=](const MatrixRow& row)->FieldType
-		{
-			return std::accumulate(row.begin(), row.end(), FieldType(0.0),
-				[=](const FieldType& val, const MatrixCoef& c)->FieldType
-			{
-				return val + f[c.first] * c.second;
-			});
-		});
+		Field result(f.size(), 0.0);
+
+		for (size_t i = 0; i < f.size(); ++i)
+			for (const MatrixCoef& c : m_matrix[i])
+				result[i] += f[c.first] * c.second;
+
 		return result;
 	}
 };
@@ -267,7 +264,7 @@ private:
 	static InterpCoefs& mul(double h, InterpCoefs& ic);
 
 public:
-	CMeshAdapter(const Elements& es, const Nodes& ns, double fSmallStepFactor = 0.3);
+	CMeshAdapter(const Elements& es, const Nodes& ns, double fSmallStepFactor = 0.1);
 
 	//Gets and sets small step factor value
 	double smallStepFactor() const;
