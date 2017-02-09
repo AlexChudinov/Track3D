@@ -34,11 +34,11 @@ CParticleTrackingDoc::~CParticleTrackingDoc()
 
 BOOL CParticleTrackingDoc::OnNewDocument()
 {
-	if (!CDocument::OnNewDocument())
+	if(!CDocument::OnNewDocument())
 		return FALSE;
 
-	// TODO: add reinitialization code here
-	// (SDI documents will reuse this document)
+	EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  pObj->clear_scene();
 
 	return TRUE;
 }

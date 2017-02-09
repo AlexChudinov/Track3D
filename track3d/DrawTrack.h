@@ -117,6 +117,10 @@ public:
   DWORD_PTR         get_rot_center_ptr() const;
   void              set_rot_center(bool bEnable);
 
+  bool              get_enable_draw_norm() const;
+  DWORD_PTR         get_enable_draw_norm_ptr() const;
+  void              set_enable_draw_norm(bool bEnable);
+
 // Contours and vector plots:
   void              add_contour();
   void              remove_contour(CColorContour* pItem);
@@ -205,6 +209,7 @@ protected:
 
   void              build_arrays();
   void              build_faces_array();
+  void              build_norm_array();
   void              build_aux_array();
 
   void              draw_tracks();
@@ -214,6 +219,7 @@ protected:
 
   void              draw_flat();
   void              draw_wire();
+  void              draw_norm();
 
   void              draw_selected_faces();
 
@@ -256,11 +262,14 @@ private:
 
 // Calculator cross-section(s) drawing:
   CEdgeVertexColl   m_vCrossSectVert;
-
+// Wireframe lines:
   CEdgeVertexColl   m_vWireFrame;
+// Normal lines:
+  CEdgeVertexColl   m_vNormals;
 
   int               m_nDrawMode;  // can be one of the following: dmNone, dmWire and dmFlat.
-  bool              m_bDrawTracks;
+  bool              m_bDrawTracks,
+                    m_bDrawNorm;  // optional normal vectors drawing.
 
 // Names of regions to be hidden:
   CNamesVector      m_vHiddenRegNames;
@@ -310,6 +319,7 @@ private:
 // Run-time:
   bool              m_bWireframeReady,
                     m_bFacesReady,
+                    m_bNormReady,
                     m_bNewData,
                     m_bBusy;
 
@@ -473,6 +483,25 @@ inline DWORD_PTR CTrackDraw::get_rot_center_ptr() const
 inline void CTrackDraw::set_rot_center(bool bEnable)
 {
   m_bRotCenter = bEnable;
+}
+
+inline bool CTrackDraw::get_enable_draw_norm() const
+{
+  return m_bDrawNorm;
+}
+
+inline DWORD_PTR CTrackDraw::get_enable_draw_norm_ptr() const
+{
+  return (DWORD_PTR)&m_bDrawNorm;
+}
+
+inline void CTrackDraw::set_enable_draw_norm(bool bEnable)
+{
+  if(m_bDrawNorm != bEnable)
+  {
+    m_bDrawNorm = bEnable;
+    m_bNormReady = false;
+  }
 }
 
 inline bool CTrackDraw::get_sel_flag() const

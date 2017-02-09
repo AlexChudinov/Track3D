@@ -72,7 +72,7 @@ void CPropertiesWnd::add_field_ctrls()
       pBoundCondGroup->AddSubItem(pBCValue);
 
       CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
-      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(_T("Boundary Regions"), cRegNames, _T("Click to select 2D regions for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
+      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Boundary Regions"), cRegNames, _T("Click to select 2D regions for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
       pBoundCondGroup->AddSubItem(pSelRegButton);
 
 // Remove boundary condition button:

@@ -35,10 +35,10 @@ void CPropertiesWnd::add_draw_ctrls()
   pFacesGroup->AddSubItem(pRespProp);
 
   CString cHiddenRegNames = pObj->get_hidden_names_str();
-  CSelectRegionButton* pHiddenRegButton = new CSelectRegionButton(_T("Hidden 2D Regions"), cHiddenRegNames, _T("Click to select 2D regions to hide."), pObj->get_hidden_reg_names_ptr());
+  CSelectRegionButton* pHiddenRegButton = new CSelectRegionButton(this, _T("Hidden 2D Regions"), cHiddenRegNames, _T("Click to select 2D regions to hide."), pObj->get_hidden_reg_names_ptr());
   pFacesGroup->AddSubItem(pHiddenRegButton);
 
-  CSelectRegionButton* pShowRegButton = new CSelectRegionButton(_T("Show All 2D Regions"), _T(""), _T("Click to show all 2D regions."), NULL);
+  CSelectRegionButton* pShowRegButton = new CSelectRegionButton(this, _T("Show All 2D Regions"), _T(""), _T("Click to show all 2D regions."), NULL);
   pFacesGroup->AddSubItem(pShowRegButton);
 
   pDrawGroup->AddSubItem(pFacesGroup);
@@ -100,7 +100,10 @@ void CPropertiesWnd::add_draw_ctrls()
   CColorResponseProperty* pBkgColorBtn = new CColorResponseProperty(_T("Background Color"), clr, NULL, _T(""), pObj->get_bkgr_color_ptr());
   pGeneralGroup->AddSubItem(pBkgColorBtn);
 
-  pRespProp = new CResponseProperty(this, _T("Rotate around center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
+  pRespProp = new CResponseProperty(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
+  pGeneralGroup->AddSubItem(pRespProp);
+
+  pRespProp = new CResponseProperty(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
   pGeneralGroup->AddSubItem(pRespProp);
 
   pDrawGroup->AddSubItem(pGeneralGroup);
@@ -116,6 +119,7 @@ void CPropertiesWnd::add_draw_ctrls()
 
 void CPropertiesWnd::set_draw_data()
 {
+/*
   EvaporatingParticle::CTrackDraw* pObj = CParticleTrackingApp::Get()->GetDrawObj();
 
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_faces_color_ptr());
@@ -139,6 +143,7 @@ void CPropertiesWnd::set_draw_data()
   pProp = m_wndPropList.FindItemByData(pObj->get_rot_center_ptr());
   if(pProp != NULL)
     pObj->set_rot_center(pProp->GetValue().boolVal);
+*/
 }
 
 void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
@@ -225,7 +230,7 @@ void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
 
 // Locations:
     CString cRegNames = pObj->get_drawn_reg_names();
-    CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(_T("Locations"), cRegNames, _T("Click to select 2D region(s) at which this contour will be plotted."), pObj->get_drawn_reg_names_ptr());
+    CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(this, _T("Locations"), cRegNames, _T("Click to select 2D region(s) at which this contour will be plotted."), pObj->get_drawn_reg_names_ptr());
     pContourProp->AddSubItem(pSelectRegButton);
 
 // Variable to be plotted:

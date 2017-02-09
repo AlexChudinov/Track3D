@@ -1778,9 +1778,7 @@ static UINT __stdcall read_data_thread_func(LPVOID pData)
 
 void CTracker::load(CArchive& ar)
 {
-  clear();
-  clear_tracks();
-  set_default();
+  clear_scene();
 
 // Parameters of the output are now properties of m_OutputEngine. 
   double fOutputTimeStep;
@@ -2142,6 +2140,16 @@ void CTracker::load_tracks(CArchive& ar)
   }
 
   set_status("Ready", -1);
+}
+
+void CTracker::clear_scene()
+{
+  clear();
+  clear_tracks();
+  m_sDataFile.clear();
+
+  set_default();
+  m_Src.set_default();
 }
 
 void CTracker::update_interface()

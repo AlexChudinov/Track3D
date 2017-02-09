@@ -556,6 +556,30 @@ void CPropertiesWnd::update_ctrls()
   }
 }
 
+void CPropertiesWnd::disable_all_but_one(CMFCPropertyGridProperty* pBtn, CMFCPropertyGridProperty* pParent)
+{
+  if(pParent != NULL)
+  {
+    if(pParent != pBtn)
+      pParent->Enable(FALSE);
+
+    for(int j = 0; j < pParent->GetSubItemsCount(); j++)
+      disable_all_but_one(pBtn, pParent->GetSubItem(j));
+  }
+  else
+  {
+    int nPropCount = m_wndPropList.GetPropertyCount();
+    for(int i = 0; i < nPropCount; i++)
+    {
+      CMFCPropertyGridProperty* pProp = m_wndPropList.GetProperty(i);
+      if(pProp == pBtn)
+        continue;
+
+      disable_all_but_one(pBtn, pProp);
+    }
+  }
+}
+
 //---------------------------------------------------------------------------------------
 //  Notifications handlers
 //---------------------------------------------------------------------------------------
@@ -594,6 +618,10 @@ void CPropertiesWnd::OnTabSelChanging(NMHDR* pNMHDR, LRESULT* pLResult)
 {
   if((pNMHDR->hwndFrom == m_wndTabCtrl.m_hWnd) && (pNMHDR->code == TCN_SELCHANGING))
   {
+    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    if(pDrawObj->get_sel_flag())
+      return;
+
     set_data_to_model();
     int nSel = m_wndTabCtrl.GetCurSel();
     m_wndTabCtrl.HighlightItem(nSel, FALSE);
@@ -604,13 +632,13 @@ void CPropertiesWnd::OnTabSelChange(NMHDR* pNMHDR, LRESULT* pLResult)
 {
   if((pNMHDR->hwndFrom == m_wndTabCtrl.m_hWnd) && (pNMHDR->code == TCN_SELCHANGE))
   {
+    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    if(pDrawObj->get_sel_flag())
+      return;
+
     int nSel = m_wndTabCtrl.GetCurSel();
     m_wndTabCtrl.HighlightItem(nSel, TRUE);
     set_update_all();
-
-    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    pDrawObj->hide_selected();
-    pDrawObj->draw();
   }
 }
 

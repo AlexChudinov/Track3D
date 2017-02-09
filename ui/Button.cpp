@@ -37,10 +37,15 @@ void CSelectRegionButton::OnClickButton(CPoint point)
       SetValue(EvaporatingParticle::CObject::compile_string(*pRegNames));
       pDrawObj->invalidate_contour(m_dwData);
       m_bPressed = FALSE;
-      Redraw();
+
+      m_pWndProp->set_update_all();
+      m_pWndProp->enable_tab_ctrl();
     }
     else
     {
+      m_pWndProp->disable_all_but_one(this);
+      m_pWndProp->enable_tab_ctrl(FALSE);
+
       pDrawObj->enter_sel_context(pRegNames);
       m_bPressed = TRUE;
       Redraw();
@@ -55,8 +60,11 @@ void CSelectRegionButton::OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/)
   if(m_dwData == NULL)
     return;
 
-  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)m_dwData;
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  if(pDrawObj->get_sel_flag())
+    return;
+
+  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)m_dwData;
   pDrawObj->enter_sel_context(pRegNames, false);
   pDrawObj->draw();
 }
@@ -67,6 +75,9 @@ void CSelectRegionButton::OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/)
     return;
 
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  if(pDrawObj->get_sel_flag())
+    return;
+
   pDrawObj->hide_selected();
   pDrawObj->draw();
 }

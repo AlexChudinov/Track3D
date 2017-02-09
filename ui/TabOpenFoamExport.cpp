@@ -88,7 +88,7 @@ void CPropertiesWnd::add_bc_ctrls(CMFCPropertyGridProperty* pOpenFOAMGroup)
 
 // 2D regions selector:
     CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
-    CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(_T("2D Regions"), cRegNames, _T("Click to select 2D regions at which these boundary conditions are set."), (DWORD_PTR)&(pBC->vRegNames));
+    CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(this, _T("2D Regions"), cRegNames, _T("Click to select 2D regions at which these boundary conditions are set."), (DWORD_PTR)&(pBC->vRegNames));
     pBoundCondProp->AddSubItem(pSelectRegButton);
 
 // Remove boundary conditions button:

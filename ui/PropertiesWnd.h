@@ -62,11 +62,14 @@ public:
 	virtual ~CPropertiesWnd();
 
   void          on_idle();
-  void          set_update_ctrls();
   void          set_update_all();
 
   void          set_data_to_model();
   void          update_ctrls();
+
+// The function must disable all controls at the list but pBtn; selection regions support.
+  void          disable_all_but_one(CMFCPropertyGridProperty* pBtn, CMFCPropertyGridProperty* pParent = NULL);
+  void          enable_tab_ctrl(BOOL bEnable = TRUE);
 
 protected:
   void          update_prop_list();
@@ -105,7 +108,6 @@ protected:
   void          update_evapor_ctrls();
   void          update_ion_ctrls();
   void          update_draw_ctrls();
-  void          update_cs_plane_ctrls();
   void          update_contour_ctrls();
   void          update_export_ctrls();
   void          update_bc_ctrls(bool bEnable);
@@ -159,4 +161,9 @@ protected:
 inline void CPropertiesWnd::set_update_all()
 {
   m_bUpdateAll = true;
+}
+
+inline void CPropertiesWnd::enable_tab_ctrl(BOOL bEnable)
+{
+  m_wndTabCtrl.EnableWindow(bEnable);
 }

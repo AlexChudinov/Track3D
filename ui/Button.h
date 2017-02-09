@@ -13,26 +13,31 @@ class CSelectRegionButton : public CMFCPropertyGridProperty
                 m_bPressed;
 
 public:
-  CSelectRegionButton(const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+  CSelectRegionButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
 		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
     : CMFCPropertyGridProperty(strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
   {
+    m_pWndProp = pWndProp;
+
     m_bNew = TRUE;
     m_bAllowEdit = FALSE;
     m_bPressed = FALSE;
   }
 
-  virtual void  OnClickButton(CPoint point);
-  virtual void  OnDrawValue(CDC* pDC, CRect rect);
-  virtual void  OnDrawButton(CDC* pDC, CRect rectButton);
-  virtual void  AdjustButtonRect();
-  virtual BOOL  OnUpdateValue();
+  virtual void    OnClickButton(CPoint point);
+  virtual void    OnDrawValue(CDC* pDC, CRect rect);
+  virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+  virtual void    AdjustButtonRect();
+  virtual BOOL    OnUpdateValue();
 
-  virtual void OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/);
-	virtual void OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/);
+  virtual void    OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/);
+	virtual void    OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/);
 
 protected:
-  virtual BOOL  HasButton() const;
+  virtual BOOL    HasButton() const;
+
+private:
+  CPropertiesWnd* m_pWndProp;
 };
 
 //---------------------------------------------------------------------------------------

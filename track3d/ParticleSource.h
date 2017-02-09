@@ -147,6 +147,8 @@ public:
 // The tracks have been read from disk, set the initial conditions in accordance with these data.
   void                set_data_from_tracks(); 
 
+  void                set_default();
+
 // Streams support:
   void                save(CArchive& ar);
   void                load(CArchive& ar);
@@ -155,7 +157,6 @@ public:
   void                invalidate();
 
 protected:
-  void                set_default();
   void                add_particle(const Vector3D& vPos, 
                                    const Vector3D& vVel,
                                    double          fGasTemp,

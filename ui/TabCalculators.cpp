@@ -96,7 +96,7 @@ void CPropertiesWnd::add_calc_ctrls()
 
 // 2D regions selector:
         CString cRegNames = pSelRegCalc->get_sel_reg_names();
-        CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(_T("2D Regions"), cRegNames, _T("Click to select 2D regions at which the calculations will be performed."), pSelRegCalc->get_sel_reg_names_ptr());
+        CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(this, _T("2D Regions"), cRegNames, _T("Click to select 2D regions at which the calculations will be performed."), pSelRegCalc->get_sel_reg_names_ptr());
         pSelRegCalcGroup->AddSubItem(pSelectRegButton);
 
         COleVariant var(pSelRegCalc->get_var_name(pSelRegCalc->get_clc_var_type()));

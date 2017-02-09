@@ -25,9 +25,11 @@ CTrackDraw::CTrackDraw()
 {
   m_bDrawTracks = true;
   m_nDrawMode = dmFlat;
+  m_bDrawNorm = false;
 
   m_bWireframeReady = false;
   m_bFacesReady = false;
+  m_bNormReady = false;
 
   m_bNewData = true;
   m_bSelFlag = false;
@@ -63,6 +65,7 @@ void CTrackDraw::clear()
 {
   m_vFaceVert.clear();
   m_vWireFrame.clear();
+  m_vNormals.clear();
 
   m_vCrossSectVert.clear();
   m_vSelRegVert.clear();
@@ -304,6 +307,7 @@ void CTrackDraw::build_arrays()
     return; // nothing to draw.
 
   build_wireframe_array();
+  build_norm_array();
 
   if(!m_bFacesReady)
   {
@@ -376,6 +380,54 @@ void CTrackDraw::build_aux_array()
       m_vSelFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
     }
   }
+}
+
+void CTrackDraw::build_norm_array()
+{
+  if(m_bNormReady)
+    return;
+
+  m_vNormals.clear();
+  if(!m_bDrawNorm)
+    return;
+
+  const CRegionsCollection& vRegs = m_pTracker->get_regions();
+  const CNodesCollection& vNodes = m_pTracker->get_nodes();
+  size_t nNodeCount = vNodes.size(), nNbrCount, nReg, nFace;
+  CNode3D* pNode = NULL;
+  Vector3D vNorm;
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = vNodes.at(i);
+    nNbrCount = pNode->vNbrFaces.size();
+    if(nNbrCount == 0)
+      continue;   // inner vertex.
+
+    bool bTrivial = true;
+    vNorm = Vector3D(0, 0, 0);
+    for(size_t j = 0; j < nNbrCount; j++)
+    {
+      nReg = pNode->vNbrFaces.at(j).nReg;
+      if(nReg >= vRegs.size() || !vRegs.at(nReg)->bEnabled) // do not show normals at disabled regions; (this, however, will distort the
+        continue;                                           // normals at the bounary vertices, belonging to both enabled and disabled regions).
+
+      nFace = pNode->vNbrFaces.at(j).nFace;
+      if(nFace >= vRegs.at(nReg)->vFaces.size())
+        continue;
+
+      vNorm += vRegs.at(nReg)->vFaces.at(nFace)->norm;
+      bTrivial = false;
+    }
+
+    if(bTrivial)
+      continue;
+
+    vNorm.normalize();
+    m_vNormals.push_back(CEdgeVertex(pNode->pos));
+    m_vNormals.push_back(CEdgeVertex(pNode->pos + 0.05 * vNorm));
+  }
+
+  m_bNormReady = true;
 }
 
 void CTrackDraw::build_wireframe_array()
@@ -571,7 +623,7 @@ void CTrackDraw::draw_geometry()
   {
     case dmNone: return;
     case dmWire: draw_selected_faces(); draw_wire(); return;
-    case dmFlat: draw_flat(); draw_selected_faces(); draw_wire(); return;
+    case dmFlat: draw_flat(); draw_selected_faces(); draw_wire();  draw_norm(); return;
   }
 }
 
@@ -589,6 +641,29 @@ void CTrackDraw::draw_wire()
   glColor3ub(200, 200, 200);
   UINT nStride = 3 * sizeof(GLdouble);
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vWireFrame[0].x));
+
+  glDrawArrays(GL_LINES, 0, nSize);
+
+  glEnable(GL_DEPTH_TEST);
+}
+
+void CTrackDraw::draw_norm()
+{
+  if(!m_bDrawNorm)
+    return;
+
+  size_t nSize = m_vNormals.size();
+  if(nSize == 0)
+    return;
+
+  glDisable(GL_LIGHTING);
+  glDisable(GL_ALPHA_TEST);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_BLEND);
+
+  glColor3ub(0, 0, 255);
+  UINT nStride = 3 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vNormals[0].x));
 
   glDrawArrays(GL_LINES, 0, nSize);
 

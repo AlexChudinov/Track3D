@@ -294,6 +294,8 @@ public:
 
   bool                    read_data();  // main function for reading ANSYS data.
 
+  void                    clear_scene();
+
 protected:
   void                    set_default();
   void                    set_data();         // force data from the properties list to be set before saving.

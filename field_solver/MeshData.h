@@ -9,7 +9,6 @@
 #include <memory>
 #include <numeric>
 #include <algorithm>
-#include <unordered_map>
 
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"

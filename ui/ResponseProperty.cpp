@@ -43,6 +43,11 @@ BOOL CResponseProperty::OnUpdateValue()
   {
     pDrawObj->set_rot_center(GetValue().boolVal);
   }
+  else if(pDrawObj->get_enable_draw_norm_ptr() == pData)
+  {
+    pDrawObj->set_enable_draw_norm(GetValue().boolVal);
+    pDrawObj->draw();
+  }
   else if(pDrawObj->get_colored_tracks().get_var_index_ptr() == pData)
   {
     CString cType = (CString)GetValue();

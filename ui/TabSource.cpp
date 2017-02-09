@@ -75,7 +75,7 @@ void CPropertiesWnd::add_source_ctrls()
 // Selected region source:
   CMFCPropertyGridProperty* pSelRegGroup = new CMFCPropertyGridProperty(_T("Start from Selected 2D-Region"));
   CString cSelRegNames = pSrc->get_selected_rgn_names();
-  CSelectRegionButton* pSelRegButton = new CSelectRegionButton(_T("2D Regions"), cSelRegNames, _T("Click to select 2D regions from which the particles will start."), pSrc->get_selected_rgn_names_ptr());
+  CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("2D Regions"), cSelRegNames, _T("Click to select 2D regions from which the particles will start."), pSrc->get_selected_rgn_names_ptr());
   pSelRegGroup->AddSubItem(pSelRegButton);
   pSrcGroup->AddSubItem(pSelRegGroup);
 
