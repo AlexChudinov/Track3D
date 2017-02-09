@@ -23,7 +23,7 @@ void BoundaryMesh::addBoundary(
 			" Sizes of normals and labels vectors are different.");
 	if (isBoundary(strName)) removeBoundary(strName);
 	m_mapBoundariesList[strName] = std::make_pair(type, SetLabels(vLabels.begin(), vLabels.end()));
-	typename BoundariesMap::const_iterator it = m_mapBoundariesList.find(strName);
+	BoundariesMap::const_iterator it = m_mapBoundariesList.find(strName);
 	for (size_t i = 0; i < vLabels.size(); ++i)
 	{
 		std::pair<Vector3D, NamesList>& entry = m_mapReversedBoundariesList[vLabels[i]];
