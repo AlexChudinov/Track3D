@@ -71,8 +71,8 @@ public:
 	using BoundaryNormals = std::map<uint32_t, Vector3D>;
 	using PBoundaryVals = std::unique_ptr<BoundaryValsBase>;
 
-	using iterator = typename ReversedBoundariesMap::iterator;
-	using const_iterator = typename ReversedBoundariesMap::const_iterator;
+	using iterator = ReversedBoundariesMap::iterator;
+	using const_iterator = ReversedBoundariesMap::const_iterator;
 
 private:
 	BoundariesMap m_mapBoundariesList;

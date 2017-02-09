@@ -25,6 +25,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
     </Filter>
+    <Filter Include="field_solver">
+      <UniqueIdentifier>{6d94a1ef-c2c2-4326-b343-ac64abad2768}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="field_solver\Header Files">
+      <UniqueIdentifier>{dc9bcde0-f012-4e08-8e95-e14d518d7999}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="field_solver\Source Files">
+      <UniqueIdentifier>{53ae9eea-ed2e-4e68-8b53-5db04234c712}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="track3d\BarnesHut.h">
@@ -152,6 +161,9 @@
     </ClInclude>
     <ClInclude Include="ui\targetver.h">
       <Filter>ui\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="field_solver\MeshData.h">
+      <Filter>field_solver\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -295,6 +307,9 @@
     </ClCompile>
     <ClCompile Include="ui\TabTracking.cpp">
       <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="field_solver\MeshData.cpp">
+      <Filter>field_solver\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
