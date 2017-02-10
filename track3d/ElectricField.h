@@ -97,8 +97,8 @@ protected:
   CRegion*                get_region(const std::string& sName) const; // returns a region pointer by its name or NULL if the name is not found.
   bool                    is_selected(CRegion* pReg) const;           // returns true if the region is selected for boundary conditions.
 
-  void                    set_boundary_conditions(CMeshAdapter& mesh);
-  void                    set_default_boundary_conditions(CMeshAdapter& mesh);
+  bool                    set_boundary_conditions(CMeshAdapter& mesh);
+  bool                    set_default_boundary_conditions(CMeshAdapter& mesh);
   void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
 
   Vector3D                calc_norm(CNode3D* pNode) const;

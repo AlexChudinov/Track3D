@@ -22,9 +22,10 @@ public:
 
   static CString  compile_string(const CStringVector& vStr);
 
-protected:
   void            set_job_name(const char* pJobName);
   void            set_progress(int nPercent);
+
+protected:
   void            show_dlg(int nCmdShow);
 
   const bool*     get_terminate_ptr() const;

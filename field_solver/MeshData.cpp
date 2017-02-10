@@ -230,8 +230,13 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(
 	return res;
 }
 
-CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type) const
+CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(EvaporatingParticle::CObject* pObj, ScalarOperatorType type) const
 {
+// [MS] 10-02-2017 progress bar support.
+  pObj->set_job_name("Operator creation...");
+  pObj->set_progress(0);
+  size_t nInd = 0, nNodeCount = m_nodes.size();
+// [/MS]
 	PScalFieldOp pRes(new ScalarFieldOperator);
 	pRes->m_matrix.resize(m_nodes.size());
 	for (const Node* n : m_nodes)
@@ -267,6 +272,14 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
 			mul(1. / 6., coefs);
 			pRes->m_matrix[nNodeIdx] = coefs;
 		}
+// [MS] 10-02-2017 progress bar and termination support
+    nInd++;
+    if(nInd % 100 == 0)
+      pObj->set_progress(100 * nInd / nNodeCount);
+
+    if(pObj->get_terminate_flag())
+      return NULL;
+// [/MS]
 	}
 	return pRes;
 }

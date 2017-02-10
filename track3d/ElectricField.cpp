@@ -1,7 +1,9 @@
+
+#include "stdafx.h"
+
 #include <algorithm>
 #include <exception>
 
-#include "stdafx.h"
 #include "ElectricField.h"
 #include "ParticleTracking.h"
 
@@ -209,26 +211,31 @@ void CElectricFieldData::calc_field()
 {
 	try
 	{
-		set_job_name("Field calculation...");
-
+    m_bTerminate = false;
 		CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
 
-		set_default_boundary_conditions(mesh);
-		set_boundary_conditions(mesh);
+		if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
+      return;
 
-		std::vector<double> field(pObj->get_nodes().size(), 0.0);
-		mesh.boundaryMesh()->applyBoundaryVals(field);
+    std::vector<double> field(pObj->get_nodes().size(), 0.0);
+    mesh.boundaryMesh()->applyBoundaryVals(field);
 
-		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver);
+		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator((CObject*)this, CMeshAdapter::LaplacianSolver);
+    if(pOp == NULL)
+      return;
 
+    set_job_name("Field calculation...");
 		for (int i = 0; i < m_nIterCount; ++i)
 		{
+      if(m_bTerminate)
+        break;
+
 			field = pOp->applyToField(field);
 			set_progress(100 * i / m_nIterCount);
 		}
 
-		if (!m_bTerminate)
+		if(!m_bTerminate)
 		{
 			get_result(field);
 			notify_scene();
@@ -241,42 +248,64 @@ void CElectricFieldData::calc_field()
 	}
 }
 
-void CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
+bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 {
   set_job_name("Setting boundary conditions...");
+  set_progress(0);
 
   CRegion* pReg = NULL;
-  size_t nBoundCondCount = m_vBoundCond.size();
-  for(size_t i = 0; i < nBoundCondCount; i++)
+  size_t i, j, nBoundCondCount = m_vBoundCond.size(), nRegCount, nSumRegCount = 0;
+  for(i = 0; i < nBoundCondCount; i++)
+    nSumRegCount += m_vBoundCond.at(i)->vRegNames.size();
+
+  size_t k = 0;
+  for(i = 0; i < nBoundCondCount; i++)
   {
     CPotentialBoundCond* pBC = m_vBoundCond.at(i);
-    size_t nRegCount = pBC->vRegNames.size();
-    for(size_t j = 0; j < nRegCount; j++)
+    nRegCount = pBC->vRegNames.size();
+    for(j = 0; j < nRegCount; j++)
     {
+      if(m_bTerminate)
+        return false;
+
+      k++;
       const std::string& sName = pBC->vRegNames.at(j);
       pReg = get_region(sName);
       if(pReg == NULL)
         continue;
 
       set_boundary_values(mesh, pReg, pBC);
+
+      set_progress(100 * k / nSumRegCount);
     }
-	set_progress(100 * i / nBoundCondCount);
   }
+
+  return true;
 }
 
-void CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
+bool CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
 {
+  set_job_name("Setting default boundary conditions...");
+  set_progress(0);
+
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CRegionsCollection& vRegions = pObj->get_regions();
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
+    if(m_bTerminate)
+      return false;;
+
     CRegion* pReg = vRegions.at(i);
     if(is_selected(pReg) || pReg->bCrossSection)
       continue;
 
     set_boundary_values(mesh, pReg);
+
+    set_progress(100 * i / nRegCount);
   }
+
+  return true;
 }
 
 void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC)

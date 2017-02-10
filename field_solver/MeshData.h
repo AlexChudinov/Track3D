@@ -12,6 +12,7 @@
 
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"
+#include "../track3d/CObject.h" // [MS] 10-02-2017 progress bar support.
 
 //Boundary conditions for the mesh
 class BoundaryMesh
@@ -231,7 +232,7 @@ public:
 	}
 };
 
-//Addapts mesh to an external usage
+// Addapts mesh to an external usage
 class CMeshAdapter
 {
 public:
@@ -286,7 +287,7 @@ public:
 	{
 		LaplacianSolver
 	};
-	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver) const;
+	PScalFieldOp createOperator(EvaporatingParticle::CObject* pObj, ScalarOperatorType type = LaplacianSolver) const;
 };
 
 #endif // !_MESH_DATA_

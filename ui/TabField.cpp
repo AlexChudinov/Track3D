@@ -167,5 +167,24 @@ void CPropertiesWnd::update_field_ctrls()
     pProp = m_wndPropList.FindItemByData(pData->get_freq_ptr());
     if(pProp != NULL)
       pProp->Enable(bFieldRF);
+
+    size_t nBoundCondCount = pData->get_bc_count();
+    for(size_t k = 0; k < nBoundCondCount; k++)
+    {
+      CPotentialBoundCond* pBC = pData->get_bc(k);
+
+      bool bZeroGrad = false;
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nType));
+      if(pProp != NULL)
+      {
+        CString cBCType = (CString)pProp->GetValue();
+        if(cBCType == CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD))
+          bZeroGrad = true;
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nFixedValType));
+      if(pProp != NULL)
+        pProp->Enable(!bZeroGrad);
+    }
   }
 }
