@@ -211,31 +211,31 @@ void CElectricFieldData::calc_field()
 {
 	try
 	{
-    m_bTerminate = false;
+		m_bTerminate = false;
 		CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
+		mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
+		if (!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
+			return;
 
-		if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
-      return;
+		std::vector<double> field(pObj->get_nodes().size(), 0.0);
+		mesh.boundaryMesh()->applyBoundaryVals(field);
 
-    std::vector<double> field(pObj->get_nodes().size(), 0.0);
-    mesh.boundaryMesh()->applyBoundaryVals(field);
+		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver1);
+		if (pOp == NULL)
+			return;
 
-		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator((CObject*)this, CMeshAdapter::LaplacianSolver);
-    if(pOp == NULL)
-      return;
-
-    set_job_name("Field calculation...");
+		set_job_name("Field calculation...");
 		for (int i = 0; i < m_nIterCount; ++i)
 		{
-      if(m_bTerminate)
-        break;
+			if (m_bTerminate)
+				break;
 
 			field = pOp->applyToField(field);
 			set_progress(100 * i / m_nIterCount);
 		}
 
-		if(!m_bTerminate)
+		if (!m_bTerminate)
 		{
 			get_result(field);
 			notify_scene();

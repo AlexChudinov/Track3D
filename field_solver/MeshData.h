@@ -200,6 +200,39 @@ public:
 	}
 };
 
+//Mesh edges structure
+class CMeshConnectivity
+{
+	using Label = uint32_t;
+	using NodeConnections = std::set<uint32_t>;
+	using Graph = std::vector<NodeConnections>;
+	using Elem = EvaporatingParticle::CElem3D;
+	using Node = EvaporatingParticle::CNode3D;
+	using Nodes = std::vector<Node*>;
+	using Elems = std::vector<Elem*>;
+
+	Graph m_graph;
+
+	//Creates tetrahedral connectivity
+	void addTet(const Nodes& ns);
+	//Creates pyramid connectivity
+	void addPyr(const Nodes& ns);
+	//Creates wedge connectivity
+	void addWedge(const Nodes& ns);
+	//Creates hexahedral connectivity
+	void addHexa(const Nodes& ns);
+
+public:
+	//Returns a size of a graph
+	Label size() const;
+	//Adds new connection
+	void addEdge(Label i, Label j);
+	//Adds element to a mesh connectivity
+	void addElem(const Elem* e);
+	//Returns neigbour elements
+	NodeConnections neighbor(Label i) const;
+};
+
 //Linear field transformation
 template<typename FieldType>
 class CFieldOperator
@@ -247,11 +280,21 @@ public:
 	using Element = EvaporatingParticle::CElem3D;
 	using ScalarFieldOperator = CFieldOperator<double>;
 	using PScalFieldOp = std::unique_ptr<ScalarFieldOperator>;
+	using ProgressBar = EvaporatingParticle::CObject;
+	using PProgressBar = std::unique_ptr<ProgressBar>;
+	using Graph = CMeshConnectivity;
+	using PGraph = std::unique_ptr<Graph>;
 
 private:
 	const Elements& m_elems;
 	const Nodes& m_nodes;
 	PBoundary m_pBoundary;
+	
+	//Lazy because it will be created only once by demand
+	PGraph m_lazyGraph;
+
+	//Progress bar interface
+	PProgressBar m_pProgressBar;
 
 	//Factor for small step calculation depending on position inside mesh
 	double m_fSmallStepFactor;
@@ -263,8 +306,22 @@ private:
 	static InterpCoefs& add(InterpCoefs& ic1, const InterpCoefs& ic2);
 	static InterpCoefs& mul(double h, InterpCoefs& ic);
 
+	//Creates mesh graph connections
+	void lazyGraphCreation();
+
+	//Create rough and fast LaplacianField solver DU = 0 for a zero approximation
+	ScalarFieldOperator laplacianSolver0();
+	//Simple Laplacian solver with step myltiplication by a factor
+	ScalarFieldOperator laplacianSolver1();
+
 public:
 	CMeshAdapter(const Elements& es, const Nodes& ns, double fSmallStepFactor = 0.1);
+
+	//Access to a progress bar interface
+	ProgressBar* progressBar() const;
+
+	//Release mesh graph and free memory
+	void releaseGraph();
 
 	//Gets and sets small step factor value
 	double smallStepFactor() const;
@@ -285,9 +342,10 @@ public:
 	//Scalar operators first
 	enum ScalarOperatorType
 	{
-		LaplacianSolver
+		LaplacianSolver0,
+		LaplacianSolver1
 	};
-	PScalFieldOp createOperator(EvaporatingParticle::CObject* pObj, ScalarOperatorType type = LaplacianSolver) const;
+	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver1);
 };
 
 #endif // !_MESH_DATA_

@@ -155,13 +155,140 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::mul(double h, InterpCoefs & ic)
 	return ic;
 }
 
+void CMeshAdapter::lazyGraphCreation()
+{
+	if (!m_lazyGraph)
+	{
+		m_pProgressBar->set_job_name("Creating connectivity graph...");
+		m_pProgressBar->set_progress(0);
+		m_lazyGraph.reset(new Graph);
+		for (const Element* e : m_elems)
+		{
+			if (e->nInd % 1000 == 0) m_pProgressBar->set_progress(e->nInd * 100 / m_elems.size());
+			if (m_pProgressBar->get_terminate_flag()) return m_lazyGraph.reset();
+			m_lazyGraph->addElem(e);
+		}
+	}
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
+{
+	ScalarFieldOperator result;
+	lazyGraphCreation();
+
+	m_pProgressBar->set_job_name("Laplacian solver #0 creation...");
+	m_pProgressBar->set_progress(0);
+
+	result.m_matrix.resize(m_nodes.size());
+	for (const Node* n : m_nodes)
+	{
+		size_t nNodeIdx = n->nInd;
+		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) return result;
+		if (m_pBoundary->isBoundary(nNodeIdx))
+		{
+			if (m_pBoundary->isFirstType(nNodeIdx)) //Fixed value BC
+				result.m_matrix[nNodeIdx][nNodeIdx] = 1.0;
+			else
+			{
+				double fTotSqDist = 0.0, fSqDist;
+				InterpCoefs coefs;
+				for (Label l : m_lazyGraph->neighbor(nNodeIdx))
+				{
+					fSqDist = m_pBoundary->isBoundary(l) ?
+						1. / (m_nodes[l]->pos - n->pos).sqlength()
+						: 2. / (m_nodes[l]->pos - n->pos).sqlength();
+					fTotSqDist += fSqDist;
+					add(coefs, { InterpCoef(uint32_t(l), fSqDist) });
+				}
+				mul(1. / fTotSqDist, coefs);
+				result.m_matrix[nNodeIdx] = coefs;
+			}
+		}
+		else
+		{
+			double fTotSqDist = 0.0, fSqDist;
+			InterpCoefs coefs;
+			for (Label l : m_lazyGraph->neighbor(nNodeIdx))
+			{
+				fSqDist = 1. / (m_nodes[l]->pos - n->pos).sqlength();
+				fTotSqDist += fSqDist;
+				add(coefs, { InterpCoef(uint32_t(l), fSqDist) });
+			}
+			mul(1. / fTotSqDist, coefs);
+			result.m_matrix[nNodeIdx] = coefs;
+		}
+	}
+	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
+{
+	ScalarFieldOperator result;
+	lazyGraphCreation();
+
+	m_pProgressBar->set_job_name("Laplacian solver #1 creation...");
+	m_pProgressBar->set_progress(0);
+
+	result.m_matrix.resize(m_nodes.size());
+	for (const Node* n : m_nodes)
+	{
+		size_t nNodeIdx = n->nInd, nNodeIdxNext;
+		double h = minElemSize(nNodeIdx) * smallStepFactor();
+		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) return result;
+		if (m_pBoundary->isBoundary(nNodeIdx))
+		{
+			if (m_pBoundary->isFirstType(nNodeIdx)) //Fixed value BC
+				result.m_matrix[nNodeIdx][nNodeIdx] = 1.0;
+			else //Zero gradient
+			{
+				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nNodeIdx);
+				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNodeIdxNext, nNodeIdx);
+				result.m_matrix[nNodeIdx] = coefs;
+			}
+		}
+		else
+		{
+			//It is inner point
+			Vector3D
+				x0{ n->pos.x - h, n->pos.y, n->pos.z },
+				x1{ n->pos.x + h, n->pos.y, n->pos.z },
+				y0{ n->pos.x, n->pos.y - h, n->pos.z },
+				y1{ n->pos.x, n->pos.y + h, n->pos.z },
+				z0{ n->pos.x, n->pos.y, n->pos.z - h },
+				z1{ n->pos.x, n->pos.y, n->pos.z + h };
+			InterpCoefs coefs = interpCoefs(x0, nNodeIdxNext, nNodeIdx);
+			add(coefs, interpCoefs(x1, nNodeIdxNext, nNodeIdx));
+			add(coefs, interpCoefs(y0, nNodeIdxNext, nNodeIdx));
+			add(coefs, interpCoefs(y1, nNodeIdxNext, nNodeIdx));
+			add(coefs, interpCoefs(z0, nNodeIdxNext, nNodeIdx));
+			add(coefs, interpCoefs(z1, nNodeIdxNext, nNodeIdx));
+			mul(1. / 6., coefs);
+			result.m_matrix[nNodeIdx] = coefs;
+		}
+	}
+	return result;
+}
+
 CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallStepFactor)
 	:
 	m_elems(es),
 	m_nodes(ns),
 	m_pBoundary(new BoundaryMesh),
+	m_pProgressBar(new ProgressBar),
 	m_fSmallStepFactor(fSmallStepFactor)
 {
+}
+
+CMeshAdapter::ProgressBar * CMeshAdapter::progressBar() const
+{
+	return m_pProgressBar.get();
+}
+
+void CMeshAdapter::releaseGraph()
+{
+	m_lazyGraph.reset();
 }
 
 double CMeshAdapter::smallStepFactor() const
@@ -230,56 +357,105 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(
 	return res;
 }
 
-CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(EvaporatingParticle::CObject* pObj, ScalarOperatorType type) const
+CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
 {
-// [MS] 10-02-2017 progress bar support.
-  pObj->set_job_name("Operator creation...");
-  pObj->set_progress(0);
-  size_t nInd = 0, nNodeCount = m_nodes.size();
-// [/MS]
-	PScalFieldOp pRes(new ScalarFieldOperator);
-	pRes->m_matrix.resize(m_nodes.size());
-	for (const Node* n : m_nodes)
+	switch (type)
 	{
-		size_t nNodeIdx = n->nInd, nNodeIdxNext;
-		double h = minElemSize(nNodeIdx) * smallStepFactor();
-		if (boundaryMesh()->isBoundary(nNodeIdx))
-		{
-			if (boundaryMesh()->isFirstType(nNodeIdx))
-				pRes->m_matrix[nNodeIdx].insert(std::make_pair(static_cast<uint32_t>(nNodeIdx), 1.0));
-			else //Is zero gradient
-			{
-				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nNodeIdx);
-				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNodeIdxNext, nNodeIdx);
-				pRes->m_matrix[nNodeIdx] = coefs;
-			}
-		}
-		else
-		{ //It is inner point
-			Vector3D
-				x0{ n->pos.x - h, n->pos.y, n->pos.z },
-				x1{ n->pos.x + h, n->pos.y, n->pos.z },
-				y0{ n->pos.x, n->pos.y - h, n->pos.z },
-				y1{ n->pos.x, n->pos.y + h, n->pos.z },
-				z0{ n->pos.x, n->pos.y, n->pos.z - h },
-				z1{ n->pos.x, n->pos.y, n->pos.z + h };
-			InterpCoefs coefs = interpCoefs(x0, nNodeIdxNext, nNodeIdx);
-			add(coefs, interpCoefs(x1, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(y0, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(y1, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(z0, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(z1, nNodeIdxNext, nNodeIdx));
-			mul(1. / 6., coefs);
-			pRes->m_matrix[nNodeIdx] = coefs;
-		}
-// [MS] 10-02-2017 progress bar and termination support
-    nInd++;
-    if(nInd % 100 == 0)
-      pObj->set_progress(100 * nInd / nNodeCount);
-
-    if(pObj->get_terminate_flag())
-      return NULL;
-// [/MS]
+	case CMeshAdapter::LaplacianSolver0:
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver0()));
+	case CMeshAdapter::LaplacianSolver1:
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
+	default:
+		throw std::runtime_error("CMeshAdapter::createOperator: Unsupported operator type.");
 	}
-	return pRes;
+}
+
+void CMeshConnectivity::addTet(const Nodes & ns)
+{
+	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
+}
+
+void CMeshConnectivity::addPyr(const Nodes & ns)
+{
+	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[3]->nInd), Label(ns[4]->nInd));
+}
+
+void CMeshConnectivity::addWedge(const Nodes & ns)
+{
+	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[5]->nInd));
+	addEdge(Label(ns[3]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[3]->nInd), Label(ns[5]->nInd));
+	addEdge(Label(ns[4]->nInd), Label(ns[5]->nInd));
+}
+
+void CMeshConnectivity::addHexa(const Nodes & ns)
+{
+	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[0]->nInd), Label(ns[4]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
+	addEdge(Label(ns[1]->nInd), Label(ns[5]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
+	addEdge(Label(ns[2]->nInd), Label(ns[6]->nInd));
+	addEdge(Label(ns[3]->nInd), Label(ns[7]->nInd));
+	addEdge(Label(ns[4]->nInd), Label(ns[5]->nInd));
+	addEdge(Label(ns[4]->nInd), Label(ns[7]->nInd));
+	addEdge(Label(ns[5]->nInd), Label(ns[6]->nInd));
+	addEdge(Label(ns[6]->nInd), Label(ns[7]->nInd));
+}
+
+CMeshConnectivity::Label CMeshConnectivity::size() const
+{
+	return m_graph.size();
+}
+
+void CMeshConnectivity::addEdge(Label i, Label j)
+{
+	Label max = max(i, j);
+	Label min = min(i, j);
+	if (max >= m_graph.size()) m_graph.resize(max + 1);
+	m_graph[max].insert(min);
+	m_graph[min].insert(max);
+}
+
+void CMeshConnectivity::addElem(const Elem * e)
+{
+	const Nodes& ns = e->vNodes;
+	switch (ns.size())
+	{
+	case 4: //Tetrahedron
+		return addTet(ns);
+	case 5: //Pyramide
+		return addPyr(ns);
+	case 6: //Wedge
+		return addWedge(ns);
+	case 8: //Hexahedron
+		return addHexa(ns);
+	default:
+		throw std::runtime_error(std::string("CMeshConnectivity::addElem: ")
+			+ "Unexpected number of vertices - " + std::to_string(ns.size()) 
+			+ " in element #" + std::to_string(e->nInd) + ".");
+	}
+}
+
+CMeshConnectivity::NodeConnections CMeshConnectivity::neighbor(Label i) const
+{
+	return m_graph.at(i);
 }
