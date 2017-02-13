@@ -234,7 +234,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	for (const Node* n : m_nodes)
 	{
 		size_t nNodeIdx = n->nInd, nNodeIdxNext;
-		//double h = minEdgeLength(nNodeIdx) * smallStepFactor();
+		double h = minEdgeLength(nNodeIdx) * smallStepFactor();
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) return result;
 		if (m_pBoundary->isBoundary(nNodeIdx))
@@ -244,7 +244,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 			else //Zero gradient
 			{
 				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nNodeIdx);
-				double h = optimalStep(norm, nNodeIdx);
 				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNodeIdxNext, nNodeIdx);
 				result.m_matrix[nNodeIdx] = std::move(coefs);
 			}
@@ -252,9 +251,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 		else
 		{
 			//It is inner point
-			double
-				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nNodeIdx),
-				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nNodeIdx);
 			Vector3D
 				x0{ n->pos.x - h, n->pos.y, n->pos.z },
 				x1{ n->pos.x + h, n->pos.y, n->pos.z },
@@ -296,8 +292,7 @@ CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallS
 	m_nodes(ns),
 	m_pBoundary(new BoundaryMesh),
 	m_pProgressBar(new ProgressBar),
-	m_fSmallStepFactor(fSmallStepFactor),
-	m_fEpsilon(100*std::numeric_limits<double>::epsilon())
+	m_fSmallStepFactor(fSmallStepFactor)
 {
 }
 
@@ -319,16 +314,6 @@ double CMeshAdapter::smallStepFactor() const
 void CMeshAdapter::smallStepFactor(double fVal)
 {
 	m_fSmallStepFactor = fVal;
-}
-
-double CMeshAdapter::eps() const
-{
-	return m_fEpsilon;
-}
-
-void CMeshAdapter::eps(size_t nFactor)
-{
-	m_fEpsilon = std::numeric_limits<double>::epsilon()*nFactor;
 }
 
 double CMeshAdapter::minElemSize(Label l) const
@@ -360,35 +345,6 @@ double CMeshAdapter::minEdgeLength(Label l) const
 			df2 = m_nodes[l2]->pos - m_nodes[l]->pos;
 		return df1.sqlength() < df2.sqlength();
 	})]->pos - m_nodes[l]->pos).length();
-}
-
-double CMeshAdapter::maxEdgeLength(Label l) const
-{
-	const CMeshConnectivity::NodeConnections& vNeighborLabels = m_lazyGraph->neighbor(l);
-	return (m_nodes[*std::max_element(vNeighborLabels.begin(), vNeighborLabels.end(),
-		[=](Label l1, Label l2)->bool
-	{
-		Vector3D
-			df1 = m_nodes[l1]->pos - m_nodes[l]->pos,
-			df2 = m_nodes[l2]->pos - m_nodes[l]->pos;
-		return df1.sqlength() < df2.sqlength();
-	})]->pos - m_nodes[l]->pos).length();
-}
-
-double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
-{
-	double a = 0.0, b = 2.0*maxEdgeLength(l);
-
-	while (b - a > eps())
-	{
-		double m = (b + a) / 2.;
-		if (lookInNeighbor(m_nodes[l]->pos + dir*m, l))
-			a = m;
-		else
-			b = m;
-	}
-
-	return a;
 }
 
 const CMeshAdapter::Elements & CMeshAdapter::neighborElems(Label l) const

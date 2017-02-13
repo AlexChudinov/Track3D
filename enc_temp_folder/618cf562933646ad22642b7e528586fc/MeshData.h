@@ -347,7 +347,6 @@ private:
 
 	//Factor for small step calculation depending on position inside mesh
 	double m_fSmallStepFactor;
-	double m_fEpsilon;
 
 	//Looks for an element containing point with coordinates v
 	const Element* element(const Vector3D& v, Label& nCurNode, const Label& nPrevNode = Label(0)) const;
@@ -383,18 +382,11 @@ public:
 	//Gets and sets small step factor value
 	double smallStepFactor() const;
 	void smallStepFactor(double fVal);
-	//Gets and sets epsilon
-	double eps() const;
-	void eps(size_t nFactor);
 
 	//Returns minimum characteristic size of surrounding elements
 	double minElemSize(Label l) const;
 	//Returns minimum length of connected edges
 	double minEdgeLength(Label l) const;
-	//Returns maximum length of connected edges
-	double maxEdgeLength(Label l) const;
-	//Returns optimal space step that still will be inside neighbor elements
-	double optimalStep(const Vector3D& dir, Label l) const;
 	//Returns vector of pointers to a neighbor elements for current node with index l
 	const Elements& neighborElems(Label l) const;
 	//Looks for the space coordinate point inside the neighbor elements
