@@ -184,7 +184,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 	{
 		size_t nNodeIdx = n->nInd;
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) return result;
+		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(nNodeIdx))
 		{
 			if (m_pBoundary->isFirstType(nNodeIdx)) //Fixed value BC
@@ -307,12 +307,19 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 	for (const Node* n : m_nodes)
 	{
 		size_t nNodeIdxNext;
+		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(n->nInd))
 		{
-			if ((dir & m_pBoundary->normal(n->nInd)) == 0.0)
-				continue;
-			else
-				;
+			//If dir points outside the system, than reverse it
+			bool bPointsOutside = (dir & m_pBoundary->normal(n->nInd)) < 0.0;
+			double factor = bPointsOutside ? -1.0 : 1.0;
+			Vector3D corrDir = bPointsOutside ? -dir : dir;
+			double h = optimalStep(corrDir, n->nInd);
+			InterpCoefs coefs = interpCoefs(n->pos + corrDir*h / 2.0, nNodeIdxNext, n->nInd);
+			coefs.insert(std::make_pair(uint32_t(n->nInd), -1.0));
+			mul(factor*2.0 / h, coefs);
+			result.m_matrix[n->nInd] = std::move(coefs);
 		}
 		else
 		{
@@ -488,6 +495,12 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver0()));
 	case CMeshAdapter::LaplacianSolver1:
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
+	case CMeshAdapter::GradX:
+		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 1.0, 0.0, 0.0 })));
+	case CMeshAdapter::GradY:
+		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 0.0, 1.0, 0.0 })));
+	case CMeshAdapter::GradZ:
+		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 0.0, 0.0, 1.0 })));
 	default:
 		throw std::runtime_error("CMeshAdapter::createOperator: Unsupported operator type.");
 	}

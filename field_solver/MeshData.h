@@ -410,7 +410,9 @@ public:
 	{
 		LaplacianSolver0,
 		LaplacianSolver1,
-		Gradient
+		GradX,
+		GradY,
+		GradZ
 	};
 	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver1);
 };
