@@ -236,7 +236,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 		size_t nNodeIdx = n->nInd, nNodeIdxNext;
 		//double h = minEdgeLength(nNodeIdx) * smallStepFactor();
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) return result;
+		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(nNodeIdx))
 		{
 			if (m_pBoundary->isFirstType(nNodeIdx)) //Fixed value BC
@@ -254,24 +254,80 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 			//It is inner point
 			double
 				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nNodeIdx),
-				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nNodeIdx);
+				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nNodeIdx),
+				hy1 = optimalStep({ 0.0, -1.0, 0.0 }, nNodeIdx),
+				hy2 = optimalStep({ 0.0, 1.0, 0.0 }, nNodeIdx),
+				hz1 = optimalStep({ 0.0, 0.0, -1.0 }, nNodeIdx),
+				hz2 = optimalStep({ 0.0, 0.0, 1.0 }, nNodeIdx);
+
 			Vector3D
-				x0{ n->pos.x - h, n->pos.y, n->pos.z },
-				x1{ n->pos.x + h, n->pos.y, n->pos.z },
-				y0{ n->pos.x, n->pos.y - h, n->pos.z },
-				y1{ n->pos.x, n->pos.y + h, n->pos.z },
-				z0{ n->pos.x, n->pos.y, n->pos.z - h },
-				z1{ n->pos.x, n->pos.y, n->pos.z + h };
-			InterpCoefs coefs = interpCoefs(x0, nNodeIdxNext, nNodeIdx);
-			add(coefs, interpCoefs(x1, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(y0, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(y1, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(z0, nNodeIdxNext, nNodeIdx));
-			add(coefs, interpCoefs(z1, nNodeIdxNext, nNodeIdx));
-			mul(1. / 6., coefs);
-			result.m_matrix[nNodeIdx] = std::move(coefs);
+				x0{ n->pos.x - hx1, n->pos.y, n->pos.z },
+				x1{ n->pos.x + hx2, n->pos.y, n->pos.z },
+				y0{ n->pos.x, n->pos.y - hy1, n->pos.z },
+				y1{ n->pos.x, n->pos.y + hy2, n->pos.z },
+				z0{ n->pos.x, n->pos.y, n->pos.z - hz1 },
+				z1{ n->pos.x, n->pos.y, n->pos.z + hz2 };
+
+			InterpCoefs coefsX = mul(1. / hx1, interpCoefs(x0, nNodeIdxNext, nNodeIdx));
+			add(coefsX, mul(1. / hx2, interpCoefs(x1, nNodeIdxNext, nNodeIdx)));
+			mul(1. / (hx2 + hx1), coefsX);
+
+			InterpCoefs coefsY = mul(1. / hy1, interpCoefs(y0, nNodeIdxNext, nNodeIdx));
+			add(coefsY, mul(1. / hy2, interpCoefs(y1, nNodeIdxNext, nNodeIdx)));
+			mul(1. / (hy2 + hy1), coefsY);
+
+			InterpCoefs coefsZ = mul(1. / hz1, interpCoefs(z0, nNodeIdxNext, nNodeIdx));
+			add(coefsZ, mul(1. / hz2, interpCoefs(z1, nNodeIdxNext, nNodeIdx)));
+			mul(1. / (hz2 + hz1), coefsZ);
+			
+			mul(1./(
+				(1. / hx1 + 1. / hx2) / (hx1 + hx2) 
+				+ (1. / hy1 + 1. / hy2) / (hy1 + hy2) 
+				+ (1. / hz1 + 1. / hz2) / (hz1 + hz2)),
+				add(coefsX, add(coefsY, coefsZ)));
+			result.m_matrix[nNodeIdx] = std::move(coefsX);
 		}
 	}
+	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3D & dir)
+{
+	ScalarFieldOperator result;
+	lazyGraphCreation();
+
+	std::string strJobName = std::string("Derivative in direction {"
+		+ std::to_string(dir.x) + ", " + std::to_string(dir.y) + ", " + std::to_string(dir.z)
+		+ "} creation...");
+	m_pProgressBar->set_job_name(strJobName.c_str());
+	m_pProgressBar->set_progress(0);
+
+	result.m_matrix.resize(m_nodes.size());
+
+	for (const Node* n : m_nodes)
+	{
+		size_t nNodeIdxNext;
+		if (m_pBoundary->isBoundary(n->nInd))
+		{
+			if ((dir & m_pBoundary->normal(n->nInd)) == 0.0)
+				continue;
+			else
+				;
+		}
+		else
+		{
+			double
+				h0 = optimalStep(-dir, n->nInd),
+				h1 = optimalStep(dir, n->nInd);
+			Vector3D pos0 = n->pos - dir*h0 / 2.;
+			Vector3D pos1 = n->pos + dir*h1 / 2.;
+			InterpCoefs coefs = interpCoefs(pos1, nNodeIdxNext, n->nInd);
+			add(coefs, mul(-1.0, interpCoefs(pos0, nNodeIdxNext, n->nInd)));
+			mul(2 / (h1 + h0), coefs);
+			result.m_matrix[n->nInd] = std::move(coefs);
+		}
+	}
+
 	return result;
 }
 

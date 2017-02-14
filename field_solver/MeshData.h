@@ -363,10 +363,8 @@ private:
 	ScalarFieldOperator laplacianSolver0();
 	//Simple Laplacian solver with step myltiplication by a factor
 	ScalarFieldOperator laplacianSolver1();
-	//Gradient calculation
-	ScalarFieldOperator gradX();
-	ScalarFieldOperator gradY();
-	ScalarFieldOperator gradZ();
+	//Directed derivative calculation
+	ScalarFieldOperator directedDerivative(const Vector3D& dir);
 
 	//Obtains interpolating coefficients if containing element is known
 	InterpCoefs interpCoefs(const Vector3D& pos, const Element* e) const;
