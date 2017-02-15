@@ -311,15 +311,15 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(n->nInd))
 		{
-			//If dir points outside the system, than reverse it
-			bool bPointsOutside = (dir & m_pBoundary->normal(n->nInd)) < 0.0;
-			double factor = bPointsOutside ? -1.0 : 1.0;
-			Vector3D corrDir = bPointsOutside ? -dir : dir;
-			double h = optimalStep(corrDir, n->nInd);
-			InterpCoefs coefs = interpCoefs(n->pos + corrDir*h / 2.0, nNodeIdxNext, n->nInd);
-			coefs.insert(std::make_pair(uint32_t(n->nInd), -1.0));
-			mul(factor*2.0 / h, coefs);
-			result.m_matrix[n->nInd] = std::move(coefs);
+			if (m_pBoundary->isFirstType(n->nInd))
+			{
+				Vector3D norm = m_pBoundary->normal(n->nInd);
+				double h = optimalStep(norm, n->nInd) / 2.0;
+				InterpCoefs coefs = interpCoefs(n->pos + norm*h, nNodeIdxNext, n->nInd);
+				mul(2. / h, add(coefs, InterpCoefs{ {n->nInd, -1.0} }));
+				mul(norm & dir, coefs);
+			}
+			else continue;
 		}
 		else
 		{
@@ -330,7 +330,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 			Vector3D pos1 = n->pos + dir*h1 / 2.;
 			InterpCoefs coefs = interpCoefs(pos1, nNodeIdxNext, n->nInd);
 			add(coefs, mul(-1.0, interpCoefs(pos0, nNodeIdxNext, n->nInd)));
-			mul(2 / (h1 + h0), coefs);
+			mul(2. / (h1 + h0), coefs);
 			result.m_matrix[n->nInd] = std::move(coefs);
 		}
 	}
