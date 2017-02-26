@@ -4,6 +4,7 @@
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "ExportOpenFOAM.h"
+#include "ResponseProperty.h"
 #include "Button.h"
 
 //---------------------------------------------------------------------------------------
@@ -16,10 +17,10 @@ void CPropertiesWnd::add_export_ctrls()
 
   CMFCPropertyGridProperty* pOpenFoamGroup = new CMFCPropertyGridProperty(_T("Export Mesh in OpenFOAM Format"));
 
-  CMFCPropertyGridProperty* pEnableBoundCond = new CMFCPropertyGridProperty(_T("Export Boundary Conditions"), (_variant_t)pExpObj->get_enable_bound_cond(), _T("Turns ON/OFF boundary conditions export."), pExpObj->get_enable_bound_cond_ptr());
+  CCheckBoxButton* pEnableBoundCond = new CCheckBoxButton(this, _T("Export Boundary Conditions"), (_variant_t)pExpObj->get_enable_bound_cond(), _T("Turns ON/OFF boundary conditions export."), pExpObj->get_enable_bound_cond_ptr());
   pOpenFoamGroup->AddSubItem(pEnableBoundCond);
 
-  CMFCPropertyGridProperty* pExportInternal = new CMFCPropertyGridProperty(_T("Export Internal Data"), (_variant_t)pExpObj->get_export_internal(), _T("When this flag is true the internal data from ANSYS CFX solution are exported."), pExpObj->get_export_internal_ptr());
+  CCheckBoxButton* pExportInternal = new CCheckBoxButton(this, _T("Export Internal Data"), (_variant_t)pExpObj->get_export_internal(), _T("When this flag is true the internal data from ANSYS CFX solution are exported."), pExpObj->get_export_internal_ptr());
   pOpenFoamGroup->AddSubItem(pExportInternal);
 
   CMFCPropertyGridProperty* pShiftProp = new CMFCPropertyGridProperty(_T("X-Coordinate Shift, mm"), COleVariant(pExpObj->get_coord_shift()), _T("Defines the shift of the exported part of the mesh with respect to the whole mesh."), pExpObj->get_coord_shift_ptr());
@@ -71,7 +72,7 @@ void CPropertiesWnd::add_bc_ctrls(CMFCPropertyGridProperty* pOpenFOAMGroup)
     EvaporatingParticle::CBoundaryConditions* pBC = pExpObj->get_bound_cond(i);
 // Boundary conditions type:
     COleVariant var(_T(cBoundCondType[pBC->nType]));
-    CMFCPropertyGridProperty* pType = new CMFCPropertyGridProperty(_T("Type"), var, _T("Specify type of boundary conditions: Wall, Inlet, Patch or Symmetry."), (DWORD_PTR)&(pBC->nType));
+    CExportResponseProperty* pType = new CExportResponseProperty(this, _T("Type"), var, _T("Specify type of boundary conditions: Wall, Inlet, Patch or Symmetry."), (DWORD_PTR)&(pBC->nType));
     for(size_t j = 0; j < nTypeCount; j++)
       pType->AddOption(_T(cBoundCondType[j]));
 

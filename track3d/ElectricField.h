@@ -28,7 +28,7 @@ struct CPotentialBoundCond
     fvCount       = 2
   };
 
-  BoundaryMesh::BoundaryType nType;
+  BoundaryMesh::BoundaryType    nType;
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
   int                           nFixedValType;  // the value at the boundary can be either +1V or -1V.
   std::string                   sName;
@@ -60,6 +60,9 @@ public:
   CElectricFieldData(int nType = typeFieldDC);
   virtual ~CElectricFieldData();
 
+  bool                    get_enable_field() const;
+  DWORD_PTR               get_enable_field_ptr() const;
+
   int                     get_type() const;
   DWORD_PTR               get_type_ptr() const;
   void                    set_type(int nType);
@@ -84,7 +87,7 @@ public:
 
   static const char*      get_field_type_name(int nType);
 
-  void                    calc_field();
+  bool                    calc_field();
   void                    invalidate();
 
   void                    save(CArchive& ar);
@@ -103,10 +106,11 @@ protected:
 
   Vector3D                calc_norm(CNode3D* pNode) const;
 
-  void                    get_result(const std::vector<double>& vFieldVals) const;
+  void                    get_result(const std::vector<double>& vFieldVals);
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
 private:
+  bool                    m_bEnable;
   int                     m_nType;
 
   double                  m_fScale,       // potential scale, in V.
@@ -116,9 +120,7 @@ private:
 
   CPotentialBoundCondColl m_vBoundCond;
 
-// Temporarily, for DEBUG purposes only, the data contain potentials. Later, in the working
-// regime the components of electric field will be stored in this class.
-  std::vector<float>      m_vPotential;
+  std::vector<double>     m_vPotential;
 
 // Run-time:
   bool                    m_bNeedRecalc,
@@ -134,7 +136,7 @@ public:
   virtual ~CFieldDataColl();
 
   void              clear_fields();
-  void              calc_fields();
+  bool              calc_fields();
 
   bool              sel_region_changed(CStringVector* pRegNames);
   bool              remove_bound_cond(CPotentialBoundCond* pBC);
@@ -143,6 +145,16 @@ public:
   void              load(CArchive& ar);
 };
 
+
+inline bool CElectricFieldData::get_enable_field() const
+{
+  return m_bEnable;
+}
+
+inline DWORD_PTR CElectricFieldData::get_enable_field_ptr() const
+{
+  return (DWORD_PTR)&m_bEnable;
+}
 
 inline int CElectricFieldData::get_type() const
 {

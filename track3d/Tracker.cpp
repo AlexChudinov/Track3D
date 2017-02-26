@@ -106,6 +106,7 @@ void CTracker::set_default()
   m_bUseMultiThread = true;
   m_nIntegrType = intModMidpnt;
   m_bOldIntegrator = false;
+  m_bAnsysFields = true;
   m_bUseRadialCoulomb = true;
   m_bSaveTracks = false;
 

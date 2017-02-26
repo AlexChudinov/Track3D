@@ -1269,7 +1269,7 @@ void CExportOpenFOAM::remove_bound_cond(CBoundaryConditions* pBoundCond)
     }
   }
 
-  if(nPos > 0)
+  if(nPos >= 0)
     m_vBoundConditions.erase(m_vBoundConditions.begin() + nPos);
 }
 

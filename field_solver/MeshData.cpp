@@ -155,6 +155,64 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::mul(double h, InterpCoefs & ic)
 	return ic;
 }
 
+CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
+{
+	Matrix3D result; result.fill(0.0);
+	for (Label i : m_lazyGraph->neighbor(l))
+	{
+		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
+		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
+		result(0, 0) += (v.x*v.x) / fSqLength;
+		result(1, 1) += (v.y*v.y) / fSqLength;
+		result(2, 2) += (v.z*v.z) / fSqLength;
+		result(0, 1) = result(1, 0) += (v.x*v.y) / fSqLength;
+		result(0, 2) = result(2, 0) += (v.x*v.z) / fSqLength;
+		result(1, 2) = result(2, 1) += (v.y*v.z) / fSqLength;
+	}
+	return result;
+}
+
+CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
+{
+	Vector3DOp result;
+	for (Label i : m_lazyGraph->neighbor(l))
+	{
+		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
+		InterpCoefs dU{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } };
+		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
+		add(result[0], mul(v.x / fSqLength, dU));
+		add(result[1], mul(v.y / fSqLength, dU));
+		add(result[2], mul(v.z / fSqLength, dU));
+	}
+	return result;
+}
+
+CMeshAdapter::Vector3DOp CMeshAdapter::averageGradePoint(Label l) const
+{
+	Vector3DOp result;
+	Matrix3D m = covarianceOfDirections(l);
+	double fDet = math::det(m);
+	if (fDet*fDet <= eps()) 
+		throw std::runtime_error("CMeshAdapter::averageGradePoint: Determinant is zero!");
+	Vector3DOp vDiff = finDiffDirCov(l);
+	mul(1. / fDet,
+		add(result[0],
+			add(mul(math::det(Matrix2D{ {m(1,1), m(1,2)}, {m(2,1), m(2,2)} }), vDiff[0]),
+				add(mul(-math::det(Matrix2D{ {m(0,1), m(0,2)}, {m(2,1), m(2,2)} }), vDiff[1]),
+					mul(math::det(Matrix2D{ {m(0,1), m(0,2)}, {m(1,1), m(1,2)} }), vDiff[2])))));
+	mul(1. / fDet,
+		add(result[1],
+			add(mul(-math::det(Matrix2D{ { m(1,0), m(1,2) },{ m(2,0), m(2,2) } }), vDiff[0]),
+				add(mul(math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(2,0), m(2,2) } }), vDiff[1]),
+					mul(-math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(1,0), m(1,2) } }), vDiff[2])))));
+	mul(1. / fDet,
+		add(result[2],
+			add(mul(math::det(Matrix2D{ { m(1,0), m(1,1) },{ m(2,0), m(2,1) } }), vDiff[0]),
+				add(mul(-math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(2,0), m(2,1) } }), vDiff[1]),
+					mul(math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(1,0), m(1,1) } }), vDiff[2])))));
+	return result;
+}
+
 void CMeshAdapter::lazyGraphCreation()
 {
 	if (!m_lazyGraph)
@@ -311,26 +369,22 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(n->nInd))
 		{
-			if (m_pBoundary->isFirstType(n->nInd))
-			{
-				Vector3D norm = m_pBoundary->normal(n->nInd);
-				double h = optimalStep(norm, n->nInd) / 2.0;
-				InterpCoefs coefs = interpCoefs(n->pos + norm*h, nNodeIdxNext, n->nInd);
-				mul(2. / h, add(coefs, InterpCoefs{ {n->nInd, -1.0} }));
-				mul(norm & dir, coefs);
-			}
-			else continue;
+			Vector3DOp vGrad = averageGradePoint(n->nInd);
+			add(result.m_matrix[n->nInd],
+				add(mul(dir.x, vGrad[0]),
+					add(mul(dir.y, vGrad[1]),
+						mul(dir.z, vGrad[2]))));
 		}
 		else
 		{
 			double
-				h0 = optimalStep(-dir, n->nInd),
-				h1 = optimalStep(dir, n->nInd);
-			Vector3D pos0 = n->pos - dir*h0 / 2.;
-			Vector3D pos1 = n->pos + dir*h1 / 2.;
+				h0 = optimalStep(-dir, n->nInd) / 2.,
+				h1 = optimalStep(dir, n->nInd)  / 2.;
+			Vector3D pos0 = n->pos - dir*h0;
+			Vector3D pos1 = n->pos + dir*h1;
 			InterpCoefs coefs = interpCoefs(pos1, nNodeIdxNext, n->nInd);
 			add(coefs, mul(-1.0, interpCoefs(pos0, nNodeIdxNext, n->nInd)));
-			mul(2. / (h1 + h0), coefs);
+			mul(1. / (h1 + h0), coefs);
 			result.m_matrix[n->nInd] = std::move(coefs);
 		}
 	}

@@ -3,6 +3,7 @@
 
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
+#include "Button.h"
 
 //---------------------------------------------------------------------------------------
 // Tracking controls
@@ -13,15 +14,15 @@ void CPropertiesWnd::add_tracking_ctrls()
 
 // Multi-threading support:
   CMFCPropertyGridProperty* pMultiGroup = new CMFCPropertyGridProperty(_T("Multi-Threading"));
-  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pObj->get_use_multi_thread(), _T("Turns ON/OFF multi-threrading support."), pObj->get_use_multi_thread_ptr());
-  pMultiGroup->AddSubItem(pProp);
+  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_use_multi_thread(), _T("Turns ON/OFF multi-threrading support."), pObj->get_use_multi_thread_ptr());
+  pMultiGroup->AddSubItem(pCheckBox);
 
   m_wndPropList.AddProperty(pMultiGroup);
 
 // Integrator type:
   CMFCPropertyGridProperty* pIntegrGroup = new CMFCPropertyGridProperty(_T("Integrators"));
   COleVariant var(pObj->get_integr_name(pObj->get_integr_type()));
-  pProp = new CMFCPropertyGridProperty(_T("Integrator Type:"), var, _T("Select a method of particle's parameters integration along the trajectory."), pObj->get_integr_type_ptr());
+  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Integrator Type:"), var, _T("Select a method of particle's parameters integration along the trajectory."), pObj->get_integr_type_ptr());
   for(int i = 0; i < EvaporatingParticle::CTracker::intCount; i++)
     pProp->AddOption(pObj->get_integr_name(i));
 
@@ -43,8 +44,8 @@ void CPropertiesWnd::add_tracking_ctrls()
 
 // Electrostatics:
   CMFCPropertyGridProperty* pFieldGroup = new CMFCPropertyGridProperty(_T("Electrostatics"));
-  pProp = new CMFCPropertyGridProperty(_T("Enable DC Field"), (_variant_t)pObj->get_enable_field(), _T("Turns ON/OFF application of DC electric field in particles tracking."), pObj->get_enable_field_ptr());
-  pFieldGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Enable DC Field"), (_variant_t)pObj->get_enable_field(), _T("Turns ON/OFF application of DC electric field in particles tracking."), pObj->get_enable_field_ptr());
+  pFieldGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("DC Voltage, V"), COleVariant(pObj->get_dc_amplitude()), _T("DC potential applied to the emitter"), pObj->get_dc_amplitude_ptr());
   pFieldGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Charge, elem. charges"), COleVariant(long(pObj->get_particle_charge() / Const_Charge_CGS)), _T("Electric charge carried by a particle."), pObj->get_particle_charge_ptr());
@@ -54,8 +55,8 @@ void CPropertiesWnd::add_tracking_ctrls()
 
 // Radio-Frequency field:
   CMFCPropertyGridProperty* pRFGroup = new CMFCPropertyGridProperty(_T("Radio-Frequency Field"));
-  pProp = new CMFCPropertyGridProperty(_T("Enable RF"), (_variant_t)pObj->get_enable_rf(), _T("Turns ON/OFF radio-frequency field."), pObj->get_enable_rf_ptr());
-  pRFGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Enable RF"), (_variant_t)pObj->get_enable_rf(), _T("Turns ON/OFF radio-frequency field."), pObj->get_enable_rf_ptr());
+  pRFGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_amplitude()), _T("Amplitude of RF voltage applied to S-Lens electrodes."), pObj->get_rf_amplitude_ptr());
   pRFGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_frequency()), _T("Frquency of RF voltage applied to S-Lens electrodes."), pObj->get_rf_frequency_ptr());
@@ -83,10 +84,12 @@ void CPropertiesWnd::add_tracking_ctrls()
 
   m_wndPropList.AddProperty(pRFGroup);
 
+  CMFCPropertyGridProperty* pOldIntegratorGroup = new CMFCPropertyGridProperty(_T("Backward compatibility"));
 // Old Predictor-Corrector switcher:
-  CMFCPropertyGridProperty* pOldIntegratorGroup = new CMFCPropertyGridProperty(_T("Use the Old Integrator"));
-  pProp = new CMFCPropertyGridProperty(_T("Enable Old Integrator"), (_variant_t)pObj->get_use_old_integrator(), _T("If this is true the old integrator is used. Note that the droplet type of particles is supported by the old integrator only"), pObj->get_use_old_integrator_ptr());
-  pOldIntegratorGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Old Integrator"), (_variant_t)pObj->get_use_old_integrator(), _T("If this is true the old predictor-corrector integrator is used."), pObj->get_use_old_integrator_ptr());
+  pOldIntegratorGroup->AddSubItem(pCheckBox);
+  pCheckBox = new CCheckBoxButton(this, _T("Use ANSYS Electric Fields"), (_variant_t)pObj->get_enable_ansys_field(), _T("If this is true the electric fields computed in ANSYS are used."), pObj->get_enable_ansys_field_ptr());
+  pOldIntegratorGroup->AddSubItem(pCheckBox);
 
   m_wndPropList.AddProperty(pOldIntegratorGroup);
 }
@@ -95,13 +98,8 @@ void CPropertiesWnd::set_tracking_data()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
-// Multi-threading support:
-  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_use_multi_thread_ptr());
-  if(pProp != NULL)
-    pObj->set_use_multi_thread(pProp->GetValue().boolVal);
-
 // Integrator type:
-  pProp = m_wndPropList.FindItemByData(pObj->get_integr_type_ptr());
+  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_integr_type_ptr());
   if(pProp != NULL)
   {
     CString cType = (CString)pProp->GetValue();
@@ -143,10 +141,6 @@ void CPropertiesWnd::set_tracking_data()
     pObj->set_dc_amplitude(pProp->GetValue().dblVal);
 
 // Radio-Frequency field:
-    pProp = m_wndPropList.FindItemByData(pObj->get_enable_rf_ptr());
-  if(pProp != NULL)
-    pObj->set_enable_rf(pProp->GetValue().boolVal);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_rf_amplitude_ptr());
   if(pProp != NULL)
     pObj->set_rf_amplitude(pProp->GetValue().dblVal);
@@ -180,33 +174,32 @@ void CPropertiesWnd::set_tracking_data()
   pProp = m_wndPropList.FindItemByData(pObj->get_flatapole_trans_ptr());
   if(pProp != NULL)
     pObj->set_flatapole_trans(0.1 * pProp->GetValue().dblVal);
-
-// Old Integrator switcher:
-  pProp = m_wndPropList.FindItemByData(pObj->get_use_old_integrator_ptr());
-  if(pProp != NULL)
-    pObj->set_use_old_integrator(pProp->GetValue().boolVal);
 }
 
 void CPropertiesWnd::update_tracking_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  bool bUseAnsysFields = pObj->get_enable_ansys_field();
 
   BOOL bEnable = FALSE;
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_enable_field_ptr());
   if(pProp != NULL)
-    bEnable = (BOOL)(pProp->GetValue().boolVal);
+  {
+    bEnable = bUseAnsysFields && (BOOL)(pProp->GetValue().boolVal);
+    pProp->Enable(bUseAnsysFields);
+  }
 
   pProp = m_wndPropList.FindItemByData(pObj->get_dc_amplitude_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable);
 
 // Radio-Frequency field:
-    bool bEnableRF = FALSE;
+  bool bEnableRF = FALSE;
   pProp = m_wndPropList.FindItemByData(pObj->get_enable_rf_ptr());
   if(pProp != NULL)
   {
-    pProp->Enable(TRUE);
-    bEnableRF = (BOOL)(pProp->GetValue().boolVal);
+    bEnableRF = bUseAnsysFields && (BOOL)(pProp->GetValue().boolVal);
+    pProp->Enable(bUseAnsysFields);
   }
 
   pProp = m_wndPropList.FindItemByData(pObj->get_rf_amplitude_ptr());

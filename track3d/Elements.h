@@ -458,8 +458,6 @@ public:
   CAverBin    get_aver_bin(UINT nPos) const;
 
 private:
-  void        init(UINT nBinsCount);
-
   double      m_fArgMin,
               m_fArgMax,
               m_fStep;
@@ -555,11 +553,6 @@ inline void CAveragingEngine::get_range(double& fArgMin, double& fArgMax)
   fArgMin = m_fArgMin;
   fArgMax = m_fArgMax;
 }
-
-typedef std::vector<CElem3D*> Elems;
-typedef std::vector<CNode3D*> Nodes;
-
-void sortElems(Elems& elems);
 
 };  // namespace EvaporatingParticle
 

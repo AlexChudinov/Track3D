@@ -23,6 +23,9 @@ void CPropertiesWnd::add_field_ctrls()
     CString cName = CString("Electric Field # ") + CString(itoa(i + 1, buff, 10));
     CMFCPropertyGridProperty* pFieldDataGroup = new CMFCPropertyGridProperty(cName);
 
+    CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable Field"), (_variant_t)pData->get_enable_field(), _T("Click this check-box to enable / disable this field."), pData->get_enable_field_ptr());
+    pFieldDataGroup->AddSubItem(pCheckBox);
+
     COleVariant var(CElectricFieldData::get_field_type_name(pData->get_type()));
     CMFCPropertyGridProperty* pFieldType = new CMFCPropertyGridProperty(_T("Electric Field Type (DC or RF)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency field."), pData->get_type_ptr());
     for(int k = CElectricFieldData::typeFieldDC; k < CElectricFieldData::typeCount; k++)

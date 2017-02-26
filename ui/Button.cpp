@@ -38,11 +38,13 @@ void CSelectRegionButton::OnClickButton(CPoint point)
       pDrawObj->invalidate_contour(m_dwData);
       m_bPressed = FALSE;
 
+      m_pWndProp->set_ignore_idle(false);
       m_pWndProp->set_update_all();
       m_pWndProp->enable_tab_ctrl();
     }
     else
     {
+      m_pWndProp->set_ignore_idle(true);
       m_pWndProp->disable_all_but_one(this);
       m_pWndProp->enable_tab_ctrl(FALSE);
 
@@ -141,7 +143,7 @@ void CProprtyListButton::OnDrawValue(CDC* pDC, CRect rect)
 {
   AdjustButtonRect();
 
-  rect.left += m_rectButton.Width();
+  rect.left += m_rectButton.Width() + 2;
 	CMFCPropertyGridProperty::OnDrawValue(pDC, rect);
 
   OnDrawButton(pDC, m_rectButton);
@@ -186,12 +188,13 @@ void CRemovePropertyButton::OnDrawButton(CDC* pDC, CRect rectButton)
   COLORREF crBkColor = pDC->GetBkColor();
   COLORREF crTextColor = pDC->GetTextColor();
 
+  rectButton.DeflateRect(1, 1);
   COLORREF crBrushColor = RGB(180, 0, 0);
   CBrush brush1(crBrushColor);
   pDC->FillRect(rectButton, &brush1);
 
-  int nx0 = rectButton.left + 5, ny0 = rectButton.top + 5;
-  int nx1 = rectButton.right - 5, ny1 = rectButton.bottom - 5;
+  int nx0 = rectButton.left + 4, ny0 = rectButton.top + 4;
+  int nx1 = rectButton.right - 4, ny1 = rectButton.bottom - 4;
   CBrush brush2(clWhite);
   pDC->MoveTo(nx0, ny0);
   pDC->LineTo(nx1, ny1);
@@ -202,8 +205,8 @@ void CRemovePropertyButton::OnDrawButton(CDC* pDC, CRect rectButton)
   pDC->MoveTo(nx0 + 1, ny0);
   pDC->LineTo(nx1 + 1, ny1);
 
-  nx0 = rectButton.right - 6;
-  nx1 = rectButton.left + 4;
+  nx0 = rectButton.right - 5;
+  nx1 = rectButton.left + 3;
 
   pDC->MoveTo(nx0, ny0);
   pDC->LineTo(nx1, ny1);
@@ -559,4 +562,158 @@ void CCalcFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
 
   pDC->SetTextColor(crTextColor);
   pDC->SetBkColor(crBkColor);
+}
+
+//---------------------------------------------------------------------------------------
+// CCheckBoxButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CCheckBoxButton, CProprtyListButton)
+
+void CCheckBoxButton::OnClickButton(CPoint point)
+{
+  bool& bChecked = *(bool*)m_dwData;
+  bChecked = !bChecked;
+  SetValue((_variant_t)bChecked);
+  Redraw();
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->draw();
+}
+
+void CCheckBoxButton::OnDrawButton(CDC* pDC, CRect rect)
+{
+  COLORREF crBkColor = pDC->GetBkColor();
+  COLORREF crTextColor = pDC->GetTextColor();
+  COLORREF crPenColor = pDC->GetDCPenColor();
+  
+  CRect box = rect;
+	box.top++;
+	box.left++;
+  box.right++;
+
+  CBrush OrigBrush;
+	CBrush br1(clNavy);
+
+//  pDC->FrameRect(&box, &br1);
+  box.DeflateRect(1, 1);
+  pDC->FrameRect(&box, &br1);
+
+  bool bChecked = *(bool*)m_dwData;
+  if(bChecked)
+  {
+    COLORREF clr = IsEnabled() ? RGB(0, 128, 0) : RGB(128, 128, 128);
+    CBrush br2(clr);
+    box.DeflateRect(3, 3);
+    int nCx = (box.left + box.right) / 2;
+    int nCy = (box.top + box.bottom) / 2;
+
+    CRect rc = box;
+    rc.top = nCy - 3;
+    int nRight = nCx - 1;
+    for(int i = box.left; i <= nRight; i++)
+    {
+      rc.left = i;
+      rc.right = rc.left + 1;
+      rc.bottom = i < nRight ? rc.top + 4 : rc.top + 3;
+
+      pDC->FillRect(rc, &br2);
+
+      rc.top += 1;
+    }
+
+    rc.top -= 2;
+    nRight = box.right;
+    for(int i = nCx - 1; i < nRight; i++)
+    {
+      rc.left = i;
+      rc.right = rc.left + 1;
+      rc.bottom = rc.top + 4;
+
+      pDC->FillRect(rc, &br2);
+
+      rc.top -= 1;
+    }
+  }
+
+  pDC->SetTextColor(crTextColor);
+  pDC->SetBkColor(crBkColor);
+  pDC->SetDCPenColor(crPenColor);
+}
+
+//---------------------------------------------------------------------------------------
+// CRedrawCheckBox - use this class if only an immediate redrwing is needed after the switch.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CRedrawCheckBox, CCheckBoxButton)
+
+void CRedrawCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CContourRangeCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CContourRangeCheckBox, CCheckBoxButton)
+
+void CContourRangeCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  size_t nContoursCount = pDrawObj->get_contours_count();
+  for(size_t i = 0; i < nContoursCount; i++)
+  {
+    EvaporatingParticle::CColorContour* pObj = pDrawObj->get_contour(i);
+    if(pObj->get_enable_user_range_ptr() == m_dwData)
+    {
+      if(pObj->get_enable_user_range())
+        pObj->restore_user_range();
+      else
+        pObj->get_min_max();
+    }
+  }
+
+  m_pWndProp->set_update_all();
+  pDrawObj->invalidate_contours();
+  pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CTrackRangeCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CTrackRangeCheckBox, CCheckBoxButton)
+
+void CTrackRangeCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  if(pDrawObj->get_colored_tracks().get_enable_user_range())
+    pDrawObj->get_colored_tracks().restore_user_range();
+  else
+    pDrawObj->get_colored_tracks().get_min_max();
+
+  m_pWndProp->set_update_all();
+  pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CCrossSectCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CCrossSectCheckBox, CCheckBoxButton)
+
+void CCrossSectCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  m_pWndProp->set_update_all();
+
+  pDrawObj->invalidate_contours();
+  pDrawObj->invalidate_hidden();
+
+  pDrawObj->draw();
 }

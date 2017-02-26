@@ -99,14 +99,17 @@ void CFieldDataColl::clear_fields()
   clear();
 }
 
-void CFieldDataColl::calc_fields()
+bool CFieldDataColl::calc_fields()
 {
   size_t nCount = size();
   for(size_t i = 0; i < nCount; i++)
   {
     CElectricFieldData* pData = at(i);
-    pData->calc_field();
+    if(!pData->calc_field())
+      return false;
   }
+
+  return true;
 }
 
 bool CFieldDataColl::sel_region_changed(CStringVector* pRegNames)
@@ -199,6 +202,8 @@ CElectricFieldData::~CElectricFieldData()
 
 void CElectricFieldData::set_default()
 {
+  m_bEnable = true;
+
   m_fScale = 10;    // V.
   set_freq(1.0e+6); // 1 MHz by default.
 
@@ -207,45 +212,65 @@ void CElectricFieldData::set_default()
   m_nIterCount = 100;
 }
 
-void CElectricFieldData::calc_field()
+bool CElectricFieldData::calc_field()
 {
-	try
-	{
-		m_bTerminate = false;
-		CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
-		mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
-		if (!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
-			return;
+  if(!m_bEnable && !m_bNeedRecalc)
+    return true;
 
-		std::vector<double> field(pObj->get_nodes().size(), 0.0);
-		mesh.boundaryMesh()->applyBoundaryVals(field);
+  try
+  {
+    m_bTerminate = false;
+    CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+    CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
+    mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
-		CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver1);
-		if (pOp == NULL)
-			return;
+    if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
+      return false;
 
-		set_job_name("Field calculation...");
-		for (int i = 0; i < m_nIterCount; ++i)
-		{
-			if (m_bTerminate)
-				break;
+    std::vector<double> field(pObj->get_nodes().size(), 0.0);
+    mesh.boundaryMesh()->applyBoundaryVals(field);
 
-			field = pOp->applyToField(field);
-			set_progress(100 * i / m_nIterCount);
+	CMeshAdapter::PScalFieldOp pDx = mesh.createOperator(CMeshAdapter::GradX);
+	CMeshAdapter::PScalFieldOp pDy = mesh.createOperator(CMeshAdapter::GradY);
+	CMeshAdapter::PScalFieldOp pDz = mesh.createOperator(CMeshAdapter::GradZ);
+
+    CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver1);
+    if(pOp == NULL)
+      return false;
+
+    set_job_name("Field calculation...");
+    for(int i = 0; i < m_nIterCount; ++i)
+    {
+      if(m_bTerminate)
+        return false;
+
+      field = pOp->applyToField(field);
+      set_progress(100 * i / m_nIterCount);
+    }
+
+    std::vector<double> dPhiDx(pObj->get_nodes().size(), 0.0);
+    dPhiDx = pDx->applyToField(field);
+    std::vector<double> dPhiDy(pObj->get_nodes().size(), 0.0);
+    dPhiDy = pDy->applyToField(field);
+    std::vector<double> dPhiDz(pObj->get_nodes().size(), 0.0);
+    dPhiDz = pDz->applyToField(field);
+    for(size_t i = 0; i < pObj->get_nodes().size(); i++)
+      dPhiDx[i] = sqrt(dPhiDx[i] * dPhiDx[i] + dPhiDy[i] * dPhiDy[i] + dPhiDz[i] * dPhiDz[i]);
+
+    if(!m_bTerminate)
+    {
+      get_result(dPhiDx);
+      notify_scene();
+
+      m_bNeedRecalc = false;
 		}
-
-		if (!m_bTerminate)
-		{
-			get_result(field);
-			notify_scene();
-		}
-
 	}
-	catch (const std::exception& ex)
-	{
-		AfxMessageBox(ex.what());
-	}
+  catch (const std::exception& ex)
+  {
+    AfxMessageBox(ex.what());
+  }
+
+  return true;
 }
 
 bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
@@ -406,7 +431,7 @@ bool CElectricFieldData::is_selected(CRegion* pReg) const
   return false;
 }
 
-void CElectricFieldData::get_result(const std::vector<double>& vFieldVals) const
+void CElectricFieldData::get_result(const std::vector<double>& vFieldVals)
 {
 	const CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
 	for (size_t i = 0; i < vNodes.size(); i++)

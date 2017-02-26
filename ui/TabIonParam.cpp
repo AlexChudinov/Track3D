@@ -4,6 +4,7 @@
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "BeamCrossSection.h"
+#include "Button.h"
 
 static const double scfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
 //---------------------------------------------------------------------------------------
@@ -29,8 +30,8 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Cross-Section"), COleVariant(pObj->get_ion_cross_section() / scfA2), _T("Collision cross-section with the environmental gas, squared angstrem."), pObj->get_ion_cross_section_ptr());
   pCollisionGroup->AddSubItem(pProp);
 
-  pProp = new CMFCPropertyGridProperty(_T("Velocity-dependent"), (_variant_t)pObj->get_vel_depend_flag(), _T("If this is set to 'true' the cross-section is inversely proportional to the relative ion - air velocity."), pObj->get_vel_depend_flag_ptr());
-  pCollisionGroup->AddSubItem(pProp);
+  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Velocity-dependent"), (_variant_t)pObj->get_vel_depend_flag(), _T("If this is set to 'true' the cross-section is inversely proportional to the relative ion - air velocity."), pObj->get_vel_depend_flag_ptr());
+  pCollisionGroup->AddSubItem(pCheckBox);
 
   pProp = new CMFCPropertyGridProperty(_T("Activation Energy, eV"), COleVariant(pObj->get_act_energy()), _T("Ion collisional activation energy, eV"), pObj->get_act_energy_ptr());
   pCollisionGroup->AddSubItem(pProp);
@@ -38,13 +39,13 @@ void CPropertiesWnd::add_ion_ctrls()
 
 // Coulomb:
   CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Coulomb Repulsion"));
-  pProp = new CMFCPropertyGridProperty(_T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
-  pCoulombGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
+  pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Full Ion Current, nA"), COleVariant(pObj->get_full_current() / Const_nA_to_CGSE), _T("Full current carried by the ion bunch."), pObj->get_full_current_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
-  pProp = new CMFCPropertyGridProperty(_T("Axial Symmetry"), (_variant_t)pObj->get_axial_symm(), _T("Must be 'true' for axially-symmetric systems. If set to 'false' the Coulomb repulsion is estimated for a flat model of letter-box capillary."), pObj->get_axial_symm_ptr());
-  pCoulombGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Axial Symmetry"), (_variant_t)pObj->get_axial_symm(), _T("Must be 'true' for axially-symmetric systems. If set to 'false' the Coulomb repulsion is estimated for a flat model of letter-box capillary."), pObj->get_axial_symm_ptr());
+  pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Bunch Radius, mm"), COleVariant(10 * pObj->get_bunch_r0()), _T("Initial radius of the ion bunch."), pObj->get_bunch_r0_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
@@ -58,8 +59,8 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * distrib.get_space_charge_step()), _T("Distance between pseudo-charges placed into nodes of a constant cubical mesh."), distrib.get_space_charge_step_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
-  pProp = new CMFCPropertyGridProperty(_T("Use Radial Coulomb"), (_variant_t)pObj->get_use_radial_coulomb(), _T("If this is true the radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_use_radial_coulomb_ptr());
-  pCoulombGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Use Radial Coulomb"), (_variant_t)pObj->get_use_radial_coulomb(), _T("If this is true the radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_use_radial_coulomb_ptr());
+  pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Radial Coulomb Transition X, mm"), COleVariant(10 * pObj->get_radial_coulomb_trans()), _T("The radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_radial_coulomb_trans_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
@@ -71,8 +72,8 @@ void CPropertiesWnd::add_ion_ctrls()
   pBHGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Max Recursion Depth"), COleVariant((long)pObj->get_max_rec_depth()), _T("The depth of sub-division of the initial cubical cell into sub-cells."), pObj->get_max_rec_depth_ptr());
   pBHGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Enable Quad Terms"), (_variant_t)pObj->get_enable_quad_terms(), _T("If this is set to 'true' the quadripole terms are taken into account when Coulomb force is calculated."), pObj->get_enable_quad_terms_ptr());
-  pBHGroup->AddSubItem(pProp);
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Quad Terms"), (_variant_t)pObj->get_enable_quad_terms(), _T("If this is set to 'true' the quadripole terms are taken into account when Coulomb force is calculated."), pObj->get_enable_quad_terms_ptr());
+  pBHGroup->AddSubItem(pCheckBox);
 
 // Pseudo-ions distribution type in the Barnes-Hut object:
   COleVariant var(EvaporatingParticle::CSpaceChargeDistrib::get_distrib_type_name(distrib.get_ion_distrib_type()));

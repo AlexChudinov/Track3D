@@ -30,6 +30,7 @@ static char THIS_FILE[]=__FILE__;
 CPropertiesWnd::CPropertiesWnd()
 {
   m_bUpdateAll = false;
+  m_bIgnoreIdle = false;
 }
 
 CPropertiesWnd::~CPropertiesWnd()
@@ -476,6 +477,9 @@ void CPropertiesWnd::SetPropListFont()
 
 void CPropertiesWnd::on_idle()
 {
+  if(m_bIgnoreIdle)
+    return;
+
   if(m_bUpdateAll)
     update_prop_list();
   else
@@ -618,10 +622,6 @@ void CPropertiesWnd::OnTabSelChanging(NMHDR* pNMHDR, LRESULT* pLResult)
 {
   if((pNMHDR->hwndFrom == m_wndTabCtrl.m_hWnd) && (pNMHDR->code == TCN_SELCHANGING))
   {
-    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    if(pDrawObj->get_sel_flag())
-      return;
-
     set_data_to_model();
     int nSel = m_wndTabCtrl.GetCurSel();
     m_wndTabCtrl.HighlightItem(nSel, FALSE);
@@ -632,10 +632,6 @@ void CPropertiesWnd::OnTabSelChange(NMHDR* pNMHDR, LRESULT* pLResult)
 {
   if((pNMHDR->hwndFrom == m_wndTabCtrl.m_hWnd) && (pNMHDR->code == TCN_SELCHANGE))
   {
-    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    if(pDrawObj->get_sel_flag())
-      return;
-
     int nSel = m_wndTabCtrl.GetCurSel();
     m_wndTabCtrl.HighlightItem(nSel, TRUE);
     set_update_all();

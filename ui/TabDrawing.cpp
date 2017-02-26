@@ -46,8 +46,8 @@ void CPropertiesWnd::add_draw_ctrls()
 // Tracks:
   CMFCPropertyGridProperty* pTracksGroup = new CMFCPropertyGridProperty(_T("Tracks"));
 
-  pRespProp = new CResponseProperty(this, _T("Enable Tracks"), (_variant_t)pObj->get_enable_tracks(), _T("Turns ON/OFF drawing trajectories of particles"), pObj->get_enable_tracks_ptr());
-  pTracksGroup->AddSubItem(pRespProp);
+  CRedrawCheckBox* pCheckBox = new CRedrawCheckBox(this, _T("Enable Tracks"), (_variant_t)pObj->get_enable_tracks(), _T("Turns ON/OFF drawing trajectories of particles"), pObj->get_enable_tracks_ptr());
+  pTracksGroup->AddSubItem(pCheckBox);
 
   EvaporatingParticle::CColoredTracks& color_tracks = pObj->get_colored_tracks();
 // Track color map:
@@ -82,7 +82,7 @@ void CPropertiesWnd::add_draw_ctrls()
   pTracksGroup->AddSubItem(pCountProp);
 
 // Colored range:
-  CResponseProperty* pUserRangeProp = new CResponseProperty(this, _T("User-Defined Range"), (_variant_t)color_tracks.get_enable_user_range(), _T("If this is ON the colored range is defined by the user."), color_tracks.get_enable_user_range_ptr());
+  CTrackRangeCheckBox* pUserRangeProp = new CTrackRangeCheckBox(this, _T("User-Defined Range"), (_variant_t)color_tracks.get_enable_user_range(), _T("If this is ON the colored range is defined by the user."), color_tracks.get_enable_user_range_ptr());
   pTracksGroup->AddSubItem(pUserRangeProp);
 
   CResponseProperty* pMinValProp = new CResponseProperty(this, _T("Min (SI Units)"), COleVariant(color_tracks.get_min_val()), _T("Specify this to define the low margin of the colored range."), color_tracks.get_min_val_ptr());
@@ -103,8 +103,8 @@ void CPropertiesWnd::add_draw_ctrls()
   pRespProp = new CResponseProperty(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
   pGeneralGroup->AddSubItem(pRespProp);
 
-  pRespProp = new CResponseProperty(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
-  pGeneralGroup->AddSubItem(pRespProp);
+  pCheckBox = new CRedrawCheckBox(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
+  pGeneralGroup->AddSubItem(pCheckBox);
 
   pDrawGroup->AddSubItem(pGeneralGroup);
 
@@ -119,31 +119,6 @@ void CPropertiesWnd::add_draw_ctrls()
 
 void CPropertiesWnd::set_draw_data()
 {
-/*
-  EvaporatingParticle::CTrackDraw* pObj = CParticleTrackingApp::Get()->GetDrawObj();
-
-  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_faces_color_ptr());
-  if(pProp != NULL)
-  {
-    CMFCPropertyGridColorProperty* pColorBtn = (CMFCPropertyGridColorProperty*)pProp;
-    pObj->set_faces_color(pColorBtn->GetColor());
-  }
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_opacity_ptr());
-  if(pProp != NULL)
-    pObj->set_opacity(pProp->GetValue().dblVal);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_bkgr_color_ptr());
-  if(pProp != NULL)
-  {
-    CMFCPropertyGridColorProperty* pBkgColorBtn = (CMFCPropertyGridColorProperty*)pProp;
-    pObj->set_bkgr_color(pBkgColorBtn->GetColor());
-  }
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_rot_center_ptr());
-  if(pProp != NULL)
-    pObj->set_rot_center(pProp->GetValue().boolVal);
-*/
 }
 
 void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
@@ -160,8 +135,8 @@ void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     CMFCPropertyGridProperty* pCrossSectProp = new CMFCPropertyGridProperty(cName);
 
 // Enable cross-section:
-    CCrossSectionResponer* pRespProp = new CCrossSectionResponer(this, _T("Enable Plane"), (_variant_t)pObj->get_enable(), _T("Turns ON/OFF drawing the cross-section plane"), pObj->get_enable_ptr());
-    pCrossSectProp->AddSubItem(pRespProp);
+    CCrossSectCheckBox* pCheckBox = new CCrossSectCheckBox(this, _T("Enable Plane"), (_variant_t)pObj->get_enable(), _T("Turns ON/OFF drawing the cross-section plane"), pObj->get_enable_ptr());
+    pCrossSectProp->AddSubItem(pCheckBox);
 
 // Type of the plane:
     int nPlaneType = pObj->get_plane_type();
@@ -173,6 +148,7 @@ void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     pTypeProp->AllowEdit(FALSE);
     pCrossSectProp->AddSubItem(pTypeProp);
 
+    CCrossSectionResponer* pRespProp = NULL;
 // Plane origin and normal:
     CMFCPropertyGridProperty* pPosGroup = new CMFCPropertyGridProperty(_T("Position"), pObj->get_plane_origin_ptr());
     switch(nPlaneType)
@@ -225,7 +201,7 @@ void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     EvaporatingParticle::CColorContour* pObj = pDrawObj->get_contour(i);
 
 // Enable flag:
-    CResponseProperty* pRespProp = new CResponseProperty(this, _T("Enable"), (_variant_t)pObj->get_enable_image(), _T("Turns ON/OFF drawing the contour"), pObj->get_enable_image_ptr());
+    CRedrawCheckBox* pRespProp = new CRedrawCheckBox(this, _T("Enable"), (_variant_t)pObj->get_enable_image(), _T("Turns ON/OFF drawing the contour"), pObj->get_enable_image_ptr());
     pContourProp->AddSubItem(pRespProp);
 
 // Locations:
@@ -265,7 +241,7 @@ void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     pContourProp->AddSubItem(pCountProp);
 
 // Colored range:
-    CResponseProperty* pUserRangeProp = new CResponseProperty(this, _T("User-Defined Range"), (_variant_t)pObj->get_enable_user_range(), _T("If this is ON the colored range is defined by the user."), pObj->get_enable_user_range_ptr());
+    CContourRangeCheckBox* pUserRangeProp = new CContourRangeCheckBox(this, _T("User-Defined Range"), (_variant_t)pObj->get_enable_user_range(), _T("If this is ON the colored range is defined by the user."), pObj->get_enable_user_range_ptr());
     pContourProp->AddSubItem(pUserRangeProp);
 
     CResponseProperty* pMinValProp = new CResponseProperty(this, _T("Min (SI Units)"), COleVariant(pObj->get_min_val()), _T("Specify this to define the low margin of the colored range."), pObj->get_min_val_ptr());
@@ -275,7 +251,7 @@ void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     pContourProp->AddSubItem(pMaxValProp);
 
 // Enable drawing contour lines:
-    CResponseProperty* pDrawLinesProp = new CResponseProperty(this, _T("Draw Contour Lines"), (_variant_t)pObj->get_enable_lines(), _T("Turns ON/OFF drawing the contour lines"), pObj->get_enable_lines_ptr());
+    CRedrawCheckBox* pDrawLinesProp = new CRedrawCheckBox(this, _T("Draw Contour Lines"), (_variant_t)pObj->get_enable_lines(), _T("Turns ON/OFF drawing the contour lines"), pObj->get_enable_lines_ptr());
     pContourProp->AddSubItem(pDrawLinesProp);
 
 // Remove contour button.

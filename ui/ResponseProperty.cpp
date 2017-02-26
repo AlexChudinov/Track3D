@@ -29,11 +29,6 @@ BOOL CResponseProperty::OnUpdateValue()
       }
     }
   }
-  else if(pDrawObj->get_enable_tracks_ptr() == pData)
-  {
-    pDrawObj->set_enable_tracks(GetValue().boolVal);
-    pDrawObj->draw();
-  }
   else if(pDrawObj->get_opacity_ptr() == pData)
   {
     pDrawObj->set_opacity(GetValue().dblVal);
@@ -42,11 +37,6 @@ BOOL CResponseProperty::OnUpdateValue()
   else if(pDrawObj->get_rot_center_ptr() == pData)
   {
     pDrawObj->set_rot_center(GetValue().boolVal);
-  }
-  else if(pDrawObj->get_enable_draw_norm_ptr() == pData)
-  {
-    pDrawObj->set_enable_draw_norm(GetValue().boolVal);
-    pDrawObj->draw();
   }
   else if(pDrawObj->get_colored_tracks().get_var_index_ptr() == pData)
   {
@@ -96,24 +86,6 @@ BOOL CResponseProperty::OnUpdateValue()
     pDrawObj->draw();
   }
 // Range controls:
-  else if(pDrawObj->get_colored_tracks().get_enable_user_range_ptr() == pData)
-  {
-    pDrawObj->get_colored_tracks().set_enable_user_range(GetValue().boolVal);
-
-    EvaporatingParticle::CTracker* pTrackObj = CParticleTrackingApp::Get()->GetTracker();
-    if(pDrawObj->get_colored_tracks().get_enable_user_range())
-    {
-      pDrawObj->get_colored_tracks().restore_user_range();
-      pTrackObj->update_interface();
-    }
-    else
-    {
-      pDrawObj->get_colored_tracks().get_min_max();
-      pTrackObj->update_interface();
-    }
-
-    pDrawObj->draw();
-  }
   else if(pDrawObj->get_colored_tracks().get_min_val_ptr() == pData)
   {
     pDrawObj->get_colored_tracks().set_min_val(GetValue().dblVal);
@@ -140,13 +112,6 @@ void CResponseProperty::on_update_contour_ctrls()
   for(size_t i = 0; i < nContoursCount; i++)
   {
     EvaporatingParticle::CColorContour* pObj = pDrawObj->get_contour(i);
-// Enable flag:
-    if(pObj->get_enable_image_ptr() == pData)
-    {
-      pObj->set_enable_image(GetValue().boolVal);
-      pDrawObj->draw();
-      return;
-    }
 // Variable to be plotted:
     if(pObj->get_var_index_ptr() == pData)
     {
@@ -197,33 +162,7 @@ void CResponseProperty::on_update_contour_ctrls()
       pDrawObj->draw();
       return;
     }
-// Draw contour lines:
-    if(pObj->get_enable_lines_ptr() == pData)
-    {
-      pObj->set_enable_lines(GetValue().boolVal);
-      pDrawObj->draw();
-      return;
-    }
 // Range controls:
-    if(pObj->get_enable_user_range_ptr() == pData)
-    {
-      pObj->set_enable_user_range(GetValue().boolVal);
-
-      EvaporatingParticle::CTracker* pTrackObj = CParticleTrackingApp::Get()->GetTracker();
-      if(pObj->get_enable_user_range())
-      {
-        pObj->restore_user_range();
-        pTrackObj->update_interface();
-      }
-      else
-      {
-        pObj->get_min_max();
-        pTrackObj->update_interface();
-      }
-
-      pDrawObj->draw();
-      return;
-    }
     if(pObj->get_min_val_ptr() == pData)
     {
       pObj->set_min_val(GetValue().dblVal);
@@ -400,5 +339,16 @@ BOOL CColorResponseProperty::OnUpdateValue()
     pDrawObj->draw();
   }
 
+  return bRes;
+}
+
+//---------------------------------------------------------------------------------------
+//  CExportResponseProperty
+//---------------------------------------------------------------------------------------
+BOOL CExportResponseProperty::OnUpdateValue()
+{
+  BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+  m_pWndProp->set_data_to_model();
+  m_pWndProp->set_update_all();
   return bRes;
 }

@@ -44,7 +44,7 @@ void CPropertiesWnd::add_type_ctrls()
   EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
 
   CMFCPropertyGridProperty* pOutGroup = new CMFCPropertyGridProperty(_T("Output to a File"));
-  CMFCPropertyGridProperty* pOutProp = new CMFCPropertyGridProperty(_T("Enable File Output"), (_variant_t)outEng.get_enable_file_output(), _T("Turns ON/OFF the file output."), outEng.get_enable_file_output_ptr());
+  CCheckBoxButton* pOutProp = new CCheckBoxButton(this, _T("Enable File Output"), (_variant_t)outEng.get_enable_file_output(), _T("Turns ON/OFF the file output."), outEng.get_enable_file_output_ptr());
   pOutGroup->AddSubItem(pOutProp);
 
   CMFCPropertyGridProperty* pOutTypeProp = new CMFCPropertyGridProperty(_T("Collect tracks by initial radius"), (_variant_t)outEng.get_enable_ens_by_radius(), _T("If this is 'true' the output tracks are grouped into bins by their initial radii."), outEng.get_enable_ens_by_radius_ptr());
@@ -53,13 +53,13 @@ void CPropertiesWnd::add_type_ctrls()
   CMFCPropertyGridProperty* pCountProp = new CMFCPropertyGridProperty(_T("Count of radial ranges"), COleVariant((long)outEng.get_ens_by_radius_count()), _T("Count of initial radius bins, by which the output ensembles will be built."), outEng.get_ens_by_radius_count_ptr());
   pOutGroup->AddSubItem(pCountProp);
 
-  CMFCPropertyGridProperty* pQ00Prop = new CMFCPropertyGridProperty(_T("Output only Q00 tracks"), (_variant_t)outEng.get_restrict_output(), _T("If true, only those tracks will be output to a file which have passed to the Q00 region."), outEng.get_restrict_output_ptr());
+  CCheckBoxButton* pQ00Prop = new CCheckBoxButton(this, _T("Output only Q00 tracks"), (_variant_t)outEng.get_restrict_output(), _T("If true, only those tracks will be output to a file which have passed to the Q00 region."), outEng.get_restrict_output_ptr());
   pOutGroup->AddSubItem(pQ00Prop);
   m_wndPropList.AddProperty(pOutGroup);
 
 // Saving track data to the *.tsk file:
   CMFCPropertyGridProperty* pSaveTrackGroup = new CMFCPropertyGridProperty(_T("Save track data onto the disk"));
-  CMFCPropertyGridProperty* pEnableSaveTrack = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pObj->get_enable_save_tracks(), _T("If this flag is ON the File/Save... command saves the full tracks data on the disk."), pObj->get_enable_save_tracks_ptr());
+  CCheckBoxButton* pEnableSaveTrack = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_save_tracks(), _T("If this flag is ON the File/Save... command saves the full tracks data on the disk."), pObj->get_enable_save_tracks_ptr());
   pSaveTrackGroup->AddSubItem(pEnableSaveTrack);
   m_wndPropList.AddProperty(pSaveTrackGroup);
 
@@ -86,11 +86,11 @@ void CPropertiesWnd::add_type_ctrls()
   CMFCPropertyGridProperty* pTransGroup = new CMFCPropertyGridProperty(_T("Mesh Transformation"));
   EvaporatingParticle::CTransform& trans = pObj->get_transform();
 // Enable
-  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)trans.get_enable(), _T("Turns ON/OFF the mesh transformation."), trans.get_enable_ptr());
-  pTransGroup->AddSubItem(pProp);
+  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)trans.get_enable(), _T("Turns ON/OFF the mesh transformation."), trans.get_enable_ptr());
+  pTransGroup->AddSubItem(pCheckBox);
 // Rotation axis:
   var = COleVariant(_T(trans.axis_name(trans.get_rot_axis())));
-  pProp = new CMFCPropertyGridProperty(_T("Rotation Axis"), var, _T("Specify rotation axis."), trans.get_rot_axis_ptr());
+  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Rotation Axis"), var, _T("Specify rotation axis."), trans.get_rot_axis_ptr());
   for(int j = 0; j < EvaporatingParticle::CTransform::axesCount; j++)
     pProp->AddOption(_T(trans.axis_name(j)));
 
@@ -133,7 +133,7 @@ void CPropertiesWnd::set_type_data()
 
 // File output:
   EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
-
+/*
   pProp = m_wndPropList.FindItemByData(outEng.get_enable_file_output_ptr());
   if(pProp != NULL)
     outEng.set_enable_file_output(pProp->GetValue().boolVal);
@@ -141,7 +141,7 @@ void CPropertiesWnd::set_type_data()
   pProp = m_wndPropList.FindItemByData(outEng.get_enable_ens_by_radius_ptr());
   if(pProp != NULL)
     outEng.set_enable_ens_by_radius(pProp->GetValue().boolVal);
-
+*/
   pProp = m_wndPropList.FindItemByData(outEng.get_ens_by_radius_count_ptr());
   if(pProp != NULL)
     outEng.set_ens_by_radius_count(pProp->GetValue().lVal);
@@ -151,10 +151,11 @@ void CPropertiesWnd::set_type_data()
     outEng.set_restrict_output(pProp->GetValue().boolVal);
 
 // Saving track data to the *.tsk file:
+/*
   pProp = m_wndPropList.FindItemByData(pObj->get_enable_save_tracks_ptr());
   if(pProp != NULL)
     pObj->set_enable_save_tracks(pProp->GetValue().boolVal);
-
+*/
 // Symmetry:
   pProp = m_wndPropList.FindItemByData(pObj->get_sym_plane_ptr());
   if(pProp != NULL)
@@ -173,10 +174,11 @@ void CPropertiesWnd::set_type_data()
 
 // Mesh transformation:
   EvaporatingParticle::CTransform& trans = pObj->get_transform();
+/*
   pProp = m_wndPropList.FindItemByData(trans.get_enable_ptr());
   if(pProp != NULL)
     trans.set_enable(pProp->GetValue().boolVal);
-
+*/
   pProp = m_wndPropList.FindItemByData(trans.get_rot_axis_ptr());
   if(pProp != NULL)
   {

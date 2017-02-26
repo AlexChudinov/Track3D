@@ -259,6 +259,90 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CCheckBoxButton - a base class for processing boolean variables. Use this class if no
+// immediate response is expected. However, if some specific actions are required just 
+// after changing the flag (redrawing, etc), you have to use the descendants with the 
+// OnClickButton function overridden.
+//---------------------------------------------------------------------------------------
+class CCheckBoxButton : public CProprtyListButton
+{
+  DECLARE_DYNAMIC(CCheckBoxButton)
+
+public:
+  CCheckBoxButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CProprtyListButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+};
+
+//---------------------------------------------------------------------------------------
+// CRedrawCheckBox - use this class if only an immediate redrwing is needed after the switch.
+//---------------------------------------------------------------------------------------
+class CRedrawCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CRedrawCheckBox)
+
+public:
+  CRedrawCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CContourRangeCheckBox
+//---------------------------------------------------------------------------------------
+class CContourRangeCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CContourRangeCheckBox)
+
+public:
+  CContourRangeCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CTrackRangeCheckBox
+//---------------------------------------------------------------------------------------
+class CTrackRangeCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CTrackRangeCheckBox)
+
+public:
+  CTrackRangeCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CCrossSectCheckBox
+//---------------------------------------------------------------------------------------
+class CCrossSectCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CCrossSectCheckBox)
+
+public:
+  CCrossSectCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // Inline implementation.
 //---------------------------------------------------------------------------------------
 inline BOOL CSelectRegionButton::HasButton() const

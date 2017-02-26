@@ -11,6 +11,7 @@
 #include <cassert>
 #include <algorithm>
 
+#include <linearAlgebra\matrixTemplate.h>
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"
 #include "../track3d/CObject.h" // [MS] 10-02-2017 progress bar support.
@@ -325,6 +326,9 @@ public:
 	using Label = size_t;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
+	using Vector3DOp = std::array<InterpCoefs, 3>;
+	using Matrix3D = math::matrix_c<double, 3, 3>;
+	using Matrix2D = math::matrix_c<double, 2, 2>;
 	using Node = EvaporatingParticle::CNode3D;
 	using Element = EvaporatingParticle::CElem3D;
 	using ScalarFieldOperator = CFieldOperator<double>;
@@ -355,6 +359,13 @@ private:
 	//Math operations with interpolation coeffs
 	static InterpCoefs& add(InterpCoefs& ic1, const InterpCoefs& ic2);
 	static InterpCoefs& mul(double h, InterpCoefs& ic);
+	
+	//Creates covariance matrix for dirrections around label 
+	Matrix3D covarianceOfDirections(Label l) const;
+	//Returns vector of finite difference total projections on a directions x,y,z
+	Vector3DOp finDiffDirCov(Label l) const;
+	//Returns vector of coefficients for grad in point calculation using directed derivatives averaging
+	Vector3DOp averageGradePoint(Label l) const;
 
 	//Creates mesh graph connections
 	void lazyGraphCreation();

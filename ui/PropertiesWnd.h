@@ -56,6 +56,7 @@ protected:
 
   bool                  m_bBusy;
   bool                  m_bUpdateAll;
+  bool                  m_bIgnoreIdle;  // graying out all controls but one support.
 
 // Implementation
 public:
@@ -68,6 +69,7 @@ public:
   void          update_ctrls();
 
 // The function must disable all controls at the list but pBtn; selection regions support.
+  void          set_ignore_idle(bool bIgnore);
   void          disable_all_but_one(CMFCPropertyGridProperty* pBtn, CMFCPropertyGridProperty* pParent = NULL);
   void          enable_tab_ctrl(BOOL bEnable = TRUE);
 
@@ -166,4 +168,9 @@ inline void CPropertiesWnd::set_update_all()
 inline void CPropertiesWnd::enable_tab_ctrl(BOOL bEnable)
 {
   m_wndTabCtrl.EnableWindow(bEnable);
+}
+
+inline void CPropertiesWnd::set_ignore_idle(bool bIgnore)
+{
+  m_bIgnoreIdle = bIgnore;
 }

@@ -229,6 +229,10 @@ public:
   DWORD_PTR               get_use_old_integrator_ptr() const;
   void                    set_use_old_integrator(bool bEnable);
 
+  bool                    get_enable_ansys_field() const;
+  DWORD_PTR               get_enable_ansys_field_ptr() const;
+  void                    set_enable_ansys_field(bool bEnable);
+
 // Turn ON/OFF saving the tracks on disk:
   bool                    get_enable_save_tracks() const;
   DWORD_PTR               get_enable_save_tracks_ptr() const;
@@ -373,9 +377,6 @@ public:
 // Ion mobility recalculated from m_fIonMobility at STP using the Chapman-Enskog approximation.
   double                  get_ion_mob(double fPress, double fTemp) const;
 
-// Additional DC electric field:
-//public:
-//  Vector3D                get_add_field(const Vector3D& vPos) const;
 protected:
   CBaseTrackItem*         create_track_item(size_t          nElemId,
                                             const Vector3D& vPos,
@@ -383,7 +384,6 @@ protected:
                                             double          fMass,
                                             double          fTemp,
                                             double          fTime) const;
-
 // Coulomb effects:
   void                    init_currents();  // before integration runs over all track items and initializes item.curr members.
 
@@ -452,7 +452,8 @@ public:
                           m_fHalfTimeStep,
                           m_fMaxIntegrTime;
 private:
-  bool                    m_bOldIntegrator; // now only the old integrator supports the droplet type of particles.
+  bool                    m_bOldIntegrator, // the first predictor-corrector integrator improved by correct field averaging.
+                          m_bAnsysFields;   // if true, the ANSYS calculated electric fields are used.
 
   double                  m_fInitMass,
                           m_fPartDens,
@@ -1301,6 +1302,16 @@ inline DWORD_PTR CTracker::get_use_old_integrator_ptr() const
 inline void CTracker::set_use_old_integrator(bool bEnable)
 {
   m_bOldIntegrator = bEnable;
+}
+
+inline bool CTracker::get_enable_ansys_field() const
+{
+  return m_bAnsysFields;
+}
+
+inline DWORD_PTR CTracker::get_enable_ansys_field_ptr() const
+{
+  return (DWORD_PTR)&m_bAnsysFields;
 }
 
 inline bool CTracker::get_enable_save_tracks() const
