@@ -365,7 +365,9 @@ private:
 	//Returns vector of finite difference total projections on a directions x,y,z
 	Vector3DOp finDiffDirCov(Label l) const;
 	//Returns vector of coefficients for grad in point calculation using directed derivatives averaging
-	Vector3DOp averageGradePoint(Label l) const;
+	InterpCoefs gradX(Label l) const;
+	InterpCoefs gradY(Label l) const;
+	InterpCoefs gradZ(Label l) const;
 
 	//Creates mesh graph connections
 	void lazyGraphCreation();
@@ -426,6 +428,11 @@ public:
 		GradZ
 	};
 	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver1);
+
+	//Returns operators calculating gradient components
+	ScalarFieldOperator gradX();
+	ScalarFieldOperator gradY();
+	ScalarFieldOperator gradZ();
 };
 
 #endif // !_MESH_DATA_

@@ -187,29 +187,105 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	return result;
 }
 
-CMeshAdapter::Vector3DOp CMeshAdapter::averageGradePoint(Label l) const
+CMeshAdapter::InterpCoefs CMeshAdapter::gradX(Label l) const
 {
-	Vector3DOp result;
+	InterpCoefs result;
 	Matrix3D m = covarianceOfDirections(l);
 	double fDet = math::det(m);
-	if (fDet*fDet <= eps()) 
-		throw std::runtime_error("CMeshAdapter::averageGradePoint: Determinant is zero!");
+	if (fDet*fDet <= eps())
+		throw std::runtime_error("CMeshAdapter::gradX: Determinant is zero!");
 	Vector3DOp vDiff = finDiffDirCov(l);
 	mul(1. / fDet,
-		add(result[0],
-			add(mul(math::det(Matrix2D{ {m(1,1), m(1,2)}, {m(2,1), m(2,2)} }), vDiff[0]),
-				add(mul(-math::det(Matrix2D{ {m(0,1), m(0,2)}, {m(2,1), m(2,2)} }), vDiff[1]),
-					mul(math::det(Matrix2D{ {m(0,1), m(0,2)}, {m(1,1), m(1,2)} }), vDiff[2])))));
+		add(result,
+			add(mul(math::det(Matrix2D{ { m(1,1), m(1,2) },{ m(2,1), m(2,2) } }), vDiff[0]),
+				add(mul(-math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(2,1), m(2,2) } }), vDiff[1]),
+					mul(math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(1,1), m(1,2) } }), vDiff[2])))));
+	return result;
+}
+
+CMeshAdapter::InterpCoefs CMeshAdapter::gradY(Label l) const
+{
+	InterpCoefs result;
+	Matrix3D m = covarianceOfDirections(l);
+	double fDet = math::det(m);
+	if (fDet*fDet <= eps())
+		throw std::runtime_error("CMeshAdapter::gradY: Determinant is zero!");
+	Vector3DOp vDiff = finDiffDirCov(l);
 	mul(1. / fDet,
-		add(result[1],
+		add(result,
 			add(mul(-math::det(Matrix2D{ { m(1,0), m(1,2) },{ m(2,0), m(2,2) } }), vDiff[0]),
 				add(mul(math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(2,0), m(2,2) } }), vDiff[1]),
 					mul(-math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(1,0), m(1,2) } }), vDiff[2])))));
+	return result;
+}
+
+CMeshAdapter::InterpCoefs CMeshAdapter::gradZ(Label l) const
+{
+	InterpCoefs result;
+	Matrix3D m = covarianceOfDirections(l);
+	double fDet = math::det(m);
+	if (fDet*fDet <= eps())
+		throw std::runtime_error("CMeshAdapter::gradZ: Determinant is zero!");
+	Vector3DOp vDiff = finDiffDirCov(l);
 	mul(1. / fDet,
-		add(result[2],
+		add(result,
 			add(mul(math::det(Matrix2D{ { m(1,0), m(1,1) },{ m(2,0), m(2,1) } }), vDiff[0]),
 				add(mul(-math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(2,0), m(2,1) } }), vDiff[1]),
 					mul(math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(1,0), m(1,1) } }), vDiff[2])))));
+	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
+{
+	lazyGraphCreation();
+	m_pProgressBar->set_job_name("Creating gradient x-component operator...");
+	m_pProgressBar->set_progress(0);
+
+	ScalarFieldOperator result; 
+	result.m_matrix.resize(m_nodes.size());
+
+	for (const Node* n : m_nodes)
+	{
+		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) break;
+		result.m_matrix[n->nInd] = gradX(n->nInd);
+	}
+	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
+{
+	lazyGraphCreation();
+	m_pProgressBar->set_job_name("Creating gradient y-component operator...");
+	m_pProgressBar->set_progress(0);
+
+	ScalarFieldOperator result;
+	result.m_matrix.resize(m_nodes.size());
+
+	for (const Node* n : m_nodes)
+	{
+		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) break;
+		result.m_matrix[n->nInd] = gradY(n->nInd);
+	}
+	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ()
+{
+	lazyGraphCreation();
+	m_pProgressBar->set_job_name("Creating gradient z-component operator...");
+	m_pProgressBar->set_progress(0);
+
+	ScalarFieldOperator result;
+	result.m_matrix.resize(m_nodes.size());
+
+	for (const Node* n : m_nodes)
+	{
+		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
+		if (m_pProgressBar->get_terminate_flag()) break;
+		result.m_matrix[n->nInd] = gradZ(n->nInd);
+	}
 	return result;
 }
 
@@ -367,26 +443,11 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 		size_t nNodeIdxNext;
 		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) break;
-		if (m_pBoundary->isBoundary(n->nInd))
-		{
-			Vector3DOp vGrad = averageGradePoint(n->nInd);
-			add(result.m_matrix[n->nInd],
-				add(mul(dir.x, vGrad[0]),
-					add(mul(dir.y, vGrad[1]),
-						mul(dir.z, vGrad[2]))));
-		}
-		else
-		{
-			double
-				h0 = optimalStep(-dir, n->nInd) / 2.,
-				h1 = optimalStep(dir, n->nInd)  / 2.;
-			Vector3D pos0 = n->pos - dir*h0;
-			Vector3D pos1 = n->pos + dir*h1;
-			InterpCoefs coefs = interpCoefs(pos1, nNodeIdxNext, n->nInd);
-			add(coefs, mul(-1.0, interpCoefs(pos0, nNodeIdxNext, n->nInd)));
-			mul(1. / (h1 + h0), coefs);
-			result.m_matrix[n->nInd] = std::move(coefs);
-		}
+		
+		add(result.m_matrix[n->nInd],
+			add(mul(dir.x, gradX(n->nInd)),
+				add(mul(dir.y, gradY(n->nInd)),
+					mul(dir.z, gradZ(n->nInd)))));
 	}
 
 	return result;
@@ -550,11 +611,11 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
 	case CMeshAdapter::LaplacianSolver1:
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
 	case CMeshAdapter::GradX:
-		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 1.0, 0.0, 0.0 })));
+		return PScalFieldOp(new ScalarFieldOperator(gradX()));
 	case CMeshAdapter::GradY:
-		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 0.0, 1.0, 0.0 })));
+		return PScalFieldOp(new ScalarFieldOperator(gradY()));
 	case CMeshAdapter::GradZ:
-		return PScalFieldOp(new ScalarFieldOperator(directedDerivative({ 0.0, 0.0, 1.0 })));
+		return PScalFieldOp(new ScalarFieldOperator(gradZ()));
 	default:
 		throw std::runtime_error("CMeshAdapter::createOperator: Unsupported operator type.");
 	}
