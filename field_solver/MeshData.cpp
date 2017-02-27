@@ -178,11 +178,10 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	for (Label i : m_lazyGraph->neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
-		InterpCoefs dU{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } };
 		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
-		add(result[0], mul(v.x / fSqLength, dU));
-		add(result[1], mul(v.y / fSqLength, dU));
-		add(result[2], mul(v.z / fSqLength, dU));
+		add(result[0], mul(v.x / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
+		add(result[1], mul(v.y / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
+		add(result[2], mul(v.z / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
 	}
 	return result;
 }
