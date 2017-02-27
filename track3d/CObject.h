@@ -15,6 +15,7 @@ public:
   CObject();
   virtual ~CObject();
 
+  void            get_handlers(HWND& hJobName, HWND& hProgress, HWND& hDlgWnd) const;
   void            set_handlers(HWND hJobName, HWND hProgress, HWND hDlgWnd = NULL);
 
   bool            get_terminate_flag() const;
@@ -37,6 +38,13 @@ protected:
 
   void            set_status(const char* cAction, int nPercent) const;
 };
+
+inline void CObject::get_handlers(HWND& hJobName, HWND& hProgress, HWND& hDlgWnd) const
+{
+  hJobName = m_hJobNameHandle;
+  hProgress = m_hProgressBarHandle;
+  hDlgWnd = m_hDlgWndHandle;
+}
 
 inline void CObject::set_handlers(HWND hJobName, HWND hProgress, HWND hDlgWnd)
 {

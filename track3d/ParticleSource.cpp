@@ -110,7 +110,7 @@ bool CSource::generate_initial_cond()
         vPos = m_vPos;
         vReflPos = reflector.reflectionCoefs(vPos) && vPos;  // this must be inside the ANSYS mesh as it is.
 // Check whether the position is really inside the simulation domain.
-        if(!pObj->interpolate(vReflPos, node, pElem))
+        if(!pObj->interpolate(vReflPos, 0, 0, node, pElem))
           return false;
 
         vVel = m_fAbsVel * m_vDir;
@@ -163,7 +163,7 @@ bool CSource::generate_initial_cond()
           vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
           vReflCoeff = reflector.reflectionCoefs(vPos);
           vReflPos = vReflCoeff && vPos;
-          if(pObj->interpolate(vReflPos, node, pElem))
+          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
           {
             vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
             add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
@@ -180,7 +180,7 @@ bool CSource::generate_initial_cond()
         vPos = m_vPos;
         vReflCoeff = reflector.reflectionCoefs(vPos);
         vReflPos = vReflCoeff && vPos;
-        if(pObj->interpolate(vReflPos, node, pElem))
+        if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
         {
           vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
           add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
@@ -203,7 +203,7 @@ bool CSource::generate_initial_cond()
             vPos = m_vPos + fRad * vShift;
             vReflCoeff = reflector.reflectionCoefs(vPos);
             vReflPos = vReflCoeff && vPos;
-            if(pObj->interpolate(vReflPos, node, pElem))
+            if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
             {
               vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
               add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
@@ -240,7 +240,7 @@ bool CSource::generate_initial_cond()
           vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
           vReflCoeff = reflector.reflectionCoefs(vPos);
           vReflPos = vReflCoeff && vPos;
-          if(pObj->interpolate(vReflPos, node, pElem))
+          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
           {
             vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
             add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
@@ -277,7 +277,7 @@ bool CSource::generate_initial_cond()
             vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
             vReflCoeff = reflector.reflectionCoefs(vPos);
             vReflPos = vReflCoeff && vPos;
-            if(pObj->interpolate(vReflPos, node, pElem))
+            if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
             {
               vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
               add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
@@ -541,7 +541,7 @@ void CSource::populate_face(CFace* pFace, UINT nPntCount, bool bReflect)
     fBeta = scfRandCoeff * rand();
     vPos = v0 + 0.5 * (fAlpha * e1 + fBeta * e2) - m_vFaceOffset * vNorm;
 
-    if(pObj->interpolate(vPos, node, pElem))
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
     {
       vVel = m_bUseInitialGasVel ? node.vel : m_fAbsVel * m_vDir;
       add_particle(vPos, vVel, node.temp, 0., pElem->nInd, 1, 0);

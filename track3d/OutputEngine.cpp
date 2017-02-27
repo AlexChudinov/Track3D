@@ -119,7 +119,7 @@ bool COutputEngine::output_droplet_track(UINT nTrackIndex)
     fD_part = fDropD / fInitD;
     fDropTemp = item.temp;
 
-    pObj->interpolate(item.pos, node, pElem);
+    pObj->interpolate(item.pos, 0, 0, node, pElem);
     fEnvTemp = node.temp;
     pEvaporModel->get_saturation_temp(node.press, pEvaporModel->m_H2O_mf, fSatTemp);
 
@@ -423,7 +423,7 @@ void COutputEngine::output_ion_ensemble(const CTrackVector& vEnsTracks, FILE* pS
         continue;
 
       track.get_track_item(i, item);
-      if(!pObj->interpolate(item.pos, node, pElem))
+      if(!pObj->interpolate(item.pos, 0, 0, node, pElem))
         continue;
 
       fGasTemp = node.temp;

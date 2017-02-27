@@ -128,7 +128,7 @@ void CTracker::set_default()
 // Electrostatics:
   m_bEnableField = true;
   m_fCharge = 1.e+4 * Const_Charge_CGS;
-  m_fAmplDC = 1.; // this is a multiplier, as ANSYS data provide DC field for 2500 V at the emitter.
+  m_fAmplDC = 1.; // obsolete, this variable is never used.
 
 // Restrictions:
   m_fMinD = 1.0e-6;       // cm.
@@ -223,8 +223,9 @@ void CTracker::GetTimeDeriv(const void* pData, const double* pItemState, double*
   bool bReflDone = pObj->sym_corr(vPos, vVel, vAccel);
 
   CNode3D node;
+  double fTime = *pTime;
 // Compute all ANSYS fields at pItem->pos and place them into the node structure.
-  if(!pObj->interpolate(vPos, node, pElem))
+  if(!pObj->interpolate(vPos, fTime, pI->fPhase, node, pElem))
   {
     pI->nElemId = -1;  // if interpolate(...) fails terminate integration of this track.
     pI->bOk = false;
@@ -233,8 +234,6 @@ void CTracker::GetTimeDeriv(const void* pData, const double* pItemState, double*
   }
 
   pI->nElemId = pElem->nInd;
-  double fTime = *pTime;
-
   if(pObj->get_particle_type() == CTrack::ptIon)
   {
     double fExpCoeff;
@@ -735,7 +734,7 @@ bool CTracker::do_time_step(CBaseTrackItem* pBaseItem)
   CNode3D node;
   CElem3D* pElem = m_vElems.at(pItem->nElemId);
 // Predictor:
-  if(!interpolate(pItem->pos, node, pElem))
+  if(!interpolate(pItem->pos, pItem->time, 0, node, pElem))   // no RF-phase was used for droplets so far...
   {
     if(bReflDone)
       sym_corr(pItem->pos, pItem->vel, vAccel, true);
@@ -766,12 +765,12 @@ bool CTracker::do_time_step(CBaseTrackItem* pBaseItem)
 // and remember the result of this action:
   bReflDone = sym_corr(vPos05, vVel05, vAccel);
 
-  if(!interpolate(vPos05, node, pElem))
+  double fTime05 = pItem->time + m_fHalfTimeStep;
+  if(!interpolate(vPos05, fTime05, 0, node, pElem))
     return false;
 
   double fRe05;
   double fD05 = get_particle_diameter(fMass05);
-  double fTime05 = pItem->time + m_fHalfTimeStep;
   vAccel = get_accel(node, vVel05, fMass05, fD05, fTime05, fRe05); // the Reynolds number is computed here.
 // vAccel is the reflected particle acceleration. Turn back the velocity and acceleration and do the full time step:
   if(bReflDone)
@@ -803,13 +802,20 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
     double fEoverM = m_fCharge / fMass;
 
     if(m_bEnableField)
-      accel += fEoverM * (node.field * m_fAmplDC + m_vFieldPtbColl.apply(node.pos));
+      accel += fEoverM * (node.field + m_vFieldPtbColl.apply(node.pos));
 
     if(m_bEnableRF)
     {
-      double fAmpl, fOmega;
-      get_ampl_freq(node.pos, fAmpl, fOmega);
-      accel += fEoverM * node.rf * fAmpl * sin(fOmega * fTime);
+      if(m_bAnsysFields)
+      {
+        double fAmpl, fOmega;
+        get_ampl_freq(node.pos, fAmpl, fOmega);
+        accel += fEoverM * node.rf * fAmpl * sin(fOmega * fTime);
+      }
+      else
+      {
+        accel += fEoverM * node.rf;
+      }
     }
   }
 // Gas-dynamics:
@@ -877,7 +883,7 @@ bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double
   CElem3D* pElem = m_vElems.at(pItem->nElemId);
 // Predictor:
 // Compute all ANSYS fields at item.pos and place them into the node structure.
-  if(!interpolate(pItem->pos, node, pElem))
+  if(!interpolate(pItem->pos, pItem->time, fPhase, node, pElem))
   {
     if(bReflDone) // if interpolate(...) fails set the reflected vectors back and terminate the integration.
       sym_corr(pItem->pos, pItem->vel, vAccel, true);
@@ -902,10 +908,10 @@ bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double
 // and remember the result of this action:
   bReflDone = sym_corr(vPos05, vVel05, vAccel);
 
-  if(!interpolate(vPos05, node, pElem))
+  double fTime05 = pItem->time + m_fHalfTimeStep;
+  if(!interpolate(vPos05, fTime05, fPhase, node, pElem))
     return false;
 
-  double fTime05 = pItem->time + m_fHalfTimeStep;
   vAccel = get_ion_accel(node, vVel05, fTime05, m_fTimeStep, fPhase, fCurr, fExpCoeff);
 // vAccel is the reflected particle acceleration. Turn back the velocity and acceleration and do the full time step:
   if(bReflDone)
@@ -938,11 +944,11 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   Vector3D vE(0, 0, 0);
 // DC Field:
   if(m_bEnableField)
-    vE += (node.field * m_fAmplDC + m_vFieldPtbColl.apply(node.pos));
+    vE += (node.field + m_vFieldPtbColl.apply(node.pos));
 
 // RF field:
   if(m_bEnableRF)
-    vE += get_rf_field(node, fTime, fPhase);
+    vE += m_bAnsysFields ? get_rf_field(node, fTime, fPhase) : node.rf;
 
 // Coulomb:
   if(m_bEnableCoulomb)
@@ -980,7 +986,7 @@ double CTracker::get_dTi(const CNode3D& node, const Vector3D& vVel, double fIonT
   return (fTinf - fIonTemp) * fExpCoeff;
 }
 
-Vector3D CTracker::get_rf_field(const CNode3D& node, double fTime, double fPhase) const
+Vector3D CTracker::get_rf_field(const CNode3D& node, double fTime, double fPhase) const // obsolete, for backward compatibility only.
 {
   if(node.pos.x < m_fX_Q00) // in the funnel (S-Lens).
     return node.rf * (m_fAmplRF * sin(m_fOmega * fTime + fPhase));
@@ -1154,13 +1160,61 @@ void CTracker::clear_tracks(bool bFinally)
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface (data reading, elements finding, interpolation)
 //-------------------------------------------------------------------------------------------------
-bool CTracker::interpolate(const Vector3D& vPos, CNode3D& node, CElem3D*& pElem) const
+bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, CElem3D*& pElem) const
 {
   pElem = find_elem(pElem, vPos);
   if(pElem == NULL)
     return false;
 
-  pElem->interpolate(vPos, node);
+  double pWeight[8];  // maximal count of nodes in an element is 8 (hexa).
+  if(!pElem->coeff(vPos, pWeight))
+    return false;
+
+  double w;
+  CNode3D* pNode = NULL;
+  size_t nNodesCount = pElem->vNodes.size();
+  for(size_t i = 0; i < nNodesCount; i++)
+  {
+    pNode = pElem->vNodes.at(i);
+    w = pWeight[i];
+// Scalars:
+    node.dens  += w * pNode->dens;
+    node.press += w * pNode->press;
+    node.temp  += w * pNode->temp;
+    node.visc  += w * pNode->visc;
+    node.cond  += w * pNode->cond;
+    node.cp    += w * pNode->cp;
+// Vectors:
+    node.vel   += w * pNode->vel;
+    node.field += w * pNode->field;
+    if(m_bAnsysFields)
+      node.rf += w * pNode->rf;
+  }
+
+  if(m_bAnsysFields)
+    return true;
+
+  node.rf = vNull;
+  CElectricFieldData* pField = NULL;
+
+  Vector3D vFieldRF;
+  CFieldDataColl* pColl = CParticleTrackingApp::Get()->GetFields();
+  size_t nFieldsCount = pColl->size();
+  for(size_t j = 0; j < nFieldsCount; j++)
+  {
+    pField = pColl->at(j);
+    if(pField->get_type() != CElectricFieldData::typeFieldRF)
+      continue;
+
+    vFieldRF = vNull;
+    for(size_t i = 0; i < nNodesCount; i++)
+    {
+      pNode = pElem->vNodes.at(i);
+      vFieldRF += pWeight[i] * pField->get_field(pNode->nInd);
+    }
+
+    node.rf += vFieldRF * pField->get_scale() * sin(pField->get_omega() * fTime + fPhase);
+  }
 
   return true;
 }

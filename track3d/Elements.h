@@ -244,7 +244,8 @@ struct CElem3D
 
   void                add_plane(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2);
 
-  void                interpolate(const Vector3D& p, CNode3D& node) const;
+  bool                coeff(const Vector3D& p, double* pWeight) const;  // pWeight must be allocated in the calling function.
+  void                interpolate(const Vector3D& p, CNode3D& node) const;  // obsolete, call coeff(...) instead.
 
   void                bounding_box();
 

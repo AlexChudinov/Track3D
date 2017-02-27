@@ -231,7 +231,6 @@ public:
 
   bool                    get_enable_ansys_field() const;
   DWORD_PTR               get_enable_ansys_field_ptr() const;
-  void                    set_enable_ansys_field(bool bEnable);
 
 // Turn ON/OFF saving the tracks on disk:
   bool                    get_enable_save_tracks() const;
@@ -309,8 +308,11 @@ protected:
 //-------------------------------------------------------------------------------------------------
   bool                    read_geometry();
   bool                    read_2D_regions();
+
+public:
   bool                    read_gasdyn_data();
 
+protected:
   void                    add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3);
   void                    add_pyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4);
   void                    add_wedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5);
@@ -321,7 +323,7 @@ protected:
   void                    clear();
 
 public:
-  bool                    interpolate(const Vector3D& vPos, CNode3D& node, CElem3D*& pElem) const;
+  bool                    interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, CElem3D*& pElem) const;
 
 // Reflect the particle's position, velocity and acceleration against the symmetry plane(s)if necessary.
 // The function returns "true" if reflection has been done and the back reflection is needed. In this case set
@@ -502,6 +504,7 @@ private:
   void                    get_ampl_freq(const Vector3D& vPos, double& fAmpl, double& fFreq) const;
 
 public:
+// Obsolete, for backward compatibility only.
   Vector3D                get_rf_field(const CNode3D& node, double fTime, double fPhase) const;
 
 protected:

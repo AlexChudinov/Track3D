@@ -479,7 +479,7 @@ bool CPlaneYZCalculator::build_cs_mesh()
     for(UINT i = i0; i <= i1; i++)
     {
       vPos = Vector3D(m_fPosX, fYMin + i * fStepY, vOrig.z);
-      if(!m_pObj->interpolate(vPos, node, pElem))
+      if(!m_pObj->interpolate(vPos, 0, 0, node, pElem))
         continue;
 
 // Allocate a node inside the 3D mesh:
@@ -609,7 +609,7 @@ void CPlaneYZCalculator::process_triangle(const Vector3D& v0, const Vector3D& v1
       if(!move_node(pNodes[nGoodNode]->pos, vDest))
         return;   // unable to find intersection with the boundary, this triangle cannot be built.
 
-      if(!m_pObj->interpolate(vDest, node, pElem))
+      if(!m_pObj->interpolate(vDest, 0, 0, node, pElem))
         return;   // unable to interpolate data to the new position, this triangle cannot be built.
 
       CNode3D* pNode = new CNode3D(node.pos, node.vel, node.field, node.rf, node.dens, node.press, node.temp, node.visc, node.cond, node.cp);
@@ -930,7 +930,7 @@ void CLineCalculator::do_calculate()
       break;
 
     vPos = m_vLineStart + vDir * (i * fStep);
-    if(!m_pObj->interpolate(vPos, node, pElem))
+    if(!m_pObj->interpolate(vPos, 0, 0, node, pElem))
       continue;
 
     assign_result(node);

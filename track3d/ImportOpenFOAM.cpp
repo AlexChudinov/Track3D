@@ -268,7 +268,7 @@ bool CImportOpenFOAM::second_step()
   {
     pNode = vNodes.at(i);
     vPos = pNode->pos;
-    if(!box.inside(vPos) || !AuxObj.interpolate(vPos, node, pElem))
+    if(!box.inside(vPos) || !AuxObj.interpolate(vPos, 0, 0, node, pElem))
       continue;
 
 // Modification of the main gas-dynamic parameters by the imported data:

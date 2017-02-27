@@ -82,12 +82,16 @@ public:
   size_t                  get_bc_count() const;
   CPotentialBoundCond*    get_bc(size_t nId) const;
 
+  Vector3D                get_field(size_t nInd) const;
+  double                  get_omega() const;
+
   void                    add_bc();
   void                    remove_bc(size_t nId);
 
   static const char*      get_field_type_name(int nType);
 
-  bool                    calc_field();
+  bool                    calc_field(bool bTest = false);
+  bool                    need_recalc() const;
   void                    invalidate();
 
   void                    save(CArchive& ar);
@@ -106,7 +110,7 @@ protected:
 
   Vector3D                calc_norm(CNode3D* pNode) const;
 
-  void                    get_result(const std::vector<double>& vFieldVals);
+  bool                    get_result(bool bTest) const;
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
 private:
@@ -120,11 +124,11 @@ private:
 
   CPotentialBoundCondColl m_vBoundCond;
 
-  std::vector<double>     m_vPotential;
+  std::vector<float>      m_vPotential;
+  std::vector<Vector3F>   m_vField;
 
 // Run-time:
-  bool                    m_bNeedRecalc,
-                          m_bScaleChanged;
+  bool                    m_bNeedRecalc;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -135,8 +139,11 @@ class CFieldDataColl : public std::vector<CElectricFieldData*>
 public:
   virtual ~CFieldDataColl();
 
-  void              clear_fields();
   bool              calc_fields();
+  bool              need_recalc() const;
+
+  void              clear_fields_in_nodes();
+  void              clear_fields();
 
   bool              sel_region_changed(CStringVector* pRegNames);
   bool              remove_bound_cond(CPotentialBoundCond* pBC);
@@ -145,6 +152,22 @@ public:
   void              load(CArchive& ar);
 };
 
+inline bool CFieldDataColl::need_recalc() const
+{
+  for(size_t i = 0; i < size(); i++)
+    if(at(i)->need_recalc())
+      return true;
+
+  return false;
+}
+
+//-------------------------------------------------------------------------------------------------
+//
+//-------------------------------------------------------------------------------------------------
+inline bool CElectricFieldData::need_recalc() const
+{
+  return m_bNeedRecalc;
+}
 
 inline bool CElectricFieldData::get_enable_field() const
 {
@@ -187,11 +210,7 @@ inline DWORD_PTR CElectricFieldData::get_scale_ptr() const
 
 inline void CElectricFieldData::set_scale(double fScale)
 {
-  if(m_fScale != fScale)
-  {
-    m_fScale = fScale;
-    m_bScaleChanged = true;
-  }
+  m_fScale = fScale;
 }
 
 inline double CElectricFieldData::get_freq() const
@@ -237,6 +256,16 @@ inline CPotentialBoundCond* CElectricFieldData::get_bc(size_t nId) const
 inline void CElectricFieldData::invalidate()
 {
   m_bNeedRecalc = true;
+}
+
+inline Vector3D CElectricFieldData::get_field(size_t nInd) const
+{
+  return m_bNeedRecalc ? Vector3D(0, 0, 0) : Vector3D(m_vField[nInd].x, m_vField[nInd].y, m_vField[nInd].z);
+}
+
+inline double CElectricFieldData::get_omega() const
+{
+  return m_fOmega;
 }
 
 };  // namespace EvaporatingParticle.

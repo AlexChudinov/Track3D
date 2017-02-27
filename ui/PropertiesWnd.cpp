@@ -172,6 +172,21 @@ void CPropertiesWnd::OnUpdateSortProperties(CCmdUI* pCmdUI)
 static UINT __stdcall main_thread_func(LPVOID pData)
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  if(pObj->get_enable_ansys_field())
+  {
+    if(pObj->is_ready())
+      pObj->read_gasdyn_data(); // restore ANSYS-calculated electric fields.
+  }
+  else
+  {
+    EvaporatingParticle::CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
+    if(!pFields->calc_fields())
+    {
+      CDialog* pDlg = (CDialog*)pData;
+      pDlg->PostMessage(WM_CLOSE);
+      return 0;
+    }
+  }
 
   if(pObj->get_use_multi_thread())
     pObj->multi_thread_calculate();
@@ -490,8 +505,16 @@ void CPropertiesWnd::on_idle()
 
 void CPropertiesWnd::update_prop_list()
 {
+  int nPos = 0;
+  CScrollBar* pScrBar = m_wndPropList.GetScrollBarCtrl(SB_VERT);
+  if(pScrBar != NULL)
+    nPos = pScrBar->GetScrollPos();
+
   m_wndPropList.RemoveAll();
   InitPropList();
+
+  if(pScrBar != NULL)
+    pScrBar->SetScrollPos(nPos);
 
   m_bUpdateAll = false;
 }

@@ -421,6 +421,19 @@ void CElem3D::interpolate(const Vector3D& p, CNode3D& node) const
   }
 }
 
+bool CElem3D::coeff(const Vector3D& p, double* pWeight) const
+{
+  double s, t, u;
+  if(!param(p, s, t, u))  // compute parametric coordinates in the element by 3D position.
+    return false;
+
+  size_t nNodesCount = vNodes.size();
+  for(size_t i = 0; i < nNodesCount; i++)
+    pWeight[i] = shape_func(s, t, u, i);
+
+  return true;
+}
+
 void CElem3D::bounding_box()
 {
   box.vMin = vNodes.at(0)->pos;

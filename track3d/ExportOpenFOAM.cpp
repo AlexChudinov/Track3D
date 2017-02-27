@@ -1081,7 +1081,7 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
   {
     pElem = m_pElems->at(i);
     vPos = get_elem_center(pElem);
-    if(!box.inside(vPos) || !pObj->interpolate(vPos, node, pSearchElem) && bAuxOK)
+    if(!box.inside(vPos) || !pObj->interpolate(vPos, 0, 0, node, pSearchElem) && bAuxOK)
     {
 // DEBUG
       fprintf(pAuxFile, "%zd      (%f %f %f)\n", i, 10*vPos.x, 10*vPos.y, 10*vPos.z);
@@ -1167,10 +1167,10 @@ void CExportOpenFOAM::export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* p
           vElemCenter = get_elem_center(pElem);
 
           vPos = vFaceCenter + 0.1 * (vElemCenter - vFaceCenter);  // shift a bit from the center of the boundary face inside the volume.
-          if(!box.inside(vPos) || !pObj->interpolate(vPos, node, pSearchElem))
+          if(!box.inside(vPos) || !pObj->interpolate(vPos, 0, 0, node, pSearchElem))
           {
             vPos = vElemCenter;
-            if(!box.inside(vPos) || !pObj->interpolate(vPos, node, pSearchElem))
+            if(!box.inside(vPos) || !pObj->interpolate(vPos, 0, 0, node, pSearchElem))
             {
               node.temp = m_fDefTemp;
               node.vel = Vector3D(m_fDefVx, 0, 0);
