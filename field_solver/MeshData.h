@@ -12,6 +12,7 @@
 #include <algorithm>
 
 #include <linearAlgebra\matrixTemplate.h>
+#include "ParallelFor.h"
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"
 #include "../track3d/CObject.h" // [MS] 10-02-2017 progress bar support.
@@ -306,9 +307,18 @@ public:
 				" Matrix and field sizes are different!");
 		Field result(f.size(), 0.0);
 
-		for (size_t i = 0; i < f.size(); ++i)
+		/*for (size_t i = 0; i < f.size(); ++i)
 			for (const MatrixCoef& c : m_matrix[i])
-				result[i] += f[c.first] * c.second;
+				result[i] += f[c.first] * c.second;*/
+
+		CParFor p;
+		p.parallelForEach(0, f.size(),
+			[&](size_t first, size_t last)
+		{
+			for (size_t i = first; i < last; ++i)
+				for (const MatrixCoef& c : m_matrix[i])
+					result[i] += f[c.first] * c.second;
+		});
 
 		return result;
 	}
@@ -342,7 +352,7 @@ private:
 	const Elements& m_elems;
 	const Nodes& m_nodes;
 	PBoundary m_pBoundary;
-	
+
 	//Lazy because it will be created only once by demand
 	PGraph m_lazyGraph;
 

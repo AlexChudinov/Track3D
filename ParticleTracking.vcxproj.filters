@@ -165,6 +165,9 @@
     <ClInclude Include="field_solver\MeshData.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="field_solver\ParallelFor.h">
+      <Filter>field_solver\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">
@@ -309,6 +312,9 @@
       <Filter>ui\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="field_solver\MeshData.cpp">
+      <Filter>field_solver\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="field_solver\ParallelFor.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

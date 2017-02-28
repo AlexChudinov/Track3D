@@ -83,6 +83,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)\</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)\output\$(Configuration)\exe\</OutDir>
@@ -94,6 +95,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Midl>
@@ -221,6 +223,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="field_solver\MeshData.h" />
+    <ClInclude Include="field_solver\ParallelFor.h" />
     <ClInclude Include="MathPhys\libIntegrators.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
     <ClInclude Include="track3d\BarnesHut.h" />
@@ -266,6 +269,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="field_solver\MeshData.cpp" />
+    <ClCompile Include="field_solver\ParallelFor.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
     <ClCompile Include="track3d\BeamCrossSection.cpp" />
     <ClCompile Include="track3d\CalcThread.cpp" />
