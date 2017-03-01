@@ -57,7 +57,7 @@ inline void CParFor::parallelForEach(size_t start, size_t end, Task task)
 
 	for (size_t i = 0; i < m_threads.size(); ++i)
 	{
-		m_threads[i] = Thread([&]()
+		m_threads[i] = Thread([=]()
 		{
 			task(first, last);
 		});
