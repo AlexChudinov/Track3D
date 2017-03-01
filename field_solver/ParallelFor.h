@@ -38,7 +38,7 @@ inline void CParFor::parallelForEach(It start, It end, Task task)
 		last = (first + nn) < end ? first + nn : end;
 	for (Thread& t : m_threads)
 	{
-		t = Thread([&]() {std::for_each(first, last, task)});
+		t = Thread([=]() {std::for_each(first, last, task)});
 		first = last;
 		last = (first + nn) < end ? first + nn : end;
 	}
