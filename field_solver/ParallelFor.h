@@ -2,16 +2,55 @@
 #ifndef _PAR_FOR_
 #define _PAR_FOR_
 
+#include <queue>
+#include <mutex>
 #include <thread>
 #include <vector>
 #include <algorithm>
 
-//Splites for each loops into paralel
+//Thread pool tast queue
+class TaskQueue
+{
+public:
+	using Task = std::function<void()>;
+	using Tasks = std::queue<Task>;
+	using Mutex = std::mutex;
+	using Locker = std::unique_lock<Mutex>;
+private:
+	Tasks m_tasks;
+	Mutex m_queueAccess;
+public:
+	void addTask(const Task& task);
+	Task getTask();
+
+	//Returns false if there are some tasks
+	bool isEmpty() const;
+};
+
+//A pool of threads
+class ThreadPool
+{
+public:
+	using Thread = std::thread;
+	using Threads = std::vector<Thread>;
+	using Mutex = std::mutex;
+	using Locker = std::unique_lock<Mutex>;
+	using ConditionVar = std::condition_variable;
+private:
+	Mutex m_startMutex;
+	ConditionVar m_startCondition;
+private:
+	void threadEvtLoop();
+};
+
+//Splites for each loops into parallel
 class CParFor
 {
 public:
 	using Thread = std::thread;
 	using Threads = std::vector<Thread>;
+	using Mutex = std::mutex;
+	using Locker = std::unique_lock<Mutex>;
 private:
 	static size_t s_nProcNum;
 	Threads m_threads;
