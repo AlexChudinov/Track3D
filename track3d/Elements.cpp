@@ -4,6 +4,7 @@
 #include <queue>
 #include "math.h"
 #include "float.h"
+#include "ParticleTracking.h"
 #include "Elements.h"
 
 #include <algorithm>
@@ -313,11 +314,11 @@ void CTreeBox::collect_elems_inside()
   for(size_t i = 0; i < nParentElemCount; i++)
   {
     pElem = vParentElems.at(i);
-    nVertCount = pElem->vNodes.size();
+    nVertCount = pElem->get_node_count();
     for(size_t j = 0; j < nVertCount; j++)
     {
 // If at least one vertex of the element is inside the box, include this element into the box collection:
-      if(inside(pElem->vNodes.at(j)->pos))
+      if(inside(pElem->get_node(j)->pos))
       {
         vElems.push_back(pElem);
         break;
@@ -372,25 +373,28 @@ void CTreeBox::delete_child_boxes()
 
 static const Vector3D vZero(0, 0, 0);
 //-------------------------------------------------------------------------------------------------
-// CElem3D - a base class for all 3D elements - tetrahedra, pyramids, wedges and hexes. 
+// CNode3D
 //-------------------------------------------------------------------------------------------------
-bool CElem3D::inside(const Vector3D& pos) const
+CElementsCollection CNode3D::get_nbr_elems() const
 {
-  if(!box.inside(pos))
-    return false;
+  const CElementsCollection& vGlobElems = CParticleTrackingApp::Get()->GetTracker()->get_elems();
 
-  Vector3D p;
-  size_t nFacesCount = vFaces.size();
-  for(size_t i = 0; i < nFacesCount; i++)
-  {
-    const CPlane& face = vFaces.at(i);
-    if(!face.inside(pos))
-      return false;
-  }
+  size_t nNbrCount = vNbrElems.size();
+  CElementsCollection vElems(nNbrCount);
+  for(size_t i = 0; i < nNbrCount; i++)
+    vElems[i] = vGlobElems[vNbrElems[i]];
 
-  return true;
+  return vElems;
 }
 
+const CIndexVector & CNode3D::nbr_elems() const
+{
+	return vNbrElems;
+}
+
+//-------------------------------------------------------------------------------------------------
+// CElem3D - a base class for all 3D elements - tetrahedra, pyramids, wedges and hexes. 
+//-------------------------------------------------------------------------------------------------
 void CElem3D::interpolate(const Vector3D& p, CNode3D& node) const
 {
   double s, t, u;
@@ -402,10 +406,10 @@ void CElem3D::interpolate(const Vector3D& p, CNode3D& node) const
 
   double w;
   CNode3D* pNode = NULL;
-  size_t nNodesCount = vNodes.size();
-  for(size_t i = 0; i < nNodesCount; i++)
+  UINT nNodeCount = get_node_count();
+  for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
+    pNode = get_node(i);
     w = shape_func(s, t, u, i);
 // Scalars:
     node.dens  += w * pNode->dens;
@@ -427,8 +431,8 @@ bool CElem3D::coeff(const Vector3D& p, double* pWeight) const
   if(!param(p, s, t, u))  // compute parametric coordinates in the element by 3D position.
     return false;
 
-  size_t nNodesCount = vNodes.size();
-  for(size_t i = 0; i < nNodesCount; i++)
+  UINT nNodeCount = get_node_count();
+  for(size_t i = 0; i < nNodeCount; i++)
     pWeight[i] = shape_func(s, t, u, i);
 
   return true;
@@ -436,12 +440,12 @@ bool CElem3D::coeff(const Vector3D& p, double* pWeight) const
 
 void CElem3D::bounding_box()
 {
-  box.vMin = vNodes.at(0)->pos;
-  box.vMax = vNodes.at(0)->pos;
-  size_t nNodesCount = vNodes.size();
-  for(size_t i = 1; i < nNodesCount; i++)
+  box.vMin = get_node(0)->pos;
+  box.vMax = box.vMin;
+  UINT nNodeCount = get_node_count();
+  for(size_t i = 1; i < nNodeCount; i++)
   {
-    CNode3D* pNode = vNodes.at(i);
+    CNode3D* pNode = get_node(i);
     if(pNode->pos.x < box.vMin.x)
       box.vMin.x = pNode->pos.x;
     if(pNode->pos.x > box.vMax.x)
@@ -464,9 +468,9 @@ void CElem3D::bounding_box()
 Vector3D CElem3D::func(double s, double t, double u, const Vector3D& pos) const
 {
   Vector3D vFunc;
-  size_t nNodeCount = vNodes.size();
+  UINT nNodeCount = get_node_count();
   for(size_t i = 0; i < nNodeCount; i++)
-    vFunc += shape_func(s, t, u, i) * vNodes.at(i)->pos;
+    vFunc += shape_func(s, t, u, i) * get_node(i)->pos;
 
   vFunc -= pos;
   return vFunc;
@@ -479,10 +483,10 @@ Vector3D CElem3D::func(double s, double t, double u, const Vector3D& pos) const
 Matrix3D CElem3D::deriv(double s, double t, double u) const
 {
   Vector3D dFds, dFdt, dFdu, vPos;
-  size_t nNodeCount = vNodes.size();
+  UINT nNodeCount = get_node_count();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    vPos = vNodes.at(i)->pos;
+    vPos = get_node(i)->pos;
     dFds += shape_func_deriv(s, t, u, i, 0) * vPos;
     dFdt += shape_func_deriv(s, t, u, i, 1) * vPos;
     dFdu += shape_func_deriv(s, t, u, i, 2) * vPos;
@@ -548,40 +552,75 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
   return true;
 }
 
-void CElem3D::add_plane(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2)
-{
-  Vector3D e1 = p1 - p0;
-  Vector3D e2 = p2 - p0;
-  Vector3D norm = (e1 * e2).normalized();
-  CPlane plane(p0, norm);
-  vFaces.push_back(plane);
-}
-
 //-------------------------------------------------------------------------------------------------
 //                      CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
-CTetra::CTetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3)
+CTetra::CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3)
+  : CElem3D(vNodes)
 {
-	//Try if we can reduce memory consumption if we use explicit vector allocation
-	vNodes.reserve(4);
-	vNodes.push_back(p0);
-  vNodes.push_back(p1);
-  vNodes.push_back(p2);
-  vNodes.push_back(p3);
+  vTetNodeIds[0] = i0;
+  vTetNodeIds[1] = i1;
+  vTetNodeIds[2] = i2;
+  vTetNodeIds[3] = i3;
   valid = init();
+}
+
+CTetra::CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3)
+  : CElem3D(vNodes)
+{
+  add_plane(0, v0, v1, v3);
+  add_plane(1, v1, v2, v3);
+  add_plane(2, v2, v0, v3);
+  add_plane(3, v0, v2, v1);
+
+  Vector3D v, vVert[4] = { v0, v1, v2, v3 };
+  box.vMin = vVert[0];
+  box.vMax = vVert[0];
+  for(size_t i = 1; i < 4; i++)
+  {
+    v = vVert[i];
+    if(v.x < box.vMin.x)
+      box.vMin.x = v.x;
+    if(v.x > box.vMax.x)
+      box.vMax.x = v.x;
+
+    if(v.y < box.vMin.y)
+      box.vMin.y = v.y;
+    if(v.y > box.vMax.y)
+      box.vMax.y = v.y;
+
+    if(v.z < box.vMin.z)
+      box.vMin.z = v.z;
+    if(v.z > box.vMax.z)
+      box.vMax.z = v.z;
+  }
 }
 
 bool CTetra::init()
 {
-  vFaces.clear();
-  Vector3D p[4] = { vNodes.at(0)->pos, vNodes.at(1)->pos, vNodes.at(2)->pos, vNodes.at(3)->pos };
+  Vector3D p[4] = { get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, get_node(3)->pos };
 
-  add_plane(p[0], p[1], p[3]);
-  add_plane(p[1], p[2], p[3]);
-  add_plane(p[2], p[0], p[3]);
-  add_plane(p[0], p[2], p[1]);
+  add_plane(0, p[0], p[1], p[3]);
+  add_plane(1, p[1], p[2], p[3]);
+  add_plane(2, p[2], p[0], p[3]);
+  add_plane(3, p[0], p[2], p[1]);
 
   bounding_box();
+  return true;
+}
+
+bool CTetra::inside(const Vector3D& pos) const
+{
+  if(!box.inside(pos))
+    return false;
+
+  for(size_t i = 0; i < 4; i++)
+  {
+    const CPlane& face = vFaces[i];
+    if(!face.inside(pos))
+      return false;
+  }
+
   return true;
 }
 
@@ -611,18 +650,32 @@ double CTetra::shape_func_deriv(double s, double t, double u, size_t nfunc, size
   return 0.;
 }
 
+void CTetra::add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2)
+{
+  Vector3D e1 = p1 - p0;
+  Vector3D e2 = p2 - p0;
+  Vector3D norm = (e1 * e2).normalized();
+  CPlane plane(p0, norm);
+  vFaces[nInd] = plane;
+}
+
+const UINT * CTetra::nodes() const
+{
+	return vTetNodeIds;
+}
+
+
 //-------------------------------------------------------------------------------------------------
 //                          CPyramid - a pyramid object of 5 nodes.
 //-------------------------------------------------------------------------------------------------
-CPyramid::CPyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4)
-  : pTet1(NULL), pTet2(NULL)
+CPyramid::CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4)
+  : CElem3D(vNodes), pTet1(NULL), pTet2(NULL)
 {
-	vNodes.reserve(5);
-  vNodes.push_back(p0);
-  vNodes.push_back(p1);
-  vNodes.push_back(p2);
-  vNodes.push_back(p3);
-  vNodes.push_back(p4);
+  vPyrNodeIds[0] = i0;
+	vPyrNodeIds[1] = i1;
+  vPyrNodeIds[2] = i2;
+  vPyrNodeIds[3] = i3;
+  vPyrNodeIds[4] = i4;
   valid = init();
 }
 
@@ -636,17 +689,17 @@ CPyramid::~CPyramid()
 
 bool CPyramid::init()
 {
-  double fLen02 = (vNodes.at(0)->pos - vNodes.at(2)->pos).sqlength();
-  double fLen13 = (vNodes.at(1)->pos - vNodes.at(3)->pos).sqlength();
+  double fLen02 = (get_node(0)->pos - get_node(2)->pos).sqlength();
+  double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen02 < fLen13)
   {
-    pTet1 = new CTetra(vNodes.at(0), vNodes.at(1), vNodes.at(2), vNodes.at(4));
-    pTet2 = new CTetra(vNodes.at(0), vNodes.at(2), vNodes.at(3), vNodes.at(4));
+    pTet1 = new CTetra(vGlobNodes, vPyrNodeIds[0], vPyrNodeIds[1], vPyrNodeIds[2], vPyrNodeIds[4]);
+    pTet2 = new CTetra(vGlobNodes, vPyrNodeIds[0], vPyrNodeIds[2], vPyrNodeIds[3], vPyrNodeIds[4]);
   }
   else
   {
-    pTet1 = new CTetra(vNodes.at(1), vNodes.at(3), vNodes.at(0), vNodes.at(4));
-    pTet2 = new CTetra(vNodes.at(1), vNodes.at(2), vNodes.at(3), vNodes.at(4));
+    pTet1 = new CTetra(vGlobNodes, vPyrNodeIds[1], vPyrNodeIds[3], vPyrNodeIds[0], vPyrNodeIds[4]);
+    pTet2 = new CTetra(vGlobNodes, vPyrNodeIds[1], vPyrNodeIds[2], vPyrNodeIds[3], vPyrNodeIds[4]);
   }
 
   bounding_box(); 
@@ -692,83 +745,77 @@ double CPyramid::shape_func_deriv(double s, double t, double u, size_t nfunc, si
   return 0.;
 }
 
+const UINT * CPyramid::nodes() const
+{
+	return vPyrNodeIds;
+}
+
 //-------------------------------------------------------------------------------------------------
 //                         CWedge - a prismatic object of 6 nodes.
 //-------------------------------------------------------------------------------------------------
-CWedge::CWedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5)
-  : pCenter(NULL)
+CWedge::CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5)
+  : CElem3D(vNodes)
 {
-	vNodes.reserve(6);
-  vNodes.push_back(p0);
-  vNodes.push_back(p1);
-  vNodes.push_back(p2);
-  vNodes.push_back(p3);
-  vNodes.push_back(p4);
-  vNodes.push_back(p5);
+	vWdgNodeIds[0] = i0;
+  vWdgNodeIds[1] = i1;
+  vWdgNodeIds[2] = i2;
+  vWdgNodeIds[3] = i3;
+  vWdgNodeIds[4] = i4;
+  vWdgNodeIds[5] = i5;
   valid = init();
 }
 
 CWedge::~CWedge()
 {
-  size_t nSize = vTetras.size();
-  if(nSize > 0)
-  {
-    for(size_t i = 0; i < nSize; i++)
-      delete vTetras.at(i);
-  }
-
-  vTetras.clear();
-
-  if(pCenter != NULL)
-    delete pCenter;
+  for(size_t i = 0; i < 8; i++)
+    delete vTetras[i];
 }
 
 bool CWedge::init()
 {
-  Vector3D vC = (vNodes.at(0)->pos + vNodes.at(1)->pos + vNodes.at(2)->pos + vNodes.at(3)->pos + vNodes.at(4)->pos + vNodes.at(5)->pos) / 6.0;
-  pCenter = new CNode3D(vC);
-  vTetras.reserve(8);
-  vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(1), vNodes.at(2), pCenter));
-  vTetras.push_back(new CTetra(vNodes.at(5), vNodes.at(4), vNodes.at(3), pCenter));
+  vCenter = (get_node(0)->pos + get_node(1)->pos + get_node(2)->pos + get_node(3)->pos + get_node(4)->pos + get_node(5)->pos) / 6.0;
+
+  vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
+  vTetras[1] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(4)->pos, get_node(3)->pos, vCenter);
 
 // Subdivide the non-flat quads by those diagonals that have minimal lengths:
-  double fLen04 = (vNodes.at(0)->pos - vNodes.at(4)->pos).sqlength();
-  double fLen13 = (vNodes.at(1)->pos - vNodes.at(3)->pos).sqlength();
+  double fLen04 = (get_node(0)->pos - get_node(4)->pos).sqlength();
+  double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen04 < fLen13)
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(4), vNodes.at(1), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(3), vNodes.at(4), pCenter));
+    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
+    vTetras[3] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(3), vNodes.at(4), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(0), vNodes.at(3), pCenter));
+    vTetras[2] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
+    vTetras[3] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(0)->pos, get_node(3)->pos, vCenter);
   }
 
-  double fLen15 = (vNodes.at(1)->pos - vNodes.at(5)->pos).sqlength();
-  double fLen24 = (vNodes.at(2)->pos - vNodes.at(4)->pos).sqlength();
+  double fLen15 = (get_node(1)->pos - get_node(5)->pos).sqlength();
+  double fLen24 = (get_node(2)->pos - get_node(4)->pos).sqlength();
   if(fLen15 < fLen24)
   {
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(5), vNodes.at(2), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(4), vNodes.at(5), pCenter));
+    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
+    vTetras[5] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(4), vNodes.at(5), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(1), vNodes.at(4), pCenter));
+    vTetras[4] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
+    vTetras[5] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(1)->pos, get_node(4)->pos, vCenter);
   }
 
-  double fLen23 = (vNodes.at(2)->pos - vNodes.at(3)->pos).sqlength();
-  double fLen05 = (vNodes.at(0)->pos - vNodes.at(5)->pos).sqlength();
+  double fLen23 = (get_node(2)->pos - get_node(3)->pos).sqlength();
+  double fLen05 = (get_node(0)->pos - get_node(5)->pos).sqlength();
   if(fLen23 < fLen05)
   {
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(3), vNodes.at(0), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(5), vNodes.at(3), pCenter));
+    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(3)->pos, get_node(0)->pos, vCenter);
+    vTetras[7] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(5), vNodes.at(3), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(2), vNodes.at(5), pCenter));
+    vTetras[6] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
+    vTetras[7] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(2)->pos, get_node(5)->pos, vCenter);
   }
 
   bounding_box();
@@ -780,10 +827,9 @@ bool CWedge::inside(const Vector3D& p) const
   if(!box.inside(p))
     return false;
 
-  size_t nSize = vTetras.size();
-  for(size_t i = 0; i < nSize; i++)
+  for(size_t i = 0; i < 8; i++)
   {
-    if(vTetras.at(i)->inside(p))
+    if(vTetras[i]->inside(p))
       return true;
   }
 
@@ -820,150 +866,115 @@ double CWedge::shape_func_deriv(double s, double t, double u, size_t nfunc, size
   return 0.;
 }
 
+const UINT * CWedge::nodes() const
+{
+	return vWdgNodeIds;
+}
+
 //-------------------------------------------------------------------------------------------------
 //                        CHexa - a hexagonal object of 8 nodes.
 //-------------------------------------------------------------------------------------------------
-CHexa::CHexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7)
+CHexa::CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7)
+  : CElem3D(vNodes)
 {
-	vNodes.reserve(8);
-  vNodes.push_back(p0);
-  vNodes.push_back(p1);
-  vNodes.push_back(p2);
-  vNodes.push_back(p3);
-  vNodes.push_back(p4);
-  vNodes.push_back(p5);
-  vNodes.push_back(p6);
-  vNodes.push_back(p7);
+	vHexNodeIds[0] = i0;
+  vHexNodeIds[1] = i1;
+  vHexNodeIds[2] = i2;
+  vHexNodeIds[3] = i3;
+  vHexNodeIds[4] = i4;
+  vHexNodeIds[5] = i5;
+  vHexNodeIds[6] = i6;
+  vHexNodeIds[7] = i7;
   valid = init();
 }
 
 bool CHexa::init()
 {
-  Vector3D vC(0, 0, 0);
-  size_t nNodeCount = vNodes.size();
-  for(size_t i = 0; i < nNodeCount; i++)
-    vC += vNodes.at(i)->pos;
+  vCenter = Vector3D(0, 0, 0);
+  for(size_t i = 0; i < 8; i++)
+    vCenter += get_node(i)->pos;
 
-  vC /= (double)nNodeCount;
-  pCenter = new CNode3D(vC);
-  vTetras.reserve(12);
+  vCenter *= 0.125;
 
 // Subdivide the non-flat quads by those diagonals that have minimal lengths:
-  double fLen02 = (vNodes.at(0)->pos - vNodes.at(2)->pos).sqlength();
-  double fLen13 = (vNodes.at(1)->pos - vNodes.at(3)->pos).sqlength();
+  double fLen02 = (get_node(0)->pos - get_node(2)->pos).sqlength();
+  double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen02 < fLen13)
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(1), vNodes.at(2), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(2), vNodes.at(3), pCenter));
+    vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
+    vTetras[1] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(1), vNodes.at(3), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(2), vNodes.at(3), pCenter));
+    vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(3)->pos, vCenter);
+    vTetras[1] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
   }
 
-  double fLen05 = (vNodes.at(0)->pos - vNodes.at(5)->pos).sqlength();
-  double fLen14 = (vNodes.at(1)->pos - vNodes.at(4)->pos).sqlength();
+  double fLen05 = (get_node(0)->pos - get_node(5)->pos).sqlength();
+  double fLen14 = (get_node(1)->pos - get_node(4)->pos).sqlength();
   if(fLen05 < fLen14)
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(5), vNodes.at(1), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(4), vNodes.at(5), pCenter));
+    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(5)->pos, get_node(1)->pos, vCenter);
+    vTetras[3] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(4), vNodes.at(1), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(4), vNodes.at(5), pCenter));
+    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
+    vTetras[3] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
 
-  double fLen16 = (vNodes.at(1)->pos - vNodes.at(6)->pos).sqlength();
-  double fLen25 = (vNodes.at(2)->pos - vNodes.at(5)->pos).sqlength();
+  double fLen16 = (get_node(1)->pos - get_node(6)->pos).sqlength();
+  double fLen25 = (get_node(2)->pos - get_node(5)->pos).sqlength();
   if(fLen16 < fLen25)
   {
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(5), vNodes.at(6), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(6), vNodes.at(2), pCenter));
+    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
+    vTetras[5] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(6)->pos, get_node(2)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(1), vNodes.at(5), vNodes.at(2), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(5), vNodes.at(6), pCenter));
+    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
+    vTetras[5] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
   }
 
-  double fLen27 = (vNodes.at(2)->pos - vNodes.at(7)->pos).sqlength();
-  double fLen36 = (vNodes.at(3)->pos - vNodes.at(6)->pos).sqlength();
+  double fLen27 = (get_node(2)->pos - get_node(7)->pos).sqlength();
+  double fLen36 = (get_node(3)->pos - get_node(6)->pos).sqlength();
   if(fLen27 < fLen36)
   {
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(7), vNodes.at(3), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(6), vNodes.at(7), vNodes.at(2), pCenter));
+    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(7)->pos, get_node(3)->pos, vCenter);
+    vTetras[7] = new CTetra(vGlobNodes, get_node(6)->pos, get_node(7)->pos, get_node(2)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(2), vNodes.at(6), vNodes.at(3), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(3), vNodes.at(6), vNodes.at(7), pCenter));
+    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(6)->pos, get_node(3)->pos, vCenter);
+    vTetras[7] = new CTetra(vGlobNodes, get_node(3)->pos, get_node(6)->pos, get_node(7)->pos, vCenter);
   }
 
-  double fLen34 = (vNodes.at(3)->pos - vNodes.at(4)->pos).sqlength();
-  double fLen70 = (vNodes.at(7)->pos - vNodes.at(0)->pos).sqlength();
+  double fLen34 = (get_node(3)->pos - get_node(4)->pos).sqlength();
+  double fLen70 = (get_node(7)->pos - get_node(0)->pos).sqlength();
   if(fLen34 < fLen70)
   {
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(3), vNodes.at(4), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(4), vNodes.at(3), vNodes.at(7), pCenter));
+    vTetras[8] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
+    vTetras[9] = new CTetra(vGlobNodes, get_node(4)->pos, get_node(3)->pos, get_node(7)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(3), vNodes.at(7), vNodes.at(0), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(0), vNodes.at(7), vNodes.at(4), pCenter));
+    vTetras[8] = new CTetra(vGlobNodes, get_node(3)->pos, get_node(7)->pos, get_node(0)->pos, vCenter);
+    vTetras[9] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(7)->pos, get_node(4)->pos, vCenter);
   }
 
-  double fLen46 = (vNodes.at(4)->pos - vNodes.at(6)->pos).sqlength();
-  double fLen75 = (vNodes.at(7)->pos - vNodes.at(5)->pos).sqlength();
+  double fLen46 = (get_node(4)->pos - get_node(6)->pos).sqlength();
+  double fLen75 = (get_node(7)->pos - get_node(5)->pos).sqlength();
   if(fLen46 < fLen75)
   {
-    vTetras.push_back(new CTetra(vNodes.at(5), vNodes.at(4), vNodes.at(6), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(6), vNodes.at(4), vNodes.at(7), pCenter));
+    vTetras[10] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(4)->pos, get_node(6)->pos, vCenter);
+    vTetras[11] = new CTetra(vGlobNodes, get_node(6)->pos, get_node(4)->pos, get_node(7)->pos, vCenter);
   }
   else
   {
-    vTetras.push_back(new CTetra(vNodes.at(4), vNodes.at(7), vNodes.at(5), pCenter));
-    vTetras.push_back(new CTetra(vNodes.at(5), vNodes.at(7), vNodes.at(6), pCenter));
+    vTetras[10] = new CTetra(vGlobNodes, get_node(4)->pos, get_node(7)->pos, get_node(5)->pos, vCenter);
+    vTetras[11] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(7)->pos, get_node(6)->pos, vCenter);
   }
-/*
-  CNode3D* pBaseNode = vNodes.at(0);
-  Vector3D e1 = vNodes.at(1)->pos - pBaseNode->pos;
-  Vector3D e2 = vNodes.at(3)->pos - pBaseNode->pos;
-  Vector3D e3 = vNodes.at(4)->pos - pBaseNode->pos;
 
-  vFaces.clear();
-
-// Planes defining the faces:
-  Vector3D norm = (e2 * e1).normalized();
-  CPlane plane1(pBaseNode->pos, norm);
-  vFaces.push_back(plane1);
-
-  norm = (e1 * e3).normalized();
-  CPlane plane2(pBaseNode->pos, norm);
-  vFaces.push_back(plane2);
-
-  norm = (e3 * e2).normalized();
-  CPlane plane3(pBaseNode->pos, norm);
-  vFaces.push_back(plane3);
-
-  pBaseNode = vNodes.at(7);
-  e1 = vNodes.at(6)->pos - pBaseNode->pos;
-  e2 = vNodes.at(4)->pos - pBaseNode->pos;
-  e3 = vNodes.at(3)->pos - pBaseNode->pos;
-
-  norm = (e2 * e1).normalized();
-  CPlane plane4(pBaseNode->pos, norm);
-  vFaces.push_back(plane4);
-
-  norm = (e3 * e2).normalized();
-  CPlane plane5(pBaseNode->pos, norm);
-  vFaces.push_back(plane5);
-
-  norm = (e1 * e3).normalized();
-  CPlane plane6(pBaseNode->pos, norm);
-  vFaces.push_back(plane6);
-*/
   bounding_box();
   return true;
 }
@@ -973,10 +984,9 @@ bool CHexa::inside(const Vector3D& p) const
   if(!box.inside(p))
     return false;
 
-  size_t nSize = vTetras.size();
-  for(size_t i = 0; i < nSize; i++)
+  for(size_t i = 0; i < 12; i++)
   {
-    if(vTetras.at(i)->inside(p))
+    if(vTetras[i]->inside(p))
       return true;
   }
 
@@ -1017,6 +1027,11 @@ double CHexa::shape_func_deriv(double s, double t, double u, size_t nfunc, size_
   }
 
   return 0.;
+}
+
+const UINT * CHexa::nodes() const
+{
+	return vHexNodeIds;
 }
 
 //-------------------------------------------------------------------------------------------------

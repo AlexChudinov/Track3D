@@ -30,6 +30,7 @@ void CSelectRegionButton::OnClickButton(CPoint point)
   }
   else
   {
+    m_pWndProp->set_data_to_model();
     EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)m_dwData;
     if(pDrawObj->get_sel_flag())
     {

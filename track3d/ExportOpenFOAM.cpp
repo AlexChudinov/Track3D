@@ -680,15 +680,15 @@ void CExportOpenFOAM::collect_internal_faces()
   for(size_t i = 0; i < nElemCount; i++)
   {
     CElem3D* pElem = m_pElems->at(i);
-    size_t nNodeCount = pElem->vNodes.size();
+    size_t nNodeCount = pElem->get_node_count();
     switch(nNodeCount)
     {
       case 4: // tetrahedron.
       {
-        CNode3D* p0 = pElem->vNodes.at(0);
-        CNode3D* p1 = pElem->vNodes.at(1);
-        CNode3D* p2 = pElem->vNodes.at(2);
-        CNode3D* p3 = pElem->vNodes.at(3);
+        CNode3D* p0 = pElem->get_node(0);
+        CNode3D* p1 = pElem->get_node(1);
+        CNode3D* p2 = pElem->get_node(2);
+        CNode3D* p3 = pElem->get_node(3);
 
         COpenFoamFace* pf0 = new COpenFoamFace(p0, p2, p1);
         process_face(pElem, pf0);
@@ -706,11 +706,11 @@ void CExportOpenFOAM::collect_internal_faces()
       }
       case 5: // pyramid.
       {
-        CNode3D* p0 = pElem->vNodes.at(0);
-        CNode3D* p1 = pElem->vNodes.at(1);
-        CNode3D* p2 = pElem->vNodes.at(2);
-        CNode3D* p3 = pElem->vNodes.at(3);
-        CNode3D* p4 = pElem->vNodes.at(4);
+        CNode3D* p0 = pElem->get_node(0);
+        CNode3D* p1 = pElem->get_node(1);
+        CNode3D* p2 = pElem->get_node(2);
+        CNode3D* p3 = pElem->get_node(3);
+        CNode3D* p4 = pElem->get_node(4);
 
         COpenFoamFace* pf0 = new COpenFoamFace(p0, p1, p4);
         process_face(pElem, pf0);
@@ -731,12 +731,12 @@ void CExportOpenFOAM::collect_internal_faces()
       }
       case 6: // wedge or prism.
       {
-        CNode3D* p0 = pElem->vNodes.at(0);
-        CNode3D* p1 = pElem->vNodes.at(1);
-        CNode3D* p2 = pElem->vNodes.at(2);
-        CNode3D* p3 = pElem->vNodes.at(3);
-        CNode3D* p4 = pElem->vNodes.at(4);
-        CNode3D* p5 = pElem->vNodes.at(5);
+        CNode3D* p0 = pElem->get_node(0);
+        CNode3D* p1 = pElem->get_node(1);
+        CNode3D* p2 = pElem->get_node(2);
+        CNode3D* p3 = pElem->get_node(3);
+        CNode3D* p4 = pElem->get_node(4);
+        CNode3D* p5 = pElem->get_node(5);
 
         COpenFoamFace* pf0 = new COpenFoamFace(p0, p2, p1);
         process_face(pElem, pf0);
@@ -757,14 +757,14 @@ void CExportOpenFOAM::collect_internal_faces()
       }
       case 8: // hexahedron.
       {
-        CNode3D* p0 = pElem->vNodes.at(0);
-        CNode3D* p1 = pElem->vNodes.at(1);
-        CNode3D* p2 = pElem->vNodes.at(2);
-        CNode3D* p3 = pElem->vNodes.at(3);
-        CNode3D* p4 = pElem->vNodes.at(4);
-        CNode3D* p5 = pElem->vNodes.at(5);
-        CNode3D* p6 = pElem->vNodes.at(6);
-        CNode3D* p7 = pElem->vNodes.at(7);
+        CNode3D* p0 = pElem->get_node(0);
+        CNode3D* p1 = pElem->get_node(1);
+        CNode3D* p2 = pElem->get_node(2);
+        CNode3D* p3 = pElem->get_node(3);
+        CNode3D* p4 = pElem->get_node(4);
+        CNode3D* p5 = pElem->get_node(5);
+        CNode3D* p6 = pElem->get_node(6);
+        CNode3D* p7 = pElem->get_node(7);
 
         COpenFoamFace* pf0 = new COpenFoamFace(p0, p1, p5, p4);
         process_face(pElem, pf0);
@@ -855,6 +855,7 @@ bool CExportOpenFOAM::process_face(CElem3D* pElem, COpenFoamFace* pFace)
 
 int CExportOpenFOAM::find_neighbour(CElem3D* pElem, COpenFoamFace* pFace)
 {
+  const CElementsCollection& vElems = *m_pElems;
 // It is enough to try any three vertices of the face. If all three of them belong to an element, 
 // this element is what we are looking for.
   CNode3D* p0 = pFace->nodes.at(0);
@@ -865,7 +866,7 @@ int CExportOpenFOAM::find_neighbour(CElem3D* pElem, COpenFoamFace* pFace)
   size_t nNbrCount = p0->vNbrElems.size();
   for(size_t i = 0; i < nNbrCount; i++)
   {
-    CElem3D* pNbrElem = p0->vNbrElems.at(i);
+    CElem3D* pNbrElem = vElems[p0->vNbrElems.at(i)];
     if(pNbrElem == pElem) // vNbrElems contains also pElem, skip it. 
       continue;
 
@@ -878,9 +879,9 @@ int CExportOpenFOAM::find_neighbour(CElem3D* pElem, COpenFoamFace* pFace)
 
 bool CExportOpenFOAM::node_in_elem(CNode3D* pNode, CElem3D* pElem)
 {
-  size_t nCount = pElem->vNodes.size();
+  size_t nCount = pElem->get_node_count();
   for(size_t i = 0; i < nCount; i++)
-    if(pElem->vNodes.at(i) == pNode)
+    if(pElem->get_node(i) == pNode)
       return true;
 
   return false;
@@ -924,9 +925,9 @@ void CExportOpenFOAM::correct_normal(CElem3D* pOwnerElem, COpenFoamFace* pFace)
 // Normal must point always to the cell with the larger index, i.e. from the owner to the neighbour.
 // In the case of the boundary face the normal must point from the domain, i.e. again from the owner.
   Vector3D vCellCenter(0, 0, 0);
-  size_t nNodeElemCount = pOwnerElem->vNodes.size();
+  size_t nNodeElemCount = pOwnerElem->get_node_count();
   for(size_t i = 0; i < nNodeElemCount; i++)
-    vCellCenter += pOwnerElem->vNodes.at(i)->pos;
+    vCellCenter += pOwnerElem->get_node(i)->pos;
 
   vCellCenter /= (double)nNodeElemCount;
 
@@ -1286,9 +1287,9 @@ Vector3D CExportOpenFOAM::get_face_center(COpenFoamFace* pFace) const
 Vector3D CExportOpenFOAM::get_elem_center(CElem3D* pElem) const
 {
   Vector3D vC(0, 0, 0);
-  size_t nNodeCount = pElem->vNodes.size();
+  size_t nNodeCount = pElem->get_node_count();
   for(size_t k = 0; k < nNodeCount; k++)
-    vC += pElem->vNodes.at(k)->pos;
+    vC += pElem->get_node(k)->pos;
 
   return (vC / (double)nNodeCount);
 }

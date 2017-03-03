@@ -67,7 +67,7 @@ public:
   DWORD_PTR               get_type_ptr() const;
   void                    set_type(int nType);
 
-  double                  get_scale() const;
+  double                  get_scale() const;        // use this function in the UI only, as it returns the scale in volts.
   DWORD_PTR               get_scale_ptr() const;
   void                    set_scale(double fScale);
 
@@ -84,6 +84,7 @@ public:
 
   Vector3D                get_field(size_t nInd) const;
   double                  get_omega() const;
+  double                  get_ampl() const;   // returns the scale in CGS units.
 
   void                    add_bc();
   void                    remove_bc(size_t nId);
@@ -124,7 +125,6 @@ private:
 
   CPotentialBoundCondColl m_vBoundCond;
 
-  std::vector<float>      m_vPotential;
   std::vector<Vector3F>   m_vField;
 
 // Run-time:
@@ -200,7 +200,7 @@ inline void CElectricFieldData::set_type(int nType)
 
 inline double CElectricFieldData::get_scale() const
 {
-  return m_fScale;
+  return m_fScale / SI_to_CGS_Voltage;
 }
 
 inline DWORD_PTR CElectricFieldData::get_scale_ptr() const
@@ -210,7 +210,7 @@ inline DWORD_PTR CElectricFieldData::get_scale_ptr() const
 
 inline void CElectricFieldData::set_scale(double fScale)
 {
-  m_fScale = fScale;
+  m_fScale = fScale * SI_to_CGS_Voltage;
 }
 
 inline double CElectricFieldData::get_freq() const
@@ -240,7 +240,11 @@ inline DWORD_PTR CElectricFieldData::get_iter_count_ptr() const
 
 inline void CElectricFieldData::set_iter_count(UINT nCount)
 {
-  m_nIterCount = nCount;
+  if(m_nIterCount != nCount)
+  {
+    m_nIterCount = nCount;
+    m_bNeedRecalc = true;
+  }
 }
 
 inline size_t CElectricFieldData::get_bc_count() const
@@ -266,6 +270,11 @@ inline Vector3D CElectricFieldData::get_field(size_t nInd) const
 inline double CElectricFieldData::get_omega() const
 {
   return m_fOmega;
+}
+
+inline double CElectricFieldData::get_ampl() const
+{
+  return m_fScale;
 }
 
 };  // namespace EvaporatingParticle.

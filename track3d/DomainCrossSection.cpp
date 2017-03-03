@@ -117,16 +117,16 @@ void CDomainCrossSection::build_mesh()
 
 bool CDomainCrossSection::intersect_element(CFacesCollection& vFaces, CElem3D* pElem)
 {
-  const size_t nNodeCount = pElem->vNodes.size();
+  const size_t nNodeCount = pElem->get_node_count();
   if(nNodeCount == 0)
     return false;
 
 // First, inquire whether or not the plane intersects the element.
   bool bIntersect = false;
-  int n1, n0 = m_Plane.inside(pElem->vNodes.at(0)->pos) ? 1 : -1;
+  int n1, n0 = m_Plane.inside(pElem->get_node(0)->pos) ? 1 : -1;
   for(size_t i = 1; i < nNodeCount; i++)
   {
-    n1 = m_Plane.inside(pElem->vNodes.at(i)->pos) ? 1 : -1;
+    n1 = m_Plane.inside(pElem->get_node(i)->pos) ? 1 : -1;
     if(n0 * n1 < 0)
     {
       bIntersect = true;
@@ -178,8 +178,8 @@ bool CDomainCrossSection::intersect_tetra(CFacesCollection& vFaces, CTetra* pEle
       if((nLastIntersect >= 0) && (nLastIntersect == scTetEdges[nId].nExcl))
         continue;   // skip this edge, but do not erase its id from the vEdgeIds vector - it will be tried later.
 
-      ray.orig = pElem->vNodes.at(scTetEdges[nId].n0)->pos;
-      ray.dir = pElem->vNodes.at(scTetEdges[nId].n1)->pos - ray.orig;
+      ray.orig = pElem->get_node(scTetEdges[nId].n0)->pos;
+      ray.dir = pElem->get_node(scTetEdges[nId].n1)->pos - ray.orig;
       fEdgeLen = ray.dir.length();
       if(fEdgeLen < Const_Almost_Zero)
         return false;
@@ -192,7 +192,7 @@ bool CDomainCrossSection::intersect_tetra(CFacesCollection& vFaces, CTetra* pEle
       }
 
       fKsi = fDist / fEdgeLen;  // I expect fKsi to be 0 <= fKsi <= 1.
-      pNode = interpolate(vRes, pElem->vNodes.at(scTetEdges[nId].n0), pElem->vNodes.at(scTetEdges[nId].n1), fKsi);
+      pNode = interpolate(vRes, pElem->get_node(scTetEdges[nId].n0), pElem->get_node(scTetEdges[nId].n1), fKsi);
   // Remember the last intersection edge index.
       nLastIntersect = nId;
       svTetraSection[nNodeCount] = pNode;
@@ -249,8 +249,8 @@ bool CDomainCrossSection::intersect_piramid(CFacesCollection& vFaces, CPyramid* 
       if((nLastIntersect >= 0) && (nLastIntersect == scPyrEdges[nId].nExcl1 || nLastIntersect == scPyrEdges[nId].nExcl2))
         continue;   // skip this edge, but do not erase its id from the vEdgeIds vector - it will be tried later.
 
-      ray.orig = pElem->vNodes.at(scPyrEdges[nId].n0)->pos;
-      ray.dir = pElem->vNodes.at(scPyrEdges[nId].n1)->pos - ray.orig;
+      ray.orig = pElem->get_node(scPyrEdges[nId].n0)->pos;
+      ray.dir = pElem->get_node(scPyrEdges[nId].n1)->pos - ray.orig;
       fEdgeLen = ray.dir.length();
       if(fEdgeLen < Const_Almost_Zero)
         return false;
@@ -263,7 +263,7 @@ bool CDomainCrossSection::intersect_piramid(CFacesCollection& vFaces, CPyramid* 
       }
 
       fKsi = fDist / fEdgeLen;  // I expect fKsi to be 0 <= fKsi <= 1.
-      pNode = interpolate(vRes, pElem->vNodes.at(scPyrEdges[nId].n0), pElem->vNodes.at(scPyrEdges[nId].n1), fKsi);
+      pNode = interpolate(vRes, pElem->get_node(scPyrEdges[nId].n0), pElem->get_node(scPyrEdges[nId].n1), fKsi);
   // Remember the last intersection edge index.
       nLastIntersect = nId;
       svPyrSection[nNodeCount] = pNode;
@@ -327,8 +327,8 @@ bool CDomainCrossSection::intersect_wedge(CFacesCollection& vFaces, CWedge* pEle
       if((nLastIntersect >= 0) && bExcl)
         continue;   // skip this edge, but do not erase its id from the vEdgeIds vector - it will be tried later.
 
-      ray.orig = pElem->vNodes.at(scWedgeEdges[nId].n0)->pos;
-      ray.dir = pElem->vNodes.at(scWedgeEdges[nId].n1)->pos - ray.orig;
+      ray.orig = pElem->get_node(scWedgeEdges[nId].n0)->pos;
+      ray.dir = pElem->get_node(scWedgeEdges[nId].n1)->pos - ray.orig;
       fEdgeLen = ray.dir.length();
       if(fEdgeLen < Const_Almost_Zero)
         return false;
@@ -341,7 +341,7 @@ bool CDomainCrossSection::intersect_wedge(CFacesCollection& vFaces, CWedge* pEle
       }
 
       fKsi = fDist / fEdgeLen;  // I expect fKsi to be 0 <= fKsi <= 1.
-      pNode = interpolate(vRes, pElem->vNodes.at(scWedgeEdges[nId].n0), pElem->vNodes.at(scWedgeEdges[nId].n1), fKsi);
+      pNode = interpolate(vRes, pElem->get_node(scWedgeEdges[nId].n0), pElem->get_node(scWedgeEdges[nId].n1), fKsi);
   // Remember the last intersection edge index.
       nLastIntersect = nId;
       svWedgeSection[nNodeCount] = pNode;
@@ -409,8 +409,8 @@ bool CDomainCrossSection::intersect_hexa(CFacesCollection& vFaces, CHexa* pElem)
       if(bExcl)
         continue;   // skip this edge, but do not erase its id from the vEdgeIds vector - it will be tried later.
 
-      ray.orig = pElem->vNodes.at(scHexaEdges[nId].n0)->pos;
-      ray.dir = pElem->vNodes.at(scHexaEdges[nId].n1)->pos - ray.orig;
+      ray.orig = pElem->get_node(scHexaEdges[nId].n0)->pos;
+      ray.dir = pElem->get_node(scHexaEdges[nId].n1)->pos - ray.orig;
       fEdgeLen = ray.dir.length();
       if(fEdgeLen < Const_Almost_Zero)
         return false;
@@ -423,7 +423,7 @@ bool CDomainCrossSection::intersect_hexa(CFacesCollection& vFaces, CHexa* pElem)
       }
 
       fKsi = fDist / fEdgeLen;  // I expect fKsi to be 0 <= fKsi <= 1.
-      pNode = interpolate(vRes, pElem->vNodes.at(scHexaEdges[nId].n0), pElem->vNodes.at(scHexaEdges[nId].n1), fKsi);
+      pNode = interpolate(vRes, pElem->get_node(scHexaEdges[nId].n0), pElem->get_node(scHexaEdges[nId].n1), fKsi);
   // Remember the last intersection edge index.
       nLast = nId;
       svHexaSection[nNodeCount] = pNode;

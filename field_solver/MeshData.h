@@ -219,13 +219,13 @@ private:
 	Graph m_graph;
 
 	//Creates tetrahedral connectivity
-	void addTet(const Nodes& ns);
+	void addTet(Label n0, Label n1, Label n2, Label n3);
 	//Creates pyramid connectivity
-	void addPyr(const Nodes& ns);
+	void addPyr(Label n0, Label n1, Label n2, Label n3, Label n4);
 	//Creates wedge connectivity
-	void addWedge(const Nodes& ns);
+	void addWedge(Label n0, Label n1, Label n2, Label n3, Label n4, Label n5);
 	//Creates hexahedral connectivity
-	void addHexa(const Nodes& ns);
+	void addHexa(Label n0, Label n1, Label n2, Label n3, Label n4, Label n5, Label n6, Label n7);
 
 public:
 	//Returns a size of a graph
@@ -235,7 +235,7 @@ public:
 	//Adds element to a mesh connectivity
 	void addElem(const Elem* e);
 	//Returns neigbour elements
-	NodeConnections neighbor(Label i) const;
+	const NodeConnections& neighbor(Label i) const;
 };
 
 //Field implementation
@@ -333,7 +333,7 @@ public:
 	using PBoundary = std::unique_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double>;
-	using Label = size_t;
+	using Label = UINT;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
 	using Vector3DOp = std::array<InterpCoefs, 3>;
@@ -416,12 +416,10 @@ public:
 	double maxEdgeLength(Label l) const;
 	//Returns optimal space step that still will be inside neighbor elements
 	double optimalStep(const Vector3D& dir, Label l) const;
-	//Returns vector of pointers to a neighbor elements for current node with index l
-	const Elements& neighborElems(Label l) const;
+
 	//Looks for the space coordinate point inside the neighbor elements
 	const Element* lookInNeighbor(const Vector3D& pos, Label l) const;
-	//Returns vector of pointers to a neighbor  nodes for current element with index l
-	const Nodes& neighborNodes(Label l) const;
+
 	//Returns pointer to a boundary mesh interface
 	BoundaryMesh * boundaryMesh() const;
 	//Obtains interpolating coefficients for a field value in v-location

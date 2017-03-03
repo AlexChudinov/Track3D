@@ -101,9 +101,6 @@ void CFieldDataColl::clear_fields()
 
 bool CFieldDataColl::calc_fields()
 {
-  if(!need_recalc())
-    return true;
-
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   HWND hProgress, hJobName, hDlgWnd;
   pObj->get_handlers(hJobName, hProgress, hDlgWnd);
@@ -235,8 +232,8 @@ void CElectricFieldData::set_default()
 {
   m_bEnable = true;
 
-  m_fScale = 10;    // V.
-  set_freq(1.0e+6); // 1 MHz by default.
+  m_fScale = 10 * SI_to_CGS_Voltage;  // 10 V in CGS.
+  set_freq(1.0e+6);                   // 1 MHz by default.
 
   m_bNeedRecalc = true;
   m_nIterCount = 100;
@@ -280,23 +277,24 @@ bool CElectricFieldData::calc_field(bool bTest)
     }
 
 // Gradient calculation:
-    CMeshAdapter::PScalFieldOp pDx = mesh.createOperator(CMeshAdapter::GradX);
-    CMeshAdapter::PScalFieldOp pDy = mesh.createOperator(CMeshAdapter::GradY);
-    CMeshAdapter::PScalFieldOp pDz = mesh.createOperator(CMeshAdapter::GradZ);
-
+    CMeshAdapter::PScalFieldOp pGrad = mesh.createOperator(CMeshAdapter::GradX);
     std::vector<double> dPhiDx(nNodesCount, 0.0);
-    dPhiDx = pDx->applyToField(field);
+    dPhiDx = pGrad->applyToField(field);
+
+    pGrad = mesh.createOperator(CMeshAdapter::GradY);
     std::vector<double> dPhiDy(nNodesCount, 0.0);
-    dPhiDy = pDy->applyToField(field);
+    dPhiDy = pGrad->applyToField(field);
+
+    pGrad = mesh.createOperator(CMeshAdapter::GradZ);
     std::vector<double> dPhiDz(nNodesCount, 0.0);
-    dPhiDz = pDz->applyToField(field);
+    dPhiDz = pGrad->applyToField(field);
 
     m_vField.resize(nNodesCount);
-    m_vPotential.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
-      m_vPotential[i] = (float)field[i];
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
+//      if(bTest)
+//        CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
     }
 
     m_bNeedRecalc = false;
@@ -318,14 +316,9 @@ bool CElectricFieldData::get_result(bool bTest) const
   for(size_t i = 0; i < nNodeCount; i++)
   {
     if(bTest)
-    {
-//      vNodes.at(i)->phi = m_vPotential[i];
       vNodes.at(i)->phi = m_vField[i].length(); // for tests the scale is ignored.
-    }
     else if(m_nType == typeFieldDC)
-    {
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
-    }
   }
 
   return true;
@@ -542,9 +535,10 @@ void CElectricFieldData::notify_scene()
 
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 0;
+  UINT nVersion = 1;  // m_bEnable and calculated
   ar << nVersion;
 
+  ar << m_bEnable;
   ar << m_nType;
   ar << m_fScale;
   ar << m_fOmega;
@@ -558,6 +552,15 @@ void CElectricFieldData::save(CArchive& ar)
     CPotentialBoundCond* pObj = m_vBoundCond.at(i);
     pObj->save(ar);
   }
+
+  size_t nNodesCount = m_bNeedRecalc ? 0 : m_vField.size();
+  ar << nNodesCount;
+  for(size_t j = 0; j < nNodesCount; j++)
+  {
+    ar << m_vField[j].x;
+    ar << m_vField[j].y;
+    ar << m_vField[j].z;
+  }
 }
 
 void CElectricFieldData::load(CArchive& ar)
@@ -566,6 +569,9 @@ void CElectricFieldData::load(CArchive& ar)
 
   UINT nVersion;
   ar >> nVersion;
+
+  if(nVersion >= 1)
+    ar >> m_bEnable;
 
   ar >> m_nType;
   ar >> m_fScale;
@@ -580,6 +586,24 @@ void CElectricFieldData::load(CArchive& ar)
     add_bc();
     CPotentialBoundCond* pObj = m_vBoundCond.at(m_vBoundCond.size() - 1);
     pObj->load(ar);
+  }
+
+  if(nVersion >= 1)
+  {
+    size_t nNodesCount;
+    ar >> nNodesCount;
+    if(nNodesCount > 0)
+      m_vField.resize(nNodesCount, Vector3F(0, 0, 0));
+
+    for(size_t j = 0; j < nNodesCount; j++)
+    {
+      ar >> m_vField[j].x;
+      ar >> m_vField[j].y;
+      ar >> m_vField[j].z;
+    }
+
+    if(nNodesCount > 0)
+      m_bNeedRecalc = false;
   }
 }
 

@@ -150,9 +150,21 @@ void CBarnesHut::create_main_cell(const Vector3D& cube_center, double cube_edge)
   m_vCells.push_back(m_pTree);
 }
 
-void CBarnesHut::prepare(CalcThreadVector& vThreads)
+void CBarnesHut::prepare(CalcThreadVector& vThreads, const CNodesCollection& vNodes)
 {
   compute_moments(vThreads);
+
+  Vector3D vF;
+  CNode3D* pNode = NULL;
+  size_t nNodesCount = vNodes.size();
+  m_vClmbField.resize(nNodesCount, Vector3F(0, 0, 0));
+  for(size_t i = 0; i < nNodesCount; i++)
+  {
+    pNode = vNodes.at(i);
+    vF = coulomb_force(pNode->pos);
+    m_vClmbField[i] = Vector3F(vF.x, vF.y, vF.z);
+  }
+
   m_bReady = true;
 }
 

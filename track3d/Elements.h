@@ -40,6 +40,7 @@ typedef std::vector<CFace*> CFacesCollection;
 typedef std::vector<CElem3D*> CElementsCollection;
 typedef std::vector<CNode3D*> CNodesCollection;
 typedef std::vector<CRegFacePair> CFaceIndices;
+typedef std::vector<UINT> CIndexVector;
 //-------------------------------------------------------------------------------------------------
 // CNode3D - a structure containing all the gas-dynamic parameters at the node of the input mesh.
 //           In addition, it contains information on neighboring elements.
@@ -82,8 +83,17 @@ struct CNode3D
               const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField);
 
 // Neighbors:
-  CElementsCollection vNbrElems;
+  CIndexVector        vNbrElems;
   CFaceIndices        vNbrFaces;    // contains indices of boundary faces for boundary nodes; empty for inner nodes.
+
+  void                shrink_to_fit();
+
+  CElementsCollection get_nbr_elems() const;
+
+  //[AC 03/03/2017]
+  //Returns references to a neighbor element indices array
+  const CIndexVector& nbr_elems() const;
+  //[/AC 03/03/2017]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -210,7 +220,7 @@ struct CTreeBox : public CBox
 //-------------------------------------------------------------------------------------------------
 struct CPlane
 {
-  CPlane(const Vector3D& v, const Vector3D& n)
+  CPlane(const Vector3D& v = Vector3D(0, 0, 0), const Vector3D& n = Vector3D(0, 0, 1))
     : pos(v), norm(n)
   {
   }
@@ -229,50 +239,61 @@ typedef std::vector<CPlane> CPlanesSet;
 //-------------------------------------------------------------------------------------------------
 struct CElem3D
 {
-  CElem3D() {};
+  CElem3D(const CNodesCollection& vNodes)
+    : vGlobNodes(vNodes)
+  {
+  };
+
   virtual ~CElem3D() {};
 
-  size_t              nInd;   // index of this element in the global elements collection.
+  size_t                  nInd;       // index of this element in the global elements collection.
 
-  CNodesCollection    vNodes;     // nodes.
+  const CNodesCollection& vGlobNodes;
 
-  CPlanesSet          vFaces;     // faces of the element.
+  CBox                    box;        // bounding box:
 
-  CBox                box;        // bounding box:
+  bool                    valid;  // true if initialization is OK, false otherwise.
 
-  bool                valid;  // true if initialization is OK, false otherwise.
+  bool                    coeff(const Vector3D& p, double* pWeight) const;  // pWeight must be allocated in the calling function.
+  void                    interpolate(const Vector3D& p, CNode3D& node) const;  // obsolete, call coeff(...) instead.
 
-  void                add_plane(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2);
-
-  bool                coeff(const Vector3D& p, double* pWeight) const;  // pWeight must be allocated in the calling function.
-  void                interpolate(const Vector3D& p, CNode3D& node) const;  // obsolete, call coeff(...) instead.
-
-  void                bounding_box();
-
-  virtual bool        inside(const Vector3D& p) const;
+  void                    bounding_box();
 
 // Purely virtual functions which must be overridden in the descendants:
-  virtual bool        init() = 0;
+  virtual bool            inside(const Vector3D& p) const = 0;
+
+  virtual bool            init() = 0;
 
 // Input: parametric coordinates (s, t, u) and index of the shape function nfunc.
-  virtual double      shape_func(double s, double t, double u, size_t nfunc) const = 0;
+  virtual double          shape_func(double s, double t, double u, size_t nfunc) const = 0;
 
 // Input: parametric coordinates (s, t, u), index of the shape function nfunc and index of the variable.
-  virtual double      shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const = 0;
+  virtual double          shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const = 0;
 
 // Newton method support.
 // Discrepancy of positions: computed for a k-th iteration and given point.
-  virtual Vector3D    func(double s, double t, double u, const Vector3D& pos) const;
+  virtual Vector3D        func(double s, double t, double u, const Vector3D& pos) const;
 
 //                            dFx/ds, dFx/dt, dFx/du
 // Returned matrix contains:  dFy/ds, dFy/dt, dFy/du
 //                            dFz/ds, dFz/dt, dFz/du
 //
-  virtual Matrix3D    deriv(double s, double t, double u) const;
+  virtual Matrix3D        deriv(double s, double t, double u) const;
 
 // Parametric coordinates for a point inside the element. If not overridden this function uses
 // the Newton iteration method to obtain parametric coordinates by the position inside the element.
-  virtual bool        param(const Vector3D& p, double& s, double& t, double& u) const;
+  virtual bool            param(const Vector3D& p, double& s, double& t, double& u) const;
+
+  virtual UINT            get_node_count() const = 0;
+  virtual UINT            get_node_index(UINT nInd) const = 0;  // index of this node in the global nodes collection.
+  virtual CNode3D*        get_node(UINT nInd) const = 0;
+
+  CNodesCollection        get_nodes() const;
+
+  //[AC 03/03/2017]
+  //Returns pointer to element node c-like array
+  virtual const UINT* nodes() const = 0;
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -280,11 +301,27 @@ struct CElem3D
 //-------------------------------------------------------------------------------------------------
 struct CTetra : public CElem3D
 {
-  CTetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3);
+  CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3);
+  CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3);
 
-  virtual bool        init();
-  virtual double      shape_func(double s, double t, double u, size_t node_id) const;
-  virtual double      shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
+  UINT              vTetNodeIds[4]; // indices of the tetra nodes in the global collection.
+  CPlane            vFaces[4];      // faces of the element.
+
+  virtual bool      init();
+  virtual bool      inside(const Vector3D& p) const;
+  virtual double    shape_func(double s, double t, double u, size_t node_id) const;
+  virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
+
+  virtual UINT      get_node_count() const { return 4; }
+  virtual UINT      get_node_index(UINT nInd) const { return vTetNodeIds[nInd]; }  // index of this node in the global nodes collection.
+  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 4 ? vGlobNodes[vTetNodeIds[nInd]] : NULL; }
+
+  void              add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2);
+
+  //[AC 03/03/2017]
+  //Returns pointer to element node c-like array
+  const UINT* nodes() const;
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -293,35 +330,56 @@ struct CTetra : public CElem3D
 //-------------------------------------------------------------------------------------------------
 struct CPyramid : public CElem3D
 {
-  CPyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4);
+  CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4);
   virtual ~CPyramid();
+
+  UINT              vPyrNodeIds[5]; // indices of the pyramid nodes in the global collection.
 
   virtual bool      init();
   virtual bool      inside(const Vector3D& p) const;
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
 
+  virtual UINT      get_node_count() const { return 5; }
+  virtual UINT      get_node_index(UINT nInd) const { return vPyrNodeIds[nInd]; }  // index of this node in the global nodes collection.
+  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 5 ? vGlobNodes[vPyrNodeIds[nInd]] : NULL; }
+
   CTetra*           pTet1;
   CTetra*           pTet2;
+
+  //[AC 03/03/2017]
+  //Returns pointer to element node c-like array
+  const UINT* nodes() const;
+  //[/AC]
 };
 
-typedef std::vector<CTetra*> CTetraColl;
 //-------------------------------------------------------------------------------------------------
 // CWedge - has 6 nodes. To determine whether or not a point is inside the element, the wedge is
 //          subdivided in eight tetras with a common node at the center of the wedge.
 //-------------------------------------------------------------------------------------------------
 struct CWedge : public CElem3D
 {
-  CWedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5);
+  CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5);
   virtual ~CWedge();
+
+  UINT              vWdgNodeIds[6]; // indices of the wedge nodes in the global collection.
 
   virtual bool      init();
   virtual bool      inside(const Vector3D& p) const;
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
 
-  CTetraColl        vTetras;
-  CNode3D*          pCenter;
+  virtual UINT      get_node_count() const { return 6; }
+  virtual UINT      get_node_index(UINT nInd) const { return vWdgNodeIds[nInd]; }  // index of this node in the global nodes collection.
+  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 6 ? vGlobNodes[vWdgNodeIds[nInd]] : NULL; }
+
+  CTetra*           vTetras[8];
+  Vector3D          vCenter;
+
+  //[AC 03/03/2017]
+  //Returns pointer to element node c-like array
+  const UINT* nodes() const;
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -329,15 +387,26 @@ struct CWedge : public CElem3D
 //-------------------------------------------------------------------------------------------------
 struct CHexa : public CElem3D
 {
-  CHexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7);
+  CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7);
+
+  UINT              vHexNodeIds[8]; // indices of the wedge nodes in the global collection.
 
   virtual bool      init();
   virtual bool      inside(const Vector3D& p) const;
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
 
-  CTetraColl        vTetras;
-  CNode3D*          pCenter;
+  virtual UINT      get_node_count() const { return 8; }
+  virtual UINT      get_node_index(UINT nInd) const { return vHexNodeIds[nInd]; }  // index of this node in the global nodes collection.
+  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 8 ? vGlobNodes[vHexNodeIds[nInd]] : NULL; }
+
+  CTetra*           vTetras[12];
+  Vector3D          vCenter;
+
+  //[AC 03/03/2017]
+  //Returns pointer to element node c-like array
+  const UINT* nodes() const;
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -505,6 +574,24 @@ inline void CNode3D::set_data(float fPress, float fDens, float fTemp, float fVis
   vel = vVel;
   field = vDCField;
   rf = vRFField;
+}
+
+inline void CNode3D::shrink_to_fit()
+{
+  vNbrElems.shrink_to_fit();
+  vNbrFaces.shrink_to_fit();
+}
+
+//-------------------------------------------------------------------------------------------------
+// CElem3D: inline implementation.
+//-------------------------------------------------------------------------------------------------
+inline CNodesCollection CElem3D::get_nodes() const
+{
+  CNodesCollection vNodes(get_node_count());
+  for(UINT i = 0; i < get_node_count(); i++)
+    vNodes[i] = vGlobNodes.at(get_node_index(i));
+
+  return vNodes;
 }
 
 //-------------------------------------------------------------------------------------------------

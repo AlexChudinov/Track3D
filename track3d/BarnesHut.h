@@ -1,6 +1,7 @@
 
 #include "Vector3D.hpp"
 #include "CalcThread.h"
+#include "Elements.h"
 #include <vector>
 
 namespace EvaporatingParticle
@@ -51,9 +52,8 @@ typedef std::vector<OctoTreeCell*> CellsColl;
 
 const Vector3D vNull = Vector3D(0, 0, 0);
 //---------------------------------------------------------------------------
-//  CBarnesHut - this class approximately computes Coulomb interaction 
-//  between charged particles taking into account zero potential boundary
-//  conditions at the electrodes. 
+// CBarnesHut - this class approximately computes Coulomb interaction 
+//              between charged particles. 
 //---------------------------------------------------------------------------
 class CBarnesHut
 {
@@ -85,13 +85,14 @@ public:
 // Public interface:
   double          coulomb_phi(const Vector3D& pos);     // Coulomb potential at a given point, CGS.
   Vector3D        coulomb_force(const Vector3D& pos);   // Coulomb electric field at a given point, CGS.
+  Vector3D        coulomb_field(size_t nInd) const;     // Coulomb electric field at a given node, CGS.
 
   void            create_main_cell(const Vector3D& cube_center, double cube_edge);
 
   void            add_particle(const Vector3D& pos, double charge); // both in CGS.
 
 // In multi-threading applications this function must be called before start of the threads.
-  void            prepare(CalcThreadVector& vThreads);
+  void            prepare(CalcThreadVector& vThreads, const CNodesCollection& vNodes);
 
   Vector3D        get_center() const;
   OctoTreeCell*   get_main_cell() const;
@@ -144,6 +145,8 @@ private:
 
 // If r = |vPos - pCell->charge_center| < m_fCritRadius the field grows lineary with r; this is the conception of a distributed charge. 
   double          m_fCritRadius;
+
+  std::vector<Vector3F> m_vClmbField;
 
 // Run-time:
   bool            m_bReady;
@@ -214,6 +217,11 @@ inline OctoTreeCell* CBarnesHut::get_main_cell() const
 inline const CellsColl& CBarnesHut::get_cells() const
 {
   return m_vCells;
+}
+
+inline Vector3D CBarnesHut::coulomb_field(size_t nInd) const
+{
+  return m_bReady ? Vector3D(m_vClmbField[nInd].x, m_vClmbField[nInd].y, m_vClmbField[nInd].z) : vNull;
 }
 
 };  // namespace EvaporatingParticle

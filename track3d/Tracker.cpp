@@ -87,16 +87,6 @@ void CTracker::clear()
   pDrawObj->clear();
   pDrawObj->invalidate_all();
 
-  CCrossSectColl* pColl = CParticleTrackingApp::Get()->GetPlanes();
-  size_t nPlanesCount = pColl->size();
-  for(size_t l = 0; l < nPlanesCount; l++)
-    delete pColl->at(l);
-
-  pColl->clear();
-
-  CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
-  pFields->clear_fields();
-
   set_status("Ready", -1);
 }
 
@@ -457,7 +447,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
     return false;
   }
   
-  m_pBarnesHut->prepare(vThreads);
+  m_pBarnesHut->prepare(vThreads, m_vNodes);
 
   m_SpaceChargeDist.set_handlers(NULL, NULL);
   return true;
@@ -797,27 +787,24 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
 // detached mass dm. In the case of the evaporating particle U = 0, so that the 2-nd Newton's law will not change.
   Vector3D accel(0, 0, 0);
 // Electrostatics:
-  if(m_bEnableField || m_bEnableRF)
+  double fEoverM = m_fCharge / fMass;
+  if(m_bAnsysFields)
   {
-    double fEoverM = m_fCharge / fMass;
-
     if(m_bEnableField)
       accel += fEoverM * (node.field + m_vFieldPtbColl.apply(node.pos));
 
     if(m_bEnableRF)
     {
-      if(m_bAnsysFields)
-      {
-        double fAmpl, fOmega;
-        get_ampl_freq(node.pos, fAmpl, fOmega);
-        accel += fEoverM * node.rf * fAmpl * sin(fOmega * fTime);
-      }
-      else
-      {
-        accel += fEoverM * node.rf;
-      }
+      double fAmpl, fOmega;
+      get_ampl_freq(node.pos, fAmpl, fOmega);
+      accel += fEoverM * node.rf * fAmpl * sin(fOmega * fTime);
     }
   }
+  else
+  {
+    accel += fEoverM * (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
+  }
+  
 // Gas-dynamics:
   Vector3D vDiff = node.vel - vVel;
   fRe = get_Re(vDiff, node.dens, node.visc, fD);  // the character length fD varies with time.
@@ -942,40 +929,21 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   fExpCoeff = fPow < 0.01 ? fOneOvrTau : (1. - exp(-fPow)) / fTimeStep;
 
   Vector3D vE(0, 0, 0);
-// DC Field:
-  if(m_bEnableField)
-    vE += (node.field + m_vFieldPtbColl.apply(node.pos));
-
-// RF field:
-  if(m_bEnableRF)
-    vE += m_bAnsysFields ? get_rf_field(node, fTime, fPhase) : node.rf;
-
-// Coulomb:
-  if(m_bEnableCoulomb)
-  {
-    if(m_bAxialSymm && (vVel.x > Const_Almost_Zero))
-    {
-      vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
-    }
-    else if(m_pBarnesHut != NULL) // in the case of iterations m_pBarnesHut is non-zero since the second iteration.
-    {
-      Vector3D vClmb(0, 0, 0);
-      if(m_bUseRadialCoulomb && (node.pos.x > m_fRadialCoulombX) && (vVel.x > Const_Almost_Zero))
-      {
-        vClmb = m_SpaceChargeDist.radial_coulomb(node.pos, vVel.x);
-      }
-      else
-      {
-        vClmb = m_pBarnesHut->coulomb_force(node.pos);
-// DEBUG
-        if((node.pos.x > m_fX_Q0) && (vClmb.x < 0))
-          vClmb.x = 0;
-// END DEBUG
-      }
-
-      vE += vClmb;
-    }
+  if(m_bAnsysFields)  // the backward compatibility is not full: if there is no axial symmetry and if you disable the DC fields
+  {                   // the Coulomb field also will be disabled.
+    if(m_bEnableField)  // DC Field:
+      vE += (node.field + m_vFieldPtbColl.apply(node.pos));
+    if(m_bEnableRF)     // RF field:
+      vE += get_rf_field(node, fTime, fPhase);
   }
+  else
+  {
+    vE += (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
+  }
+
+// Coulomb: if there is no axial symmetry, the Coulomb field is already included as a part of the node.field. 
+  if(m_bEnableCoulomb && m_bAxialSymm && (vVel.x > Const_Almost_Zero))
+    vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
 
   return (node.vel - vVel + fMob * vE) * fExpCoeff;
 }
@@ -1170,12 +1138,17 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   if(!pElem->coeff(vPos, pWeight))
     return false;
 
+  node.pos = vPos;
+  node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);  // this is just a container for interpolated data.
+
   double w;
+  bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm && (m_pBarnesHut != NULL);
   CNode3D* pNode = NULL;
-  size_t nNodesCount = pElem->vNodes.size();
+  size_t nInd, nNodesCount = pElem->get_node_count();
   for(size_t i = 0; i < nNodesCount; i++)
   {
-    pNode = pElem->vNodes.at(i);
+    nInd = pElem->get_node_index(i);
+    pNode = m_vNodes[nInd];
     w = pWeight[i];
 // Scalars:
     node.dens  += w * pNode->dens;
@@ -1187,6 +1160,9 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
 // Vectors:
     node.vel   += w * pNode->vel;
     node.field += w * pNode->field;
+    if(bAddCoulomb)
+      node.field += w * m_pBarnesHut->coulomb_field(nInd);
+
     if(m_bAnsysFields)
       node.rf += w * pNode->rf;
   }
@@ -1208,12 +1184,9 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
 
     vFieldRF = vNull;
     for(size_t i = 0; i < nNodesCount; i++)
-    {
-      pNode = pElem->vNodes.at(i);
-      vFieldRF += pWeight[i] * pField->get_field(pNode->nInd);
-    }
+      vFieldRF += pWeight[i] * pField->get_field(pElem->get_node_index(i));
 
-    node.rf += vFieldRF * pField->get_scale() * sin(pField->get_omega() * fTime + fPhase);
+    node.rf += vFieldRF * pField->get_ampl() * sin(pField->get_omega() * fTime + fPhase);
   }
 
   return true;
@@ -1247,23 +1220,26 @@ CElem3D* CTracker::try_neighbors(CElem3D* pElem, const Vector3D& vPos) const
   if(pElem->inside(vPos))
     return pElem;
 
+  UINT nNbrInd = 0;
+  CElem3D* pNbrElem = NULL;
 // Try the neighbors of pElem.
-  std::vector<CElem3D*> vUsedElems;
-  size_t nNodeCount = pElem->vNodes.size();
+  CIndexVector vUsedElems;
+  size_t nNodeCount = pElem->get_node_count();
   for(size_t j = 0; j < nNodeCount; j++)
   {
-    CNode3D* pNode = pElem->vNodes.at(j);
+    CNode3D* pNode = pElem->get_node(j);
     size_t nNbrCount = pNode->vNbrElems.size();
     for(size_t i = 0; i < nNbrCount; i++)
     {
-      CElem3D* pNbrElem = pNode->vNbrElems.at(i);
-      if(std::find(vUsedElems.begin(), vUsedElems.end(), pNbrElem) != vUsedElems.end())
+      nNbrInd = pNode->vNbrElems.at(i);
+      if(std::find(vUsedElems.begin(), vUsedElems.end(), nNbrInd) != vUsedElems.end())
         continue;
 
+      pNbrElem = m_vElems.at(nNbrInd);
       if(pNbrElem->inside(vPos))
         return pNbrElem;
 
-      vUsedElems.push_back(pNbrElem);
+      vUsedElems.push_back(nNbrInd);
     }
   }
 
@@ -1457,6 +1433,9 @@ bool CTracker::read_geometry()
     }
   }
 
+  for(UINT i = 0; i < nNodeCount; i++)
+    m_vNodes.at(i)->shrink_to_fit();
+
   fclose(pStream);
   bounding_box();
   return true;
@@ -1600,57 +1579,57 @@ bool CTracker::read_gasdyn_data()
 
 void CTracker::add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3)
 {
-  CTetra* pTetra = new CTetra(p0, p1, p2, p3);
+  CTetra* pTetra = new CTetra(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd);
   pTetra->nInd = m_vElems.size(); // this index is used in integrators as well as in export of the mesh to the OpenFOAM format.
   m_vElems.push_back((CElem3D*)pTetra);
 
-  p0->vNbrElems.push_back((CElem3D*)pTetra);
-  p1->vNbrElems.push_back((CElem3D*)pTetra);
-  p2->vNbrElems.push_back((CElem3D*)pTetra);
-  p3->vNbrElems.push_back((CElem3D*)pTetra);
+  p0->vNbrElems.push_back(pTetra->nInd);
+  p1->vNbrElems.push_back(pTetra->nInd);
+  p2->vNbrElems.push_back(pTetra->nInd);
+  p3->vNbrElems.push_back(pTetra->nInd);
 }
 
 void CTracker::add_pyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4)
 {
-  CPyramid* pPyr = new CPyramid(p0, p1, p2, p3, p4);
+  CPyramid* pPyr = new CPyramid(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd);
   pPyr->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pPyr);
 
-  p0->vNbrElems.push_back((CElem3D*)pPyr);
-  p1->vNbrElems.push_back((CElem3D*)pPyr);
-  p2->vNbrElems.push_back((CElem3D*)pPyr);
-  p3->vNbrElems.push_back((CElem3D*)pPyr);
-  p4->vNbrElems.push_back((CElem3D*)pPyr);
+  p0->vNbrElems.push_back(pPyr->nInd);
+  p1->vNbrElems.push_back(pPyr->nInd);
+  p2->vNbrElems.push_back(pPyr->nInd);
+  p3->vNbrElems.push_back(pPyr->nInd);
+  p4->vNbrElems.push_back(pPyr->nInd);
 }
 
 void CTracker::add_wedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5)
 {
-  CWedge* pWedge = new CWedge(p0, p1, p2, p3, p4, p5);
+  CWedge* pWedge = new CWedge(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd, p5->nInd);
   pWedge->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pWedge);
 
-  p0->vNbrElems.push_back((CElem3D*)pWedge);
-  p1->vNbrElems.push_back((CElem3D*)pWedge);
-  p2->vNbrElems.push_back((CElem3D*)pWedge);
-  p3->vNbrElems.push_back((CElem3D*)pWedge);
-  p4->vNbrElems.push_back((CElem3D*)pWedge);
-  p5->vNbrElems.push_back((CElem3D*)pWedge);
+  p0->vNbrElems.push_back(pWedge->nInd);
+  p1->vNbrElems.push_back(pWedge->nInd);
+  p2->vNbrElems.push_back(pWedge->nInd);
+  p3->vNbrElems.push_back(pWedge->nInd);
+  p4->vNbrElems.push_back(pWedge->nInd);
+  p5->vNbrElems.push_back(pWedge->nInd);
 }
 
 void CTracker::add_hexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7)
 {
-  CHexa* pHexa = new CHexa(p0, p1, p2, p3, p4, p5, p6, p7);
+  CHexa* pHexa = new CHexa(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd, p5->nInd, p6->nInd, p7->nInd);
   pHexa->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pHexa);
 
-  p0->vNbrElems.push_back((CElem3D*)pHexa);
-  p1->vNbrElems.push_back((CElem3D*)pHexa);
-  p2->vNbrElems.push_back((CElem3D*)pHexa);
-  p3->vNbrElems.push_back((CElem3D*)pHexa);
-  p4->vNbrElems.push_back((CElem3D*)pHexa);
-  p5->vNbrElems.push_back((CElem3D*)pHexa);
-  p6->vNbrElems.push_back((CElem3D*)pHexa);
-  p7->vNbrElems.push_back((CElem3D*)pHexa);
+  p0->vNbrElems.push_back(pHexa->nInd);
+  p1->vNbrElems.push_back(pHexa->nInd);
+  p2->vNbrElems.push_back(pHexa->nInd);
+  p3->vNbrElems.push_back(pHexa->nInd);
+  p4->vNbrElems.push_back(pHexa->nInd);
+  p5->vNbrElems.push_back(pHexa->nInd);
+  p6->vNbrElems.push_back(pHexa->nInd);
+  p7->vNbrElems.push_back(pHexa->nInd);
 }
 
 void CTracker::bounding_box()
@@ -1721,7 +1700,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 22;  // 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 23;  // 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
 // General parameters:
@@ -1815,6 +1794,8 @@ void CTracker::save(CArchive& ar)
 
   CCrossSectColl* pCollCS = CParticleTrackingApp::Get()->GetPlanes();
   pCollCS->save(ar);  // since version 22.
+
+  ar << m_bAnsysFields;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -2045,6 +2026,9 @@ void CTracker::load(CArchive& ar)
     CCrossSectColl* pCollCS = CParticleTrackingApp::Get()->GetPlanes();
     pCollCS->load(ar);  // since version 22.
   }
+
+  if(nVersion >= 23)
+    ar >> m_bAnsysFields;
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);
@@ -2200,6 +2184,19 @@ void CTracker::load_tracks(CArchive& ar)
 void CTracker::clear_scene()
 {
   clear();
+
+// Clear collection of cross-section planes:
+  CCrossSectColl* pColl = CParticleTrackingApp::Get()->GetPlanes();
+  size_t nPlanesCount = pColl->size();
+  for(size_t l = 0; l < nPlanesCount; l++)
+    delete pColl->at(l);
+
+  pColl->clear();
+
+// Clear collection of electric fields:
+  CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
+  pFields->clear_fields();
+
   clear_tracks();
   m_sDataFile.clear();
 

@@ -110,26 +110,28 @@ const CMeshAdapter::Element * CMeshAdapter::element(
 	const CMeshAdapter::Label & nPrevNode) const
 {
 	std::vector<bool> visitedNodes(m_nodes.size(), false);
-	std::set<const Element*> visitedElemets;
-	std::queue<const Node*> nodesQueue;
-	nodesQueue.push(m_nodes[nPrevNode]);
-	visitedNodes[m_nodes[nPrevNode]->nInd] = true;
+	std::set<Label> visitedElemets;
+	std::queue<Label> nodesQueue;
+	nodesQueue.push(nPrevNode);
+	visitedNodes[nPrevNode] = true;
 
 	while (!nodesQueue.empty())
 	{
-		const Node* node = nodesQueue.front(); nodesQueue.pop();
-		nCurNode = node->nInd;
-		for (const Element* e : node->vNbrElems)
-			if (visitedElemets.find(e) == visitedElemets.end())
-				if (e->inside(v)) return e;
+		nCurNode = nodesQueue.front(); nodesQueue.pop();
+		const Labels& vNbrElemIdxs = m_nodes[nCurNode]->nbr_elems();
+		for (UINT nElemIdx : vNbrElemIdxs)
+			if (visitedElemets.find(nElemIdx) == visitedElemets.end())
+				if (m_elems[nElemIdx]->inside(v)) return m_elems[nElemIdx];
 				else
 				{
-					visitedElemets.insert(e);
-					for (const Node* n : e->vNodes)
-						if (!visitedNodes[n->nInd])
+					visitedElemets.insert(nElemIdx);
+					const UINT * pNodeIdxStart = m_elems[nElemIdx]->nodes();
+					const UINT * pNodeIdxEnd = pNodeIdxStart + m_elems[nElemIdx]->get_node_count();
+					for (; pNodeIdxStart != pNodeIdxEnd; ++pNodeIdxStart)
+						if (!visitedNodes[*pNodeIdxStart])
 						{
-							nodesQueue.push(n);
-							visitedNodes[n->nInd] = true;
+							nodesQueue.push(*pNodeIdxStart);
+							visitedNodes[*pNodeIdxStart] = true;
 						}
 				}
 	}
@@ -315,7 +317,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 	result.m_matrix.resize(m_nodes.size());
 	for (const Node* n : m_nodes)
 	{
-		size_t nNodeIdx = n->nInd;
+		Label nNodeIdx = n->nInd;
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(nNodeIdx))
@@ -366,8 +368,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	result.m_matrix.resize(m_nodes.size());
 	for (const Node* n : m_nodes)
 	{
-		size_t nNodeIdx = n->nInd, nNodeIdxNext;
-		//double h = minEdgeLength(nNodeIdx) * smallStepFactor();
+		Label nNodeIdx = n->nInd, nNodeIdxNext;
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(nNodeIdx))
@@ -459,10 +460,10 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 	if (!e->param(pos, s, t, u))
 		throw std::runtime_error("CMeshAdapter::interpCoefs"
 			": CElem3D::param returned false.");
-	for (size_t i = 0; i < e->vNodes.size(); ++i)
+	for (size_t i = 0; i < e->get_node_count(); ++i)
 	{
 		double w = e->shape_func(s, t, u, i);
-		res.insert(InterpCoef(static_cast<uint32_t>(e->vNodes[i]->nInd), w));
+		res.insert(InterpCoef(e->get_node_index(i), w));
 	}
 	return res;
 }
@@ -510,19 +511,19 @@ void CMeshAdapter::eps(size_t nFactor)
 
 double CMeshAdapter::minElemSize(Label l) const
 {
-	const Elements& vElems = neighborElems(l);
-	Elements::const_iterator pMinElem = std::min_element(vElems.begin(), vElems.end(), 
-		[](const Element* e1, const Element* e2)->bool
+	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
+	Labels::const_iterator pMinElem = std::min_element(vElemIdxs.begin(), vElemIdxs.end(),
+		[=](Label l1, Label l2)->bool
 	{
 		Vector3D
-			vBox1 = e1->box.vMax - e1->box.vMin,
-			vBox2 = e2->box.vMax - e2->box.vMin;
+			vBox1 = m_elems[l1]->box.vMax - m_elems[l1]->box.vMin,
+			vBox2 = m_elems[l2]->box.vMax - m_elems[l2]->box.vMin;
 		double
 			fBox1 = min(vBox1.x, min(vBox1.y, vBox1.z)),
 			fBox2 = min(vBox2.x, min(vBox2.y, vBox2.z));
 		return fBox1 < fBox2;
 	});
-	Vector3D vMinBox = (*pMinElem)->box.vMax - (*pMinElem)->box.vMin;
+	Vector3D vMinBox = m_elems[*pMinElem]->box.vMax - m_elems[*pMinElem]->box.vMin;
 	return min(vMinBox.x, min(vMinBox.y, vMinBox.z));
 }
 
@@ -555,7 +556,6 @@ double CMeshAdapter::maxEdgeLength(Label l) const
 double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
 {
 	double a = 0.0, b = 2.0*maxEdgeLength(l);
-
 	while (b - a > eps())
 	{
 		double m = (b + a) / 2.;
@@ -564,25 +564,15 @@ double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
 		else
 			b = m;
 	}
-
 	return a;
-}
-
-const CMeshAdapter::Elements & CMeshAdapter::neighborElems(Label l) const
-{
-	return m_nodes[l]->vNbrElems;
 }
 
 const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos, Label l) const
 {
-	for (const Element* e : neighborElems(l))
-		if (e->inside(pos)) return e;
+	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
+	for (Label nElemIdx : vElemIdxs)
+		if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
 	return nullptr;
-}
-
-const CMeshAdapter::Nodes & CMeshAdapter::neighborNodes(Label l) const
-{
-	return m_elems[l]->vNodes;
 }
 
 BoundaryMesh * CMeshAdapter::boundaryMesh() const
@@ -620,55 +610,55 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
 	}
 }
 
-void CMeshConnectivity::addTet(const Nodes & ns)
+void CMeshConnectivity::addTet(Label n0, Label n1, Label n2, Label n3)
 {
-	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
+	addEdge(n0, n1);
+	addEdge(n0, n2);
+	addEdge(n0, n3);
+	addEdge(n1, n2);
+	addEdge(n1, n3);
+	addEdge(n2, n3);
 }
 
-void CMeshConnectivity::addPyr(const Nodes & ns)
+void CMeshConnectivity::addPyr(Label n0, Label n1, Label n2, Label n3, Label n4)
 {
-	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[3]->nInd), Label(ns[4]->nInd));
+	addEdge(n0, n1);
+	addEdge(n0, n3);
+	addEdge(n0, n4);
+	addEdge(n1, n2);
+	addEdge(n1, n4);
+	addEdge(n2, n3);
+	addEdge(n2, n4);
+	addEdge(n3, n4);
 }
 
-void CMeshConnectivity::addWedge(const Nodes & ns)
+void CMeshConnectivity::addWedge(Label n0, Label n1, Label n2, Label n3, Label n4, Label n5)
 {
-	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[5]->nInd));
-	addEdge(Label(ns[3]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[3]->nInd), Label(ns[5]->nInd));
-	addEdge(Label(ns[4]->nInd), Label(ns[5]->nInd));
+	addEdge(n0, n1);
+	addEdge(n0, n2);
+	addEdge(n0, n3);
+	addEdge(n1, n2);
+	addEdge(n1, n4);
+	addEdge(n2, n5);
+	addEdge(n3, n4);
+	addEdge(n3, n5);
+	addEdge(n4, n5);
 }
 
-void CMeshConnectivity::addHexa(const Nodes & ns)
+void CMeshConnectivity::addHexa(Label n0, Label n1, Label n2, Label n3, Label n4, Label n5, Label n6, Label n7)
 {
-	addEdge(Label(ns[0]->nInd), Label(ns[1]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[0]->nInd), Label(ns[4]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[2]->nInd));
-	addEdge(Label(ns[1]->nInd), Label(ns[5]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[3]->nInd));
-	addEdge(Label(ns[2]->nInd), Label(ns[6]->nInd));
-	addEdge(Label(ns[3]->nInd), Label(ns[7]->nInd));
-	addEdge(Label(ns[4]->nInd), Label(ns[5]->nInd));
-	addEdge(Label(ns[4]->nInd), Label(ns[7]->nInd));
-	addEdge(Label(ns[5]->nInd), Label(ns[6]->nInd));
-	addEdge(Label(ns[6]->nInd), Label(ns[7]->nInd));
+	addEdge(n0, n1);
+	addEdge(n0, n3);
+	addEdge(n0, n4);
+	addEdge(n1, n2);
+	addEdge(n1, n5);
+	addEdge(n2, n3);
+	addEdge(n2, n6);
+	addEdge(n3, n7);
+	addEdge(n4, n5);
+	addEdge(n4, n7);
+	addEdge(n5, n6);
+	addEdge(n6, n7);
 }
 
 CMeshConnectivity::Label CMeshConnectivity::size() const
@@ -687,25 +677,26 @@ void CMeshConnectivity::addEdge(Label i, Label j)
 
 void CMeshConnectivity::addElem(const Elem * e)
 {
-	const Nodes& ns = e->vNodes;
-	switch (ns.size())
+	const UINT * pNodeIdx = e->nodes();
+	switch (e->get_node_count())
 	{
 	case 4: //Tetrahedron
-		return addTet(ns);
+		return addTet(pNodeIdx[0], pNodeIdx[1], pNodeIdx[2], pNodeIdx[3]);
 	case 5: //Pyramide
-		return addPyr(ns);
+		return addPyr(pNodeIdx[0], pNodeIdx[1], pNodeIdx[2], pNodeIdx[3], pNodeIdx[4]);
 	case 6: //Wedge
-		return addWedge(ns);
+		return addWedge(pNodeIdx[0], pNodeIdx[1], pNodeIdx[2], pNodeIdx[3], pNodeIdx[4], pNodeIdx[5]);
 	case 8: //Hexahedron
-		return addHexa(ns);
+		return addHexa(pNodeIdx[0], pNodeIdx[1], pNodeIdx[2], pNodeIdx[3], 
+			pNodeIdx[4], pNodeIdx[5], pNodeIdx[6], pNodeIdx[7]);
 	default:
 		throw std::runtime_error(std::string("CMeshConnectivity::addElem: ")
-			+ "Unexpected number of vertices - " + std::to_string(ns.size()) 
+			+ "Unexpected number of vertices - " + std::to_string(e->get_node_count())
 			+ " in element #" + std::to_string(e->nInd) + ".");
 	}
 }
 
-CMeshConnectivity::NodeConnections CMeshConnectivity::neighbor(Label i) const
+const CMeshConnectivity::NodeConnections& CMeshConnectivity::neighbor(Label i) const
 {
 	return m_graph.at(i);
 }
