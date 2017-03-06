@@ -4,6 +4,7 @@
 
 #include <queue>
 #include <mutex>
+#include <atomic>
 #include <thread>
 #include <vector>
 #include <algorithm>
@@ -22,9 +23,10 @@ private:
 public:
 	void addTask(const Task& task);
 	Task getTask();
+	void clear();
 
 	//Returns false if there are some tasks
-	bool isEmpty() const;
+	bool isEmpty();
 };
 
 //A pool of threads
@@ -36,11 +38,58 @@ public:
 	using Mutex = std::mutex;
 	using Locker = std::unique_lock<Mutex>;
 	using ConditionVar = std::condition_variable;
+	using AtomicBool = std::atomic_bool;
+	using AtomicUint = std::atomic_uint32_t;
 private:
 	Mutex m_startMutex;
 	ConditionVar m_startCondition;
+	Mutex m_stopMutex;
+	ConditionVar m_stopCondition;
+	Mutex m_mutex; //just mutex
+
+	size_t m_nThreadNumber;
+	AtomicUint m_nThreadsActive;
+	AtomicBool m_bStopFlag;
+	Threads m_threads;
+
+	TaskQueue m_tasks;
+public:
+
+	ThreadPool(size_t nThreadNumber = 0);
+	~ThreadPool();
+
+	void threadNumber(size_t nThreadNumber);
+	size_t threadNumber();
+
+	//Waits when one thread is ending the work
+	void waitForOne();
+
+	//Waits when all thread is finished the work
+	void waitForAll();
+
+	//Adds task to task queue
+	void addTask(const TaskQueue::Task& task);
+
+	//Splits array into subarray and does parallel operation on it
+	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
+
 private:
 	void threadEvtLoop();
+
+	//Starts thread event loops
+	void start();
+
+	//Stops thread event loops
+	void stop();
+
+	//Signals to threads to stop
+	bool stopFlag() const;
+	void stopFlag(bool bStopFlag);
+
+	//Counts active threads
+	size_t threadsActive() const;
+	void decThreadsActive();
+	void incThreadsActive();
 };
 
 //Splites for each loops into parallel
