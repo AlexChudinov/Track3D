@@ -7,21 +7,26 @@
 #include <atomic>
 #include <thread>
 #include <vector>
+#include <future>
 #include <algorithm>
 
 //Thread pool tast queue
 class TaskQueue
 {
 public:
-	using Task = std::function<void()>;
+	using Fun = std::function<void()>;
+	using Task = std::packaged_task<void()>;
 	using Tasks = std::queue<Task>;
 	using Mutex = std::mutex;
 	using Locker = std::unique_lock<Mutex>;
+	using Future = std::future<void>;
+
 private:
 	Tasks m_tasks;
 	Mutex m_queueAccess;
+
 public:
-	void addTask(const Task& task);
+	Future addTask(const Fun& task);
 	Task getTask();
 	void clear();
 
@@ -39,16 +44,12 @@ public:
 	using Locker = std::unique_lock<Mutex>;
 	using ConditionVar = std::condition_variable;
 	using AtomicBool = std::atomic_bool;
-	using AtomicUint = std::atomic_uint32_t;
+
 private:
 	Mutex m_startMutex;
 	ConditionVar m_startCondition;
-	Mutex m_stopMutex;
-	ConditionVar m_stopCondition;
-	Mutex m_mutex; //just mutex
 
 	size_t m_nThreadNumber;
-	AtomicUint m_nThreadsActive;
 	AtomicBool m_bStopFlag;
 	Threads m_threads;
 
@@ -61,14 +62,8 @@ public:
 	void threadNumber(size_t nThreadNumber);
 	size_t threadNumber();
 
-	//Waits when one thread is ending the work
-	void waitForOne();
-
-	//Waits when all thread is finished the work
-	void waitForAll();
-
 	//Adds task to task queue
-	void addTask(const TaskQueue::Task& task);
+	TaskQueue::Future addTask(TaskQueue::Fun&& task);
 
 	//Splits array into subarray and does parallel operation on it
 	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
@@ -85,11 +80,6 @@ private:
 	//Signals to threads to stop
 	bool stopFlag() const;
 	void stopFlag(bool bStopFlag);
-
-	//Counts active threads
-	size_t threadsActive() const;
-	void decThreadsActive();
-	void incThreadsActive();
 };
 
 //Splites for each loops into parallel

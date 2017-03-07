@@ -15,18 +15,19 @@ CParFor::CParFor()
 	m_threads.resize(s_nProcNum);
 }
 
-void TaskQueue::addTask(const Task& task)
+TaskQueue::Future TaskQueue::addTask(const Fun& task)
 {
 	Locker lock(m_queueAccess);
-	m_tasks.push(task);
+	m_tasks.push(Task(task));
+	return m_tasks.back().get_future();
 }
 
 TaskQueue::Task TaskQueue::getTask()
 {
 	Locker lock(m_queueAccess);
-	Task task = m_tasks.front();
+	Task task(std::move(m_tasks.front()));
 	m_tasks.pop();
-	return task;
+	return std::move(task);
 }
 
 void TaskQueue::clear()
@@ -44,7 +45,6 @@ bool TaskQueue::isEmpty()
 ThreadPool::ThreadPool(size_t nThreadNumber)
 	:
 	m_nThreadNumber(nThreadNumber ? nThreadNumber : Thread::hardware_concurrency()),
-	m_nThreadsActive(0),
 	m_bStopFlag(false)
 {
 	start();
@@ -59,7 +59,6 @@ ThreadPool::~ThreadPool()
 void ThreadPool::threadNumber(size_t nThreadNumber)
 {
 	stop();
-	waitForAll();
 	m_nThreadNumber = nThreadNumber;
 	start();
 }
@@ -69,27 +68,17 @@ size_t ThreadPool::threadNumber()
 	return m_nThreadNumber;
 }
 
-void ThreadPool::waitForOne()
+TaskQueue::Future ThreadPool::addTask(TaskQueue::Fun&& task)
 {
-	Locker lock(m_stopMutex);
-	m_stopCondition.wait(lock);
-}
-
-void ThreadPool::waitForAll()
-{
-	Locker lock(m_stopMutex);
-	m_stopCondition.wait(lock, [&]()->bool { return m_tasks.isEmpty() && threadsActive() == 0; });
-}
-
-void ThreadPool::addTask(const TaskQueue::Task & task)
-{
-	m_tasks.addTask(task);
+	TaskQueue::Future future = m_tasks.addTask(task);
 	m_startCondition.notify_one();
+	return std::move(future);
 }
 
 void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicOp)
 {
 	size_t nn = n / threadNumber() + 1;
+	std::vector<TaskQueue::Future> vFutures;
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
@@ -98,13 +87,16 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 	else
 	{
 		for(size_t i = 0; i < n; i += nn)
+			vFutures.push_back(
 			addTask([=]() 
 		{
 			size_t end = i + nn < n ? i + nn : n;
 			for (size_t j = i; j < end; ++j)
 				atomicOp(j);
-		});
+		}));
 	}
+	std::for_each(vFutures.begin(), vFutures.end(), 
+		[](TaskQueue::Future& future) { future.wait(); });
 }
 
 void ThreadPool::threadEvtLoop()
@@ -121,10 +113,7 @@ void ThreadPool::threadEvtLoop()
 		else
 		{
 			TaskQueue::Task task = m_tasks.getTask();
-			incThreadsActive();
 			task();
-			decThreadsActive();
-			m_stopCondition.notify_all();
 		}
 	}
 }
@@ -151,19 +140,4 @@ bool ThreadPool::stopFlag() const
 void ThreadPool::stopFlag(bool bStopFlag)
 {
 	m_bStopFlag = bStopFlag;
-}
-
-size_t ThreadPool::threadsActive() const
-{
-	return m_nThreadsActive;
-}
-
-void ThreadPool::decThreadsActive()
-{
-	--m_nThreadsActive;
-}
-
-void ThreadPool::incThreadsActive()
-{
-	++m_nThreadsActive;
 }

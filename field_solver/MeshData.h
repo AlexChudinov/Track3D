@@ -337,7 +337,6 @@ public:
 			for (const MatrixCoef& c : m_matrix[n])
 				result[n] += f[c.first] * c.second;
 		});
-		m_threadPool->waitForAll();
 
 		return result;
 	}
