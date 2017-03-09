@@ -10,6 +10,7 @@
 #include <numeric>
 #include <cassert>
 #include <algorithm>
+#include <unordered_map>
 
 #include <linearAlgebra\matrixTemplate.h>
 #include "ParallelFor.h"
@@ -289,7 +290,7 @@ class CFieldOperator
 {
 public:
 	using MatrixCoef = std::pair<uint32_t, double>;
-	using MatrixRow = std::map<uint32_t, double>;
+	using MatrixRow = std::unordered_map<uint32_t, double>;
 	using Matrix = std::vector<MatrixRow>;
 	using Field = std::vector<FieldType>;
 
@@ -326,7 +327,7 @@ public:
 	using Nodes = EvaporatingParticle::CNodesCollection;
 	using PBoundary = std::unique_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
-	using InterpCoefs = std::map<uint32_t, double>;
+	using InterpCoefs = std::unordered_map<uint32_t, double>;
 	using Label = UINT;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
