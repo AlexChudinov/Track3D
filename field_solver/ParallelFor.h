@@ -4,11 +4,11 @@
 
 #include <queue>
 #include <mutex>
-#include <atomic>
 #include <thread>
 #include <vector>
 #include <future>
 #include <algorithm>
+#include "../track3d/CObject.h"
 
 //Thread pool tast queue
 class TaskQueue
@@ -43,21 +43,35 @@ public:
 	using Mutex = std::mutex;
 	using Locker = std::unique_lock<Mutex>;
 	using ConditionVar = std::condition_variable;
-	using AtomicBool = std::atomic_bool;
+	using String = std::string;
+	using Progress = EvaporatingParticle::CObject;
 
 private:
+	//True if thread pool is valid
+	bool m_bValid;
+
 	Mutex m_startMutex;
 	ConditionVar m_startCondition;
 
 	size_t m_nThreadNumber;
-	AtomicBool m_bStopFlag;
+	bool m_bStopFlag;
 	Threads m_threads;
 
 	TaskQueue m_tasks;
-public:
 
-	ThreadPool(size_t nThreadNumber = 0);
+	String m_sErrorDescription;
+
+	Mutex m_globalLock;
+
+	ThreadPool();
+	ThreadPool(const ThreadPool&) = delete;
+	ThreadPool& operator=(const ThreadPool&) = delete;
+
+public:
 	~ThreadPool();
+
+	//Returns thread pool global instance
+	static ThreadPool& getInstance();
 
 	void threadNumber(size_t nThreadNumber);
 	size_t threadNumber();
@@ -67,6 +81,10 @@ public:
 
 	//Splits array into subarray and does parallel operation on it
 	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
+	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp, Progress* progress);
+
+	//Returns error string from a thread pool
+	const String& error() const;
 
 private:
 	void threadEvtLoop();
@@ -80,70 +98,16 @@ private:
 	//Signals to threads to stop
 	bool stopFlag() const;
 	void stopFlag(bool bStopFlag);
-};
 
-//Splites for each loops into parallel
-class CParFor
-{
-public:
-	using Thread = std::thread;
-	using Threads = std::vector<Thread>;
-	using Mutex = std::mutex;
-	using Locker = std::unique_lock<Mutex>;
-private:
-	static size_t s_nProcNum;
-	Threads m_threads;
-
+	//Joins to all current threads
 	void joinAll();
-public:
-	CParFor();
 
-	template<typename It, typename Task>
-	void parallelForEach(It start, It end, Task task);
+	//Initialises thread pool
+	void init();
 
-	template<typename Task>
-	void parallelForEach(size_t start, size_t end, Task task);
+	//Returns true if the thread pool is valid
+	bool valid();
+	void valid(bool bValid);
 };
-
-template<typename It, typename Task>
-inline void CParFor::parallelForEach(It start, It end, Task task)
-{
-	size_t n =
-		std::distance(start, end),
-		nn = n / s_nProcNum + 1;
-	size_t 
-		first = start,
-		last = (first + nn) < end ? first + nn : end;
-	for (Thread& t : m_threads)
-	{
-		t = Thread([=]() {std::for_each(first, last, task)});
-		first = last;
-		last = (first + nn) < end ? first + nn : end;
-	}
-
-	joinAll();
-}
-
-template<typename Task>
-inline void CParFor::parallelForEach(size_t start, size_t end, Task task)
-{
-	size_t
-		n = end - start,
-		nn = n / s_nProcNum + 1,
-		first = start,
-		last = first + nn < end ? first + nn : end;
-
-	for (size_t i = 0; i < m_threads.size(); ++i)
-	{
-		m_threads[i] = Thread([=]()
-		{
-			task(first, last);
-		});
-		first = last;
-		last = first + nn < end ? first + nn : end;
-	}
-
-	joinAll();
-}
 
 #endif // !_PAR_FOR_

@@ -292,47 +292,23 @@ public:
 	using MatrixRow = std::map<uint32_t, double>;
 	using Matrix = std::vector<MatrixRow>;
 	using Field = std::vector<FieldType>;
-	using PThreadPool = std::shared_ptr<ThreadPool>;
 
 	friend class CMeshAdapter;
 
 private:
 	Matrix m_matrix;
-	PThreadPool m_threadPool;
 
 public:
-	void initPool(const PThreadPool& threadPool = PThreadPool())
-	{
-		if (!m_threadPool)
-		{
-			if (!threadPool) m_threadPool.reset(new ThreadPool);
-			else m_threadPool = threadPool;
-		}
-	}
 
 	//Applies operator to a field
 	Field applyToField(const Field& f)
 	{
-		initPool();
 		if (m_matrix.size() != f.size())
 			throw std::runtime_error("CFieldOperator::applyToField:"
 				" Matrix and field sizes are different!");
 		Field result(f.size(), 0.0);
 
-		/*for (size_t i = 0; i < f.size(); ++i)
-			for (const MatrixCoef& c : m_matrix[i])
-				result[i] += f[c.first] * c.second;*/
-
-		/*CParFor p;
-		p.parallelForEach(0, f.size(),
-			[&](size_t first, size_t last)
-		{
-			for (size_t i = first; i < last; ++i)
-				for (const MatrixCoef& c : m_matrix[i])
-					result[i] += f[c.first] * c.second;
-		});*/
-
-		m_threadPool->splitInPar(f.size(), [&](size_t n)
+		ThreadPool::getInstance().splitInPar(f.size(), [&](size_t n)
 		{
 			for (const MatrixCoef& c : m_matrix[n])
 				result[n] += f[c.first] * c.second;

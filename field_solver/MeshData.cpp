@@ -366,33 +366,33 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	m_pProgressBar->set_progress(0);
 
 	result.m_matrix.resize(m_nodes.size());
-	for (const Node* n : m_nodes)
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx) 
 	{
-		Label nNodeIdx = n->nInd, nNodeIdxNext;
-		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) break;
-		if (m_pBoundary->isBoundary(nNodeIdx))
+		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
+		const Node* n = m_nodes[nCurNodeIdx];
+		if (m_pBoundary->isBoundary(nCurNodeIdx))
 		{
-			if (m_pBoundary->isFirstType(nNodeIdx)) //Fixed value BC
-				result.m_matrix[nNodeIdx][nNodeIdx] = 1.0;
+			if (m_pBoundary->isFirstType(nCurNodeIdx)) //Fixed value BC
+				result.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
 			else //Zero gradient
 			{
-				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nNodeIdx);
-				double h = optimalStep(norm, nNodeIdx);
-				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNodeIdxNext, nNodeIdx);
-				result.m_matrix[nNodeIdx] = std::move(coefs);
+				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nCurNodeIdx);
+				double h = optimalStep(norm, nCurNodeIdx);
+				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNextNodeIdx, nCurNodeIdx);
+				result.m_matrix[nCurNodeIdx] = std::move(coefs);
 			}
 		}
 		else
 		{
 			//It is inner point
 			double
-				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nNodeIdx),
-				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nNodeIdx),
-				hy1 = optimalStep({ 0.0, -1.0, 0.0 }, nNodeIdx),
-				hy2 = optimalStep({ 0.0, 1.0, 0.0 }, nNodeIdx),
-				hz1 = optimalStep({ 0.0, 0.0, -1.0 }, nNodeIdx),
-				hz2 = optimalStep({ 0.0, 0.0, 1.0 }, nNodeIdx);
+				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nCurNodeIdx),
+				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nCurNodeIdx),
+				hy1 = optimalStep({ 0.0, -1.0, 0.0 }, nCurNodeIdx),
+				hy2 = optimalStep({ 0.0, 1.0, 0.0 }, nCurNodeIdx),
+				hz1 = optimalStep({ 0.0, 0.0, -1.0 }, nCurNodeIdx),
+				hz2 = optimalStep({ 0.0, 0.0, 1.0 }, nCurNodeIdx);
 
 			Vector3D
 				x0{ n->pos.x - hx1, n->pos.y, n->pos.z },
@@ -402,26 +402,27 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 				z0{ n->pos.x, n->pos.y, n->pos.z - hz1 },
 				z1{ n->pos.x, n->pos.y, n->pos.z + hz2 };
 
-			InterpCoefs coefsX = mul(1. / hx1, interpCoefs(x0, nNodeIdxNext, nNodeIdx));
-			add(coefsX, mul(1. / hx2, interpCoefs(x1, nNodeIdxNext, nNodeIdx)));
+			InterpCoefs coefsX = mul(1. / hx1, interpCoefs(x0, nNextNodeIdx, nCurNodeIdx));
+			add(coefsX, mul(1. / hx2, interpCoefs(x1, nNextNodeIdx, nCurNodeIdx)));
 			mul(1. / (hx2 + hx1), coefsX);
 
-			InterpCoefs coefsY = mul(1. / hy1, interpCoefs(y0, nNodeIdxNext, nNodeIdx));
-			add(coefsY, mul(1. / hy2, interpCoefs(y1, nNodeIdxNext, nNodeIdx)));
+			InterpCoefs coefsY = mul(1. / hy1, interpCoefs(y0, nNextNodeIdx, nCurNodeIdx));
+			add(coefsY, mul(1. / hy2, interpCoefs(y1, nNextNodeIdx, nCurNodeIdx)));
 			mul(1. / (hy2 + hy1), coefsY);
 
-			InterpCoefs coefsZ = mul(1. / hz1, interpCoefs(z0, nNodeIdxNext, nNodeIdx));
-			add(coefsZ, mul(1. / hz2, interpCoefs(z1, nNodeIdxNext, nNodeIdx)));
+			InterpCoefs coefsZ = mul(1. / hz1, interpCoefs(z0, nNextNodeIdx, nCurNodeIdx));
+			add(coefsZ, mul(1. / hz2, interpCoefs(z1, nNextNodeIdx, nCurNodeIdx)));
 			mul(1. / (hz2 + hz1), coefsZ);
-			
-			mul(1./(
-				(1. / hx1 + 1. / hx2) / (hx1 + hx2) 
-				+ (1. / hy1 + 1. / hy2) / (hy1 + hy2) 
+
+			mul(1. / (
+				(1. / hx1 + 1. / hx2) / (hx1 + hx2)
+				+ (1. / hy1 + 1. / hy2) / (hy1 + hy2)
 				+ (1. / hz1 + 1. / hz2) / (hz1 + hz2)),
 				add(coefsX, add(coefsY, coefsZ)));
-			result.m_matrix[nNodeIdx] = std::move(coefsX);
+			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
 		}
-	}
+	}, m_pProgressBar.get());
+
 	return result;
 }
 
