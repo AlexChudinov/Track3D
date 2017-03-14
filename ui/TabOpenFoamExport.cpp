@@ -72,7 +72,7 @@ void CPropertiesWnd::add_bc_ctrls(CMFCPropertyGridProperty* pOpenFOAMGroup)
     EvaporatingParticle::CBoundaryConditions* pBC = pExpObj->get_bound_cond(i);
 // Boundary conditions type:
     COleVariant var(_T(cBoundCondType[pBC->nType]));
-    CExportResponseProperty* pType = new CExportResponseProperty(this, _T("Type"), var, _T("Specify type of boundary conditions: Wall, Inlet, Patch or Symmetry."), (DWORD_PTR)&(pBC->nType));
+    CGeneralResponseProperty* pType = new CGeneralResponseProperty(this, _T("Type"), var, _T("Specify type of boundary conditions: Wall, Inlet, Patch or Symmetry."), (DWORD_PTR)&(pBC->nType));
     for(size_t j = 0; j < nTypeCount; j++)
       pType->AddOption(_T(cBoundCondType[j]));
 

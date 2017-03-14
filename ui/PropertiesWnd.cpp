@@ -179,6 +179,13 @@ static UINT __stdcall main_thread_func(LPVOID pData)
   }
   else
   {
+    if(!pObj->is_ready() && !pObj->read_data())
+    {
+      CDialog* pDlg = (CDialog*)pData;
+      pDlg->PostMessage(WM_CLOSE);
+      return 0;
+    }
+
     EvaporatingParticle::CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
     if(!pFields->calc_fields())
     {
@@ -431,6 +438,7 @@ void CPropertiesWnd::OnAddField()
   
   EvaporatingParticle::CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
   pFields->push_back(new EvaporatingParticle::CElectricFieldData());
+  pFields->set_curr_field_index(pFields->size() - 1);
   set_update_all();
 }
 

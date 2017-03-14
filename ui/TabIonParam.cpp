@@ -13,18 +13,17 @@ static const double scfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
 void CPropertiesWnd::add_ion_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CMFCPropertyGridProperty* pIonGroup = new CMFCPropertyGridProperty(_T("Ion Parameters"));
   CMFCPropertyGridProperty* pProp = NULL;
 
   CMFCPropertyGridProperty* pMassGroup = new CMFCPropertyGridProperty(_T("Mass, a.m.u."));
   pProp = new CMFCPropertyGridProperty(_T("Mass"), COleVariant(long(pObj->get_ion_mass() / Const_AMU_CGS)), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
   pMassGroup->AddSubItem(pProp);
-  pIonGroup->AddSubItem(pMassGroup);
+  m_wndPropList.AddProperty(pMassGroup);
 
   CMFCPropertyGridProperty* pMobGroup = new CMFCPropertyGridProperty(_T("Mobility, cm2/s/V"));
   pProp = new CMFCPropertyGridProperty(_T("Mobility"), COleVariant(pObj->get_ion_mobility() * SI_to_CGS_Voltage), _T("Ion mobility at STP."), pObj->get_ion_mobility_ptr());
   pMobGroup->AddSubItem(pProp);
-  pIonGroup->AddSubItem(pMobGroup);
+  m_wndPropList.AddProperty(pMobGroup);
 
   CMFCPropertyGridProperty* pCollisionGroup = new CMFCPropertyGridProperty(_T("Collision Parameters"));
   pProp = new CMFCPropertyGridProperty(_T("Cross-Section"), COleVariant(pObj->get_ion_cross_section() / scfA2), _T("Collision cross-section with the environmental gas, squared angstrem."), pObj->get_ion_cross_section_ptr());
@@ -35,7 +34,7 @@ void CPropertiesWnd::add_ion_ctrls()
 
   pProp = new CMFCPropertyGridProperty(_T("Activation Energy, eV"), COleVariant(pObj->get_act_energy()), _T("Ion collisional activation energy, eV"), pObj->get_act_energy_ptr());
   pCollisionGroup->AddSubItem(pProp);
-  pIonGroup->AddSubItem(pCollisionGroup);
+  m_wndPropList.AddProperty(pCollisionGroup);
 
 // Coulomb:
   CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Coulomb Repulsion"));
@@ -86,9 +85,7 @@ void CPropertiesWnd::add_ion_ctrls()
 
   pCoulombGroup->AddSubItem(pBHGroup);
 
-  pIonGroup->AddSubItem(pCoulombGroup);
-
-  m_wndPropList.AddProperty(pIonGroup);
+  m_wndPropList.AddProperty(pCoulombGroup);
 }
 
 void CPropertiesWnd::set_ion_data()

@@ -82,8 +82,8 @@ protected:
   void          add_evapor_ctrls();
   void          add_ion_ctrls();
   void          add_draw_ctrls();
-  void          add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup);
-  void          add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup);
+  void          add_cs_plane_ctrls();
+  void          add_contour_ctrls();
   void          add_export_ctrls();
   void          add_bc_ctrls(CMFCPropertyGridProperty* pOpenFOAMGroup);
   void          add_import_ctrls();

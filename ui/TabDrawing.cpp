@@ -15,7 +15,7 @@ void CPropertiesWnd::add_draw_ctrls()
   EvaporatingParticle::CTrackDraw* pObj = CParticleTrackingApp::Get()->GetDrawObj();
 
 // Drawing:
-  CMFCPropertyGridProperty* pDrawGroup = new CMFCPropertyGridProperty(_T("Drawing"));
+//  CMFCPropertyGridProperty* pDrawGroup = new CMFCPropertyGridProperty(_T("Drawing"));
   CMFCPropertyGridProperty* pFacesGroup = new CMFCPropertyGridProperty(_T("Geometry"));
 // Geometry:
   COleVariant var(pObj->get_draw_mode_name(pObj->get_draw_mode()));
@@ -41,7 +41,7 @@ void CPropertiesWnd::add_draw_ctrls()
   CSelectRegionButton* pShowRegButton = new CSelectRegionButton(this, _T("Show All 2D Regions"), _T(""), _T("Click to show all 2D regions."), NULL);
   pFacesGroup->AddSubItem(pShowRegButton);
 
-  pDrawGroup->AddSubItem(pFacesGroup);
+  m_wndPropList.AddProperty(pFacesGroup);
 
 // Tracks:
   CMFCPropertyGridProperty* pTracksGroup = new CMFCPropertyGridProperty(_T("Tracks"));
@@ -91,7 +91,7 @@ void CPropertiesWnd::add_draw_ctrls()
   CResponseProperty* pMaxValProp = new CResponseProperty(this, _T("Max (SI Units)"), COleVariant(color_tracks.get_max_val()), _T("Specify this to define the upper margin of the colored range."), color_tracks.get_max_val_ptr());
   pTracksGroup->AddSubItem(pMaxValProp);
 
-  pDrawGroup->AddSubItem(pTracksGroup);
+  m_wndPropList.AddProperty(pTracksGroup);
 
 // General:
   CMFCPropertyGridProperty* pGeneralGroup = new CMFCPropertyGridProperty(_T("General"));
@@ -106,22 +106,20 @@ void CPropertiesWnd::add_draw_ctrls()
   pCheckBox = new CRedrawCheckBox(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
   pGeneralGroup->AddSubItem(pCheckBox);
 
-  pDrawGroup->AddSubItem(pGeneralGroup);
+  m_wndPropList.AddProperty(pGeneralGroup);
 
 // Cross-section planes:
-  add_cs_plane_ctrls(pDrawGroup);
+  add_cs_plane_ctrls();
 
 // Contours:
-  add_contour_ctrls(pDrawGroup);
-
-  m_wndPropList.AddProperty(pDrawGroup);
+  add_contour_ctrls();
 }
 
 void CPropertiesWnd::set_draw_data()
 {
 }
 
-void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
+void CPropertiesWnd::add_cs_plane_ctrls()
 {
   CMFCPropertyGridProperty* pCrossSectionGroup = new CMFCPropertyGridProperty(_T("Cross-Section Planes"));
 
@@ -183,10 +181,10 @@ void CPropertiesWnd::add_cs_plane_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     pCrossSectionGroup->AddSubItem(pCrossSectProp);
   }
 
-  pDrawGroup->AddSubItem(pCrossSectionGroup);
+  m_wndPropList.AddProperty(pCrossSectionGroup);
 }
 
-void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
+void CPropertiesWnd::add_contour_ctrls()
 {
   CMFCPropertyGridProperty* pContourGroup = new CMFCPropertyGridProperty(_T("Contours"));
 
@@ -262,7 +260,7 @@ void CPropertiesWnd::add_contour_ctrls(CMFCPropertyGridProperty* pDrawGroup)
     pContourGroup->AddSubItem(pContourProp);
   }
 
-  pDrawGroup->AddSubItem(pContourGroup);
+  m_wndPropList.AddProperty(pContourGroup);
 }
 
 void CPropertiesWnd::update_draw_ctrls()

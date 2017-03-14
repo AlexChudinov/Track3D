@@ -78,12 +78,12 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
-//  CExportResponseProperty
+//  CGeneralResponseProperty
 //---------------------------------------------------------------------------------------
-class CExportResponseProperty : public CMFCPropertyGridProperty
+class CGeneralResponseProperty : public CMFCPropertyGridProperty
 {
 public:
-  CExportResponseProperty(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+  CGeneralResponseProperty(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
 		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
     : CMFCPropertyGridProperty(strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
   {
@@ -92,7 +92,20 @@ public:
 
   virtual BOOL    OnUpdateValue();
 
-private:
+protected:
   CPropertiesWnd* m_pWndProp;
 };
 
+//---------------------------------------------------------------------------------------
+//  CElectricFieldResponder
+//---------------------------------------------------------------------------------------
+class CElectricFieldResponder : public CGeneralResponseProperty
+{
+public:
+  CElectricFieldResponder(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0)
+    : CGeneralResponseProperty(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual BOOL    OnUpdateValue();
+};

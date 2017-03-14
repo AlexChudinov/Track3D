@@ -83,6 +83,11 @@ void CPotentialBoundCond::load(CArchive& ar)
 //-------------------------------------------------------------------------------------------------
 // CFieldDataCollection.
 //-------------------------------------------------------------------------------------------------
+CFieldDataColl::CFieldDataColl()
+{
+  m_nCurrField = -1;
+}
+
 CFieldDataColl::~CFieldDataColl()
 {
   clear_fields();
@@ -212,6 +217,8 @@ void CFieldDataColl::load(CArchive& ar)
     pData->load(ar);
     push_back(pData);
   }
+
+  m_nCurrField = size() > 0 ? 0 : -1;
 }
 
 //---------------------------------------------------------------------------------------
@@ -237,6 +244,17 @@ void CElectricFieldData::set_default()
 
   m_bNeedRecalc = true;
   m_nIterCount = 100;
+
+// An attempt to get analytic field in the flatapole. Alpha version.
+  m_bAnalytField = false;
+  m_fRadius = 0.21;   // cm, inscribed radius of the flatapole electrodes.
+  m_fLowLimX = 14.7;  // cm, an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
+  m_fHighLimX = 1e+5;
+
+// Default name of the field:
+  char buff[4];
+  int nFieldsCount = CParticleTrackingApp::Get()->GetFields()->size();
+  m_sName = CString("Electric Field # ") + CString(itoa(nFieldsCount + 1, buff, 10));
 }
 
 bool CElectricFieldData::calc_field(bool bTest)
@@ -251,13 +269,14 @@ bool CElectricFieldData::calc_field(bool bTest)
   {
     m_bTerminate = false;
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-    CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
+    const CNodesCollection& vNodes = pObj->get_nodes();
+    CMeshAdapter mesh(pObj->get_elems(), vNodes);
     mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
     if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
       return false;
 
-    size_t nNodesCount = pObj->get_nodes().size();
+    size_t nNodesCount = vNodes.size();
     std::vector<double> field(nNodesCount, 0.0);
 
 // Laplacian Solver:
@@ -289,12 +308,19 @@ bool CElectricFieldData::calc_field(bool bTest)
     std::vector<double> dPhiDz(nNodesCount, 0.0);
     dPhiDz = pGrad->applyToField(field);
 
+    Vector3D vPos;
+    double fLowLimX = m_fLowLimX + 0.2, fR;
     m_vField.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
+
 //      if(bTest)
 //        CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
+
+// An attempt to get analytic field in the flatapole. Alpha version.
+      if(m_bAnalytField && (m_nType == typeFieldRF))
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i]);
     }
 
     m_bNeedRecalc = false;
@@ -322,6 +348,29 @@ bool CElectricFieldData::get_result(bool bTest) const
   }
 
   return true;
+}
+
+void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vField)
+{
+  if(vPos.x < m_fLowLimX || vPos.x > m_fHighLimX)
+    return;
+
+  double fR = sqrt(vPos.y * vPos.y + vPos.z * vPos.z);
+  if(fR > m_fRadius)
+    return;
+
+  double fCoeff = 2. / (m_fRadius * m_fRadius);
+  Vector3F vAnalytRF(0, -fCoeff * vPos.y, fCoeff * vPos.z);
+
+  const double scfTransWidth = 0.2;
+  double fLowLimMax = m_fLowLimX + scfTransWidth; // the field changes gradually from numeric to analytic; transition interval is 2 mm long.
+  if((vPos.x >= m_fLowLimX) && (vPos.x <= fLowLimMax))
+  {
+    float fKsi = float((vPos.x - m_fLowLimX) / scfTransWidth);
+    vField = vAnalytRF * fKsi + vField * (1 - fKsi);
+  }
+
+  vField = vAnalytRF;
 }
 
 bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
@@ -535,7 +584,7 @@ void CElectricFieldData::notify_scene()
 
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 1;  // m_bEnable and calculated
+  UINT nVersion = 2;  // 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
   ar << nVersion;
 
   ar << m_bEnable;
@@ -561,6 +610,12 @@ void CElectricFieldData::save(CArchive& ar)
     ar << m_vField[j].y;
     ar << m_vField[j].z;
   }
+
+  ar << m_bAnalytField;
+  ar << m_fRadius;      // inscribed radius of the flatapole electrodes.
+  ar << m_fLowLimX;     // an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
+  ar << m_fHighLimX;
+  ar << m_sName;
 }
 
 void CElectricFieldData::load(CArchive& ar)
@@ -604,6 +659,15 @@ void CElectricFieldData::load(CArchive& ar)
 
     if(nNodesCount > 0)
       m_bNeedRecalc = false;
+  }
+
+  if(nVersion >= 2)
+  {
+    ar >> m_bAnalytField;
+    ar >> m_fRadius;      // inscribed radius of the flatapole electrodes.
+    ar >> m_fLowLimX;     // an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
+    ar >> m_fHighLimX;
+    ar >> m_sName;
   }
 }
 

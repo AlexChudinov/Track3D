@@ -1142,6 +1142,7 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);  // this is just a container for interpolated data.
 
   double w;
+  Vector3D vClmb;
   bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm && (m_pBarnesHut != NULL);
   CNode3D* pNode = NULL;
   size_t nInd, nNodesCount = pElem->get_node_count();
@@ -1161,7 +1162,13 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
     node.vel   += w * pNode->vel;
     node.field += w * pNode->field;
     if(bAddCoulomb)
-      node.field += w * m_pBarnesHut->coulomb_field(nInd);
+    {
+      vClmb = m_pBarnesHut->coulomb_field(nInd);
+      if(m_bUseRadialCoulomb && (vPos.x > m_fRadialCoulombX))
+        vClmb.x = 0;
+
+      node.field += w * vClmb;
+    }
 
     if(m_bAnsysFields)
       node.rf += w * pNode->rf;

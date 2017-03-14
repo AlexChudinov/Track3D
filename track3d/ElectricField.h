@@ -79,6 +79,21 @@ public:
   DWORD_PTR               get_iter_count_ptr() const;
   void                    set_iter_count(UINT nCount);
 
+  bool                    get_analyt_field() const;
+  DWORD_PTR               get_analyt_field_ptr() const;
+
+  double                  get_inscr_radius() const;
+  DWORD_PTR               get_inscr_radius_ptr() const;
+  void                    set_inscr_radius(double fRadius);
+
+  double                  get_low_analyt_lim() const;
+  DWORD_PTR               get_low_analyt_lim_ptr() const;
+  void                    set_low_analyt_lim(double fLowLimX);
+
+  CString                 get_field_name() const;
+  DWORD_PTR               get_field_name_ptr() const;
+  void                    set_field_name(CString sName);
+
   size_t                  get_bc_count() const;
   CPotentialBoundCond*    get_bc(size_t nId) const;
 
@@ -114,6 +129,8 @@ protected:
   bool                    get_result(bool bTest) const;
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
+  void                    apply_analytic_field(const Vector3D& vPos, Vector3F& vField);
+
 private:
   bool                    m_bEnable;
   int                     m_nType;
@@ -125,7 +142,15 @@ private:
 
   CPotentialBoundCondColl m_vBoundCond;
 
+// An attempt to get analytic field in the flatapole. Alpha version.
+  bool                    m_bAnalytField;
+
+  double                  m_fRadius,    // inscribed radius of the flatapole electrodes.
+                          m_fLowLimX,   // an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
+                          m_fHighLimX;
+
   std::vector<Vector3F>   m_vField;
+  CString                 m_sName;
 
 // Run-time:
   bool                    m_bNeedRecalc;
@@ -137,6 +162,7 @@ private:
 class CFieldDataColl : public std::vector<CElectricFieldData*>
 {
 public:
+  CFieldDataColl();
   virtual ~CFieldDataColl();
 
   bool              calc_fields();
@@ -150,6 +176,12 @@ public:
 
   void              save(CArchive& ar);
   void              load(CArchive& ar);
+
+  int               get_curr_field_index() const;
+  void              set_curr_field_index(int nInd);
+
+private:
+  int               m_nCurrField;   // the field which properties can be currently edited by user.
 };
 
 inline bool CFieldDataColl::need_recalc() const
@@ -159,6 +191,16 @@ inline bool CFieldDataColl::need_recalc() const
       return true;
 
   return false;
+}
+
+inline int CFieldDataColl::get_curr_field_index() const
+{
+  return m_nCurrField < size() ? m_nCurrField : -1;
+}
+
+inline void CFieldDataColl::set_curr_field_index(int nInd)
+{
+  m_nCurrField = nInd;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -245,6 +287,69 @@ inline void CElectricFieldData::set_iter_count(UINT nCount)
     m_nIterCount = nCount;
     m_bNeedRecalc = true;
   }
+}
+
+inline bool CElectricFieldData::get_analyt_field() const
+{
+  return m_bAnalytField;
+}
+
+inline DWORD_PTR CElectricFieldData::get_analyt_field_ptr() const
+{
+  return (DWORD_PTR)&m_bAnalytField;
+}
+
+inline double CElectricFieldData::get_inscr_radius() const
+{
+  return m_fRadius;
+}
+
+inline DWORD_PTR CElectricFieldData::get_inscr_radius_ptr() const
+{
+  return (DWORD_PTR)&m_fRadius;
+}
+
+inline void CElectricFieldData::set_inscr_radius(double fRadius)
+{
+  if(m_fRadius != fRadius)
+  {
+    m_fRadius = fRadius;
+    m_bNeedRecalc = true;
+  }
+}
+
+inline double CElectricFieldData::get_low_analyt_lim() const
+{
+  return m_fLowLimX;
+}
+
+inline DWORD_PTR CElectricFieldData::get_low_analyt_lim_ptr() const
+{
+  return (DWORD_PTR)&m_fLowLimX;
+}
+
+inline void CElectricFieldData::set_low_analyt_lim(double fLowLimX)
+{
+  if(m_fLowLimX != fLowLimX)
+  {
+    m_fLowLimX = fLowLimX;
+    m_bNeedRecalc = true;
+  }
+}
+
+inline CString CElectricFieldData::get_field_name() const
+{
+  return m_sName;
+}
+
+inline DWORD_PTR CElectricFieldData::get_field_name_ptr() const
+{
+  return (DWORD_PTR)&m_sName;
+}
+
+inline void CElectricFieldData::set_field_name(CString sName)
+{
+  m_sName = sName;
 }
 
 inline size_t CElectricFieldData::get_bc_count() const

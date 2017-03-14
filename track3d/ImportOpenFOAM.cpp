@@ -190,7 +190,7 @@ bool CImportOpenFOAM::update_var_file()
 
   CNode3D* pNode = NULL;
   size_t nNodeCount = vNodes.size();
-  for(size_t i = 1; i < nNodeCount; i++)  // remember that the count in ANSYS nodes (in triangulation) begins with "one", not with "zero".
+  for(size_t i = 0; i < nNodeCount; i++)
   {
     pNode = vNodes.at(i);
     fPress = pNode->press;

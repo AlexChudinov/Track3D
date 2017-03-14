@@ -7,6 +7,7 @@
 
 #include "ColorContour.h"
 
+using namespace EvaporatingParticle;
 //---------------------------------------------------------------------------------------
 //  CResponseProperty
 //---------------------------------------------------------------------------------------
@@ -343,12 +344,43 @@ BOOL CColorResponseProperty::OnUpdateValue()
 }
 
 //---------------------------------------------------------------------------------------
-//  CExportResponseProperty
+//  CGeneralResponseProperty
 //---------------------------------------------------------------------------------------
-BOOL CExportResponseProperty::OnUpdateValue()
+BOOL CGeneralResponseProperty::OnUpdateValue()
 {
   BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
   m_pWndProp->set_data_to_model();
   m_pWndProp->set_update_all();
+  return bRes;
+}
+
+//---------------------------------------------------------------------------------------
+//  CElectricFieldResponder
+//---------------------------------------------------------------------------------------
+BOOL CElectricFieldResponder::OnUpdateValue()
+{
+  m_pWndProp->set_data_to_model();
+
+  BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+  DWORD_PTR pData = GetData();
+
+  CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
+  pFields->set_curr_field_index(-1);
+  if((DWORD_PTR)pFields == pData)
+  {
+    CString cFieldName = (CString)GetValue();
+    size_t nFieldsCount = pFields->size();
+    for(size_t i = 0; i < nFieldsCount; i++)
+    {
+      if(pFields->at(i)->get_field_name() == cFieldName)
+      {
+        pFields->set_curr_field_index(i);
+        break;
+      }
+    }
+
+    m_pWndProp->set_update_all();
+  }
+
   return bRes;
 }
