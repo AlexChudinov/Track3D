@@ -10,34 +10,15 @@
 #include <algorithm>
 #include "../track3d/CObject.h"
 
-//Thread pool tast queue
-class TaskQueue
-{
-public:
-	using Fun = std::function<void()>;
-	using Task = std::packaged_task<void()>;
-	using Tasks = std::queue<Task>;
-	using Mutex = std::mutex;
-	using Locker = std::unique_lock<Mutex>;
-	using Future = std::future<void>;
-
-private:
-	Tasks m_tasks;
-	Mutex m_queueAccess;
-
-public:
-	Future addTask(const Fun& task);
-	Task getTask();
-	void clear();
-
-	//Returns false if there are some tasks
-	bool isEmpty();
-};
-
 //A pool of threads
 class ThreadPool
 {
 public:
+	
+	using Fun = std::function<void()>;
+	using Task = std::packaged_task<void()>;
+	using Tasks = std::queue<Task>;
+	using Future = std::future<void>;
 	using Thread = std::thread;
 	using Threads = std::vector<Thread>;
 	using Mutex = std::mutex;
@@ -57,7 +38,7 @@ private:
 	bool m_bStopFlag;
 	Threads m_threads;
 
-	TaskQueue m_tasks;
+	Tasks m_tasks;
 
 	String m_sErrorDescription;
 
@@ -73,18 +54,18 @@ public:
 	//Returns thread pool global instance
 	static ThreadPool& getInstance();
 
-	void threadNumber(size_t nThreadNumber);
-	size_t threadNumber();
-
 	//Adds task to task queue
-	TaskQueue::Future addTask(TaskQueue::Fun&& task);
+	Future addTask(Fun&& task);
+
+	//Gets next task from queue
+	Task getTask();
 
 	//Splits array into subarray and does parallel operation on it
 	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
-	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp, Progress* progress);
+	void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress* progress);
 
 	//Returns error string from a thread pool
-	const String& error() const;
+	String error();
 
 private:
 	void threadEvtLoop();
@@ -95,19 +76,11 @@ private:
 	//Stops thread event loops
 	void stop();
 
-	//Signals to threads to stop
-	bool stopFlag() const;
-	void stopFlag(bool bStopFlag);
-
 	//Joins to all current threads
 	void joinAll();
 
 	//Initialises thread pool
 	void init();
-
-	//Returns true if the thread pool is valid
-	bool valid();
-	void valid(bool bValid);
 };
 
 #endif // !_PAR_FOR_

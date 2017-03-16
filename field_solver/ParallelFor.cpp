@@ -1,33 +1,6 @@
 #include <stdafx.h>
 #include "ParallelFor.h"
 
-TaskQueue::Future TaskQueue::addTask(const Fun& task)
-{
-	Locker lock(m_queueAccess);
-	m_tasks.push(Task(task));
-	return m_tasks.back().get_future();
-}
-
-TaskQueue::Task TaskQueue::getTask()
-{
-	Locker lock(m_queueAccess);
-	Task task(std::move(m_tasks.front()));
-	m_tasks.pop();
-	return std::move(task);
-}
-
-void TaskQueue::clear()
-{
-	Locker lock(m_queueAccess);
-	m_tasks.swap(Tasks());
-}
-
-bool TaskQueue::isEmpty()
-{
-	Locker lock(m_queueAccess);
-	return m_tasks.empty();
-}
-
 ThreadPool::ThreadPool()
 	:
 	m_bValid(false),
@@ -43,40 +16,34 @@ ThreadPool::~ThreadPool()
 ThreadPool& ThreadPool::getInstance()
 {
 	static ThreadPool g_pThreadPool;
-	if (!g_pThreadPool.valid())
-	{
-		g_pThreadPool.init();
-	}
+	g_pThreadPool.init();
 	return g_pThreadPool;
 }
 
-void ThreadPool::threadNumber(size_t nThreadNumber)
+ThreadPool::Future ThreadPool::addTask(Fun&& task)
 {
-	stop();
-	m_nThreadNumber = nThreadNumber;
-	start();
-}
-
-size_t ThreadPool::threadNumber()
-{
-	return m_nThreadNumber;
-}
-
-TaskQueue::Future ThreadPool::addTask(TaskQueue::Fun&& task)
-{
-	TaskQueue::Future future = m_tasks.addTask(task);
+	Locker lock(m_globalLock);
+	m_tasks.push(Task(task));
 	m_startCondition.notify_one();
-	return std::move(future);
+	return m_tasks.back().get_future();
+}
+
+ThreadPool::Task ThreadPool::getTask()
+{
+	Locker lock(m_globalLock);
+	Task task(std::move(m_tasks.front()));
+	m_tasks.pop();
+	return task;
 }
 
 void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicOp)
 {
-	size_t nn = n / threadNumber() + 1;
-	std::vector<TaskQueue::Future> vFutures;
+	size_t nn = n / m_nThreadNumber + 1;
+	std::vector<Future> vFutures;
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
-			addTask([=]() { atomicOp(i); });
+			vFutures.push_back(addTask([=]() { atomicOp(i); }));
 	}
 	else
 	{
@@ -90,17 +57,17 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 		}));
 	}
 	std::for_each(vFutures.begin(), vFutures.end(), 
-		[](TaskQueue::Future& future) { future.wait(); });
+		[](Future& future) { future.wait(); });
 }
 
-void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicOp, Progress * progress)
+void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress)
 {
-	size_t nn = n / threadNumber() + 1;
-	std::vector<TaskQueue::Future> vFutures;
+	size_t nn = n / m_nThreadNumber + 1;
+	std::vector<Future> vFutures;
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
-			addTask([=]() { atomicOp(i); });
+			vFutures.push_back(addTask([=]() { atomicOp(i); }));;
 	}
 	else
 	{
@@ -116,30 +83,32 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 	size_t nProgressVal = 0;
 	progress->set_progress(nProgressVal);
 	std::for_each(vFutures.begin(), vFutures.end(),
-		[&](TaskQueue::Future& future) 
+		[&](Future& future) 
 	{ 
 		future.wait();
-		progress->set_progress(++nProgressVal * 100 / threadNumber());
+		progress->set_progress(++nProgressVal * 100 / m_nThreadNumber);
 	});
 }
 
-const std::string & ThreadPool::error() const
+std::string ThreadPool::error()
 {
+	Locker lock(m_globalLock);
 	return m_sErrorDescription;
 }
 
 void ThreadPool::threadEvtLoop()
 {
-	try {
-		while (!stopFlag())
+	try 
+	{
+		while (!m_bStopFlag)
 		{
 			Locker lock(m_startMutex);
-			m_startCondition.wait(lock, [&]()->bool { return !m_tasks.isEmpty() || stopFlag(); });
+			m_startCondition.wait(lock, [&]()->bool { return !m_tasks.empty() || m_bStopFlag; });
 
-			if (stopFlag()) break;
+			if (m_bStopFlag) break;
 			else
 			{
-				TaskQueue::Task task = m_tasks.getTask();
+				Task task = getTask();
 				lock.unlock();
 				task();
 			}
@@ -147,7 +116,7 @@ void ThreadPool::threadEvtLoop()
 	}
 	catch (const std::exception& ex)
 	{
-		Locker lock(m_startMutex);
+		Locker lock(m_globalLock);
 		(m_sErrorDescription += "\n") += ex.what();
 	}
 }
@@ -161,20 +130,12 @@ void ThreadPool::start()
 
 void ThreadPool::stop()
 {
-	m_tasks.clear();
-	stopFlag(true);
+	Locker lock(m_globalLock);
+	std::swap(m_tasks, Tasks());
+	m_bStopFlag = true;
 	m_startCondition.notify_all();
+	lock.unlock();
 	joinAll();
-}
-
-bool ThreadPool::stopFlag() const
-{
-	return m_bStopFlag;
-}
-
-void ThreadPool::stopFlag(bool bStopFlag)
-{
-	m_bStopFlag = bStopFlag;
 }
 
 void ThreadPool::joinAll()
@@ -190,16 +151,4 @@ void ThreadPool::init()
 		m_bValid = true;
 		start();
 	}
-}
-
-bool ThreadPool::valid()
-{
-	Locker lock(m_globalLock);
-	return m_bValid;
-}
-
-void ThreadPool::valid(bool bValid)
-{
-	Locker lock(m_globalLock);
-	m_bValid = bValid;
 }
