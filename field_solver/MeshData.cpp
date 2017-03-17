@@ -568,11 +568,21 @@ double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
 	return a;
 }
 
-const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos, Label l) const
+const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos, Label l, Label deep) const
 {
-	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
-	for (Label nElemIdx : vElemIdxs)
-		if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
+	std::queue<Label> nodesQueue;
+	std::set<Label> visitedNodes, visitedElemets;
+	nodesQueue.push(l);
+	visitedNodes.insert(l);
+	Label nCurDeep = 0;
+	while (nCurDeep++ <= deep || !nodesQueue.empty());
+	{
+		Label nCurNode = nodesQueue.front(); nodesQueue.pop();
+		visitedNodes.insert(nCurNode);
+		const Labels& vElemIdxs = m_nodes[nCurNode]->nbr_elems();
+		for (Label nElemIdx : vElemIdxs)
+			if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
+	}
 	return nullptr;
 }
 

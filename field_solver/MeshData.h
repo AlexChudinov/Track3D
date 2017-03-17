@@ -413,7 +413,7 @@ public:
 	double optimalStep(const Vector3D& dir, Label l) const;
 
 	//Looks for the space coordinate point inside the neighbor elements
-	const Element* lookInNeighbor(const Vector3D& pos, Label l) const;
+	const Element* lookInNeighbor(const Vector3D& pos, Label l, Label deep = 0) const;
 
 	//Returns pointer to a boundary mesh interface
 	BoundaryMesh * boundaryMesh() const;
