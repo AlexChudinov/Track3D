@@ -245,12 +245,10 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
 	ScalarFieldOperator result; 
 	result.m_matrix.resize(m_nodes.size());
 
-	for (const Node* n : m_nodes)
-	{
-		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) break;
-		result.m_matrix[n->nInd] = gradX(n->nInd);
-	}
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradX(nNodeIdx); },
+		m_pProgressBar.get());
+
 	return result;
 }
 
@@ -263,12 +261,10 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
 	ScalarFieldOperator result;
 	result.m_matrix.resize(m_nodes.size());
 
-	for (const Node* n : m_nodes)
-	{
-		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) break;
-		result.m_matrix[n->nInd] = gradY(n->nInd);
-	}
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradY(nNodeIdx); },
+		m_pProgressBar.get());
+
 	return result;
 }
 
@@ -281,12 +277,10 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ()
 	ScalarFieldOperator result;
 	result.m_matrix.resize(m_nodes.size());
 
-	for (const Node* n : m_nodes)
-	{
-		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
-		if (m_pProgressBar->get_terminate_flag()) break;
-		result.m_matrix[n->nInd] = gradZ(n->nInd);
-	}
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradZ(nNodeIdx); },
+		m_pProgressBar.get());
+
 	return result;
 }
 
@@ -378,9 +372,18 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 			else //Zero gradient
 			{
 				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nCurNodeIdx);
-				double h = optimalStep(norm, nCurNodeIdx);
-				InterpCoefs coefs = interpCoefs(r0 + norm*h, nNextNodeIdx, nCurNodeIdx);
-				result.m_matrix[nCurNodeIdx] = std::move(coefs);
+				InterpCoefs
+					gradXComp = gradX(nCurNodeIdx),
+					gradYComp = gradY(nCurNodeIdx),
+					gradZComp = gradZ(nCurNodeIdx);
+				InterpCoefs normalDerivative =add(
+						mul(norm.x, gradXComp),
+						add(mul(norm.y, gradYComp),
+							mul(norm.z, gradZComp)));
+				double fSum = normalDerivative[nCurNodeIdx];
+				normalDerivative.erase(nCurNodeIdx);
+				mul(-1. / fSum, normalDerivative);
+				result.m_matrix[nCurNodeIdx] = std::move(normalDerivative);
 			}
 		}
 		else
@@ -469,6 +472,14 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 	return res;
 }
 
+const CMeshAdapter::Element * CMeshAdapter::lookInClosestElements(const Vector3D & pos, Label l) const
+{
+	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
+	for (Label nElemIdx : vElemIdxs)
+		if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
+	return nullptr;
+}
+
 CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallStepFactor)
 	:
 	m_elems(es),
@@ -554,13 +565,14 @@ double CMeshAdapter::maxEdgeLength(Label l) const
 	})]->pos - m_nodes[l]->pos).length();
 }
 
-double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
+double CMeshAdapter::optimalStep(const Vector3D& dir, Label l, Label deep) const
 {
 	double a = 0.0, b = 2.0*maxEdgeLength(l);
+	while (lookInNeighbor(m_nodes[l]->pos + dir*b, l, deep)) b *= 2.;
 	while (b - a > eps())
 	{
 		double m = (b + a) / 2.;
-		if (lookInNeighbor(m_nodes[l]->pos + dir*m, l))
+		if (lookInNeighbor(m_nodes[l]->pos + dir*m, l, deep))
 			a = m;
 		else
 			b = m;
@@ -570,18 +582,35 @@ double CMeshAdapter::optimalStep(const Vector3D& dir, Label l) const
 
 const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos, Label l, Label deep) const
 {
-	std::queue<Label> nodesQueue;
-	std::set<Label> visitedNodes, visitedElemets;
-	nodesQueue.push(l);
+	const Element* result = lookInClosestElements(pos, l);
+	if (result || deep == 0) return result;
+
+	std::set<Label> 
+		visitedNodes, 
+		visitedElemets(m_nodes[l]->nbr_elems().begin(), m_nodes[l]->nbr_elems().end());
 	visitedNodes.insert(l);
-	Label nCurDeep = 0;
-	while (nCurDeep++ <= deep || !nodesQueue.empty());
+	
+	for(Label nCurDeep = 0; nCurDeep < deep; ++nCurDeep)
 	{
-		Label nCurNode = nodesQueue.front(); nodesQueue.pop();
-		visitedNodes.insert(nCurNode);
-		const Labels& vElemIdxs = m_nodes[nCurNode]->nbr_elems();
-		for (Label nElemIdx : vElemIdxs)
-			if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
+		std::set<Label> nextElemsToVisit;
+		for (Label nElemIdx : visitedElemets)
+		{
+			if (visitedNodes.size() == m_nodes.size()) return nullptr;
+			const Label
+				*pFirstNodeIdx = m_elems[nElemIdx]->nodes(),
+				*pLastNodeIdx = pFirstNodeIdx + m_elems[nElemIdx]->get_node_count();
+			for (; pFirstNodeIdx < pLastNodeIdx; ++pFirstNodeIdx)
+				if (visitedNodes.find(*pFirstNodeIdx) == visitedNodes.end())
+				{
+					visitedNodes.insert(*pFirstNodeIdx);
+					for (Label nElemIdx : m_nodes[*pFirstNodeIdx]->nbr_elems())
+						if (nextElemsToVisit.find(nElemIdx) == nextElemsToVisit.end()
+							&& visitedElemets.find(nElemIdx) == visitedElemets.end())
+							if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
+							else nextElemsToVisit.insert(nElemIdx);
+				}
+		}
+		visitedElemets = std::move(nextElemsToVisit);
 	}
 	return nullptr;
 }

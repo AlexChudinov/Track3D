@@ -62,8 +62,20 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 
 void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress)
 {
-	size_t nn = n / m_nThreadNumber + 1;
+	size_t
+		nn = n / m_nThreadNumber + 1,
+		nProgressStep = n / 90,
+		nProgressCounter = 0;
+	Mutex mutex;
 	std::vector<Future> vFutures;
+
+	auto setProgress = [&]()->bool
+	{
+		Locker lock(mutex);
+		progress->set_progress(++nProgressCounter);
+		return progress->get_terminate_flag();
+	};
+
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
@@ -77,17 +89,13 @@ void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Pr
 		{
 			size_t end = i + nn < n ? i + nn : n;
 			for (size_t j = i; j < end; ++j)
+			{
+				if ((j - i) % nProgressStep == 0 && setProgress()) break;
 				atomicOp(j);
+			}
 		}));
 	}
-	size_t nProgressVal = 0;
-	progress->set_progress(nProgressVal);
-	std::for_each(vFutures.begin(), vFutures.end(),
-		[&](Future& future) 
-	{ 
-		future.wait();
-		progress->set_progress(++nProgressVal * 100 / m_nThreadNumber);
-	});
+	std::for_each(vFutures.begin(), vFutures.end(), [&](Future& future) { future.wait(); });
 }
 
 std::string ThreadPool::error()

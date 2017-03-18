@@ -387,6 +387,8 @@ private:
 	//Obtains interpolating coefficients if containing element is known
 	InterpCoefs interpCoefs(const Vector3D& pos, const Element* e) const;
 
+	//Looks for space position pos in closest neighbor elements
+	const Element* lookInClosestElements(const Vector3D& pos, Label l) const;
 public:
 	CMeshAdapter(const Elements& es, const Nodes& ns, double fSmallStepFactor = 0.3);
 
@@ -410,7 +412,7 @@ public:
 	//Returns maximum length of connected edges
 	double maxEdgeLength(Label l) const;
 	//Returns optimal space step that still will be inside neighbor elements
-	double optimalStep(const Vector3D& dir, Label l) const;
+	double optimalStep(const Vector3D& dir, Label l, Label deep = 0) const;
 
 	//Looks for the space coordinate point inside the neighbor elements
 	const Element* lookInNeighbor(const Vector3D& pos, Label l, Label deep = 0) const;
