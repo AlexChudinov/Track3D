@@ -300,6 +300,19 @@ void CMeshAdapter::lazyGraphCreation()
 	}
 }
 
+std::vector<CMeshAdapter::NodeType> CMeshAdapter::nodeTypes() const
+{
+	std::vector<NodeType> res(m_nodes.size());
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx) 
+	{
+		res[nNodeIdx] = boundaryMesh()->isBoundary(nNodeIdx) ?
+			(boundaryMesh()->isFirstType(nNodeIdx) ? FirstTypeBoundaryNode : SecondTypeBoundaryNode)
+			: InnerNode;
+	});
+	return res;
+}
+
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 {
 	ScalarFieldOperator result;
@@ -360,31 +373,34 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	m_pProgressBar->set_progress(0);
 
 	result.m_matrix.resize(m_nodes.size());
+
+	std::vector<NodeType> vNodeTypes(nodeTypes());
+
 	ThreadPool::getInstance().splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx) 
 	{
 		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
 		const Node* n = m_nodes[nCurNodeIdx];
-		if (m_pBoundary->isBoundary(nCurNodeIdx))
+		switch (vNodeTypes[nCurNodeIdx])
 		{
-			if (m_pBoundary->isFirstType(nCurNodeIdx)) //Fixed value BC
-				result.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
-			else //Zero gradient
-			{
-				Vector3D norm = boundaryMesh()->normal(nCurNodeIdx);
-				InterpCoefs normalDerivative = std::move(add(
-						mul(norm.x, gradX(nCurNodeIdx)),
-						add(mul(norm.y, gradY(nCurNodeIdx)),
-							mul(norm.z, gradZ(nCurNodeIdx)))));
-				double fSum = normalDerivative[nCurNodeIdx];
-				normalDerivative.erase(nCurNodeIdx);
-				mul(-1. / fSum, normalDerivative);
-				result.m_matrix[nCurNodeIdx] = std::move(normalDerivative);
-			}
+		case FirstTypeBoundaryNode: //Fixed value BC
+			result.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
+			break;
+		case SecondTypeBoundaryNode: //Zero gradient
+		{
+			Vector3D norm = boundaryMesh()->normal(nCurNodeIdx);
+			InterpCoefs normalDerivative = std::move(add(
+				mul(norm.x, gradX(nCurNodeIdx)),
+				add(mul(norm.y, gradY(nCurNodeIdx)),
+					mul(norm.z, gradZ(nCurNodeIdx)))));
+			double fSum = normalDerivative[nCurNodeIdx];
+			normalDerivative.erase(nCurNodeIdx);
+			mul(-1. / fSum, normalDerivative);
+			result.m_matrix[nCurNodeIdx] = std::move(normalDerivative);
+			break;
 		}
-		else
+		default: //It is inner point
 		{
-			//It is inner point
 			double
 				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nCurNodeIdx),
 				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nCurNodeIdx),
@@ -419,6 +435,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 				+ (1. / hz1 + 1. / hz2) / (hz1 + hz2)),
 				add(coefsX, add(coefsY, coefsZ)));
 			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
+		}
 		}
 	}, m_pProgressBar.get());
 

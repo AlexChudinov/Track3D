@@ -376,6 +376,16 @@ private:
 	//Creates mesh graph connections
 	void lazyGraphCreation();
 
+	//Node type
+	enum NodeType : uint8_t
+	{
+		FirstTypeBoundaryNode,
+		SecondTypeBoundaryNode,
+		InnerNode
+	};
+	//Returns array of node types
+	std::vector<NodeType> nodeTypes() const;
+
 	//Create rough and fast LaplacianField solver DU = 0 for a zero approximation
 	ScalarFieldOperator laplacianSolver0();
 	//Simple Laplacian solver with step myltiplication by a factor
