@@ -371,15 +371,11 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 				result.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
 			else //Zero gradient
 			{
-				Vector3D r0 = n->pos, norm = boundaryMesh()->normal(nCurNodeIdx);
-				InterpCoefs
-					gradXComp = gradX(nCurNodeIdx),
-					gradYComp = gradY(nCurNodeIdx),
-					gradZComp = gradZ(nCurNodeIdx);
-				InterpCoefs normalDerivative =add(
-						mul(norm.x, gradXComp),
-						add(mul(norm.y, gradYComp),
-							mul(norm.z, gradZComp)));
+				Vector3D norm = boundaryMesh()->normal(nCurNodeIdx);
+				InterpCoefs normalDerivative = std::move(add(
+						mul(norm.x, gradX(nCurNodeIdx)),
+						add(mul(norm.y, gradY(nCurNodeIdx)),
+							mul(norm.z, gradZ(nCurNodeIdx)))));
 				double fSum = normalDerivative[nCurNodeIdx];
 				normalDerivative.erase(nCurNodeIdx);
 				mul(-1. / fSum, normalDerivative);

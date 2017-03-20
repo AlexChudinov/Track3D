@@ -60,10 +60,11 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 		[](Future& future) { future.wait(); });
 }
 
-void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress)
+void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress, size_t nThreads)
 {
+	nThreads = nThreads == 0 ? m_nThreadNumber : nThreads;
 	size_t
-		nn = n / m_nThreadNumber + 1,
+		nn = n / nThreads + 1,
 		nProgressStep = n / 90,
 		nProgressCounter = 0;
 	Mutex mutex;

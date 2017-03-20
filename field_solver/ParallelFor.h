@@ -62,7 +62,7 @@ public:
 
 	//Splits array into subarray and does parallel operation on it
 	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
-	void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress* progress);
+	void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress* progress, size_t nThreads = 0);
 
 	//Returns error string from a thread pool
 	String error();
