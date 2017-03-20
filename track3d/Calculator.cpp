@@ -921,6 +921,7 @@ void CLineCalculator::do_calculate()
   Vector3D vPos;
   vDir.normalize();
   double fStep = fLineLen / m_nStepCount;
+  double fPhase = m_pObj->get_enable_ansys_field() ? 0.0 : Const_Half_PI; // for RF-fields presentation only.
   CElem3D* pElem = NULL;
   CNode3D node;
   for(UINT i = 0; i <= m_nStepCount; i++)
@@ -930,7 +931,7 @@ void CLineCalculator::do_calculate()
       break;
 
     vPos = m_vLineStart + vDir * (i * fStep);
-    if(!m_pObj->interpolate(vPos, 0, 0, node, pElem))
+    if(!m_pObj->interpolate(vPos, 0, fPhase, node, pElem))
       continue;
 
     assign_result(node);
@@ -956,6 +957,24 @@ void CLineCalculator::assign_result(const CNode3D& node)
     case lcEx:    m_fResult = CGS_to_SI_Voltage * (node.field.x + m_pObj->get_field_ptb().apply(node.pos).x); break;
     case lcEy:    m_fResult = CGS_to_SI_Voltage * (node.field.y + m_pObj->get_field_ptb().apply(node.pos).y); break;
     case lcEz:    m_fResult = CGS_to_SI_Voltage * (node.field.z + m_pObj->get_field_ptb().apply(node.pos).z); break;
+    case lcRFx:
+    {
+      m_fResult = m_pObj->get_enable_ansys_field() ? m_pObj->get_rf_field(node, 0, Const_Half_PI).x : node.rf.x;
+      m_fResult *= CGS_to_SI_Voltage;
+      break;
+    }
+    case lcRFy:
+    {
+      m_fResult = m_pObj->get_enable_ansys_field() ? m_pObj->get_rf_field(node, 0, Const_Half_PI).y : node.rf.y;
+      m_fResult *= CGS_to_SI_Voltage;
+      break;
+    }
+    case lcRFz:
+    {  
+      m_fResult = m_pObj->get_enable_ansys_field() ? m_pObj->get_rf_field(node, 0, Const_Half_PI).z : node.rf.z;
+      m_fResult *= CGS_to_SI_Voltage;
+      break;
+    }
   }
 }
 
@@ -976,9 +995,12 @@ const char* CLineCalculator::units() const
     case lcDens:    return _T("Density,  kg/m3");
     case lcVx:      return _T("Vx,  m/s");
     case lcRe:      return _T("Reynolds Number");
-    case lcEx:      return _T("Ex,  V/cm");
-    case lcEy:      return _T("Ey,  V/cm");
-    case lcEz:      return _T("Ez,  V/cm");
+    case lcEx:      return _T("DC Ex,  V/cm");
+    case lcEy:      return _T("DC Ey,  V/cm");
+    case lcEz:      return _T("DC Ez,  V/cm");
+    case lcRFx:     return _T("RF Ex,  V/cm");
+    case lcRFy:     return _T("RF Ey,  V/cm");
+    case lcRFz:     return _T("RF Ez,  V/cm");
   }
   return _T("");
 }
@@ -995,6 +1017,9 @@ const char* CLineCalculator::get_var_name(int nVar) const
     case lcEx:      return _T("DC Field X");
     case lcEy:      return _T("DC Field Y");
     case lcEz:      return _T("DC Field Z");
+    case lcRFx:     return _T("RF Field X");
+    case lcRFy:     return _T("RF Field Y");
+    case lcRFz:     return _T("RF Field Z");
   }
 
   return _T("");

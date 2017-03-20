@@ -270,7 +270,7 @@ BOOL CCalcResponseProperty::OnUpdateValue()
     else if(pCalc->get_clc_var_type_ptr() == pData)
     {
       CString cType = (CString)GetValue();
-      for(UINT j = 0; j < EvaporatingParticle::CCalculator::clcCount; j++)
+      for(UINT j = 0; j < pCalc->calc_vars_count(); j++)
       {
         if(cType == pCalc->get_var_name(j))
         {

@@ -58,6 +58,7 @@ public:
   virtual const char* get_var_name(int nVar) const;
 
   virtual bool        get_update_flag() const;  // calculators which must re-calculate at every change return true.
+  virtual int         calc_vars_count() const;
 
   void                invalidate();
 
@@ -269,7 +270,10 @@ public:
     lcEx      = 5,
     lcEy      = 6,
     lcEz      = 7,
-    lcCount   = 8
+    lcRFx     = 8,
+    lcRFy     = 9,
+    lcRFz     = 10,
+    lcCount   = 11
   };
 
   virtual void        run();
@@ -283,6 +287,7 @@ public:
   virtual const char* get_var_name(int nVar) const;
 
   virtual bool        get_update_flag() const;  // calculators which must re-calculate at every change return true.
+  virtual int         calc_vars_count() const;
 
   const char*         get_filename() const;
   DWORD_PTR           get_filename_ptr() const;
@@ -333,7 +338,7 @@ public:
     clcIonTemp    = 0,
     clcCurrent    = 1,
     clcTime       = 2,
-    clcCount      = 3
+    clcTrackCount = 3
   };
 
   virtual void        run();
@@ -345,6 +350,8 @@ public:
 
   virtual const char* units() const;
   virtual const char* get_var_name(int nVar) const;
+
+  virtual int         calc_vars_count() const;
 
   const char*         get_filename() const;
   DWORD_PTR           get_filename_ptr() const;
@@ -523,6 +530,11 @@ inline DWORD_PTR CCalculator::get_result_ptr() const
   return (DWORD_PTR)&m_fResult;
 }
 
+inline int CCalculator::calc_vars_count() const
+{
+  return CCalculator::clcCount;
+}
+
 //-------------------------------------------------------------------------------------------------
 // Inline implementation: CPlaneYZCalculator
 //-------------------------------------------------------------------------------------------------
@@ -641,6 +653,11 @@ inline DWORD_PTR CSelectedRegionCalculator::get_sel_reg_names_ptr() const
 //-------------------------------------------------------------------------------------------------
 // Inline implementation: CLineCalculator
 //-------------------------------------------------------------------------------------------------
+inline int CLineCalculator::calc_vars_count() const
+{
+  return CLineCalculator::lcCount;
+}
+
 inline const char* CLineCalculator::get_filename() const
 {
   return m_sOutputFile.c_str();
@@ -705,6 +722,11 @@ inline void CLineCalculator::set_steps_count(UINT nCount)
 //-------------------------------------------------------------------------------------------------
 // Inline implementation: CTrackCalculator
 //-------------------------------------------------------------------------------------------------
+inline int CTrackCalculator::calc_vars_count() const
+{
+  return CTrackCalculator::clcTrackCount;
+}
+
 inline const char* CTrackCalculator::get_filename() const
 {
   return m_sOutputFile.c_str();

@@ -576,9 +576,6 @@ void CCheckBoxButton::OnClickButton(CPoint point)
   bChecked = !bChecked;
   SetValue((_variant_t)bChecked);
   Redraw();
-
-  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  pDrawObj->draw();
 }
 
 void CCheckBoxButton::OnDrawButton(CDC* pDC, CRect rect)
@@ -595,7 +592,6 @@ void CCheckBoxButton::OnDrawButton(CDC* pDC, CRect rect)
   CBrush OrigBrush;
 	CBrush br1(clNavy);
 
-//  pDC->FrameRect(&box, &br1);
   box.DeflateRect(1, 1);
   pDC->FrameRect(&box, &br1);
 
@@ -717,4 +713,33 @@ void CCrossSectCheckBox::OnClickButton(CPoint point)
   pDrawObj->invalidate_hidden();
 
   pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CSourceCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSourceCheckBox, CCheckBoxButton)
+
+void CSourceCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CSource* pSrc = CParticleTrackingApp::Get()->GetTracker()->get_src();
+  pSrc->invalidate();
+}
+
+//---------------------------------------------------------------------------------------
+// CInvalidateFieldCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CInvalidateFieldCheckBox, CCheckBoxButton)
+
+void CInvalidateFieldCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
+  int nCurrFieldId = pFields->get_curr_field_index();
+  EvaporatingParticle::CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
+  if(pData != NULL)
+    pData->invalidate();
 }

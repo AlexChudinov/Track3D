@@ -343,6 +343,38 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CSourceCheckBox
+//---------------------------------------------------------------------------------------
+class CSourceCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CSourceCheckBox)
+
+public:
+  CSourceCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CInvalidateFieldCheckBox
+//---------------------------------------------------------------------------------------
+class CInvalidateFieldCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CInvalidateFieldCheckBox)
+
+public:
+  CInvalidateFieldCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // Inline implementation.
 //---------------------------------------------------------------------------------------
 inline BOOL CSelectRegionButton::HasButton() const

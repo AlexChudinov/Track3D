@@ -970,13 +970,13 @@ Vector3D CTracker::get_rf_field(const CNode3D& node, double fTime, double fPhase
   else if(node.pos.x > fHighX)
   {
 // DEBUG
-    double fR0 = 0.21;  // 2.1 mm - an inscribed radius in the flatapole.
-    double fCoeff = 2. * SI_to_CGS_Voltage / (fR0 * fR0);
-    Vector3D vRF(0, -fCoeff * node.pos.y, fCoeff * node.pos.z);
-/*
+//    double fR0 = 0.21;  // 2.1 mm - an inscribed radius in the flatapole.
+//    double fCoeff = 2. * SI_to_CGS_Voltage / (fR0 * fR0);
+//    Vector3D vRF(0, -fCoeff * node.pos.y, fCoeff * node.pos.z);
+
     Vector3D vRF = node.rf;
-    vRF.x = 0;  // artificial move to get rid of the mirroring effect in the Q0 region.
-*/
+//    vRF.x = 0;  // artificial move to get rid of the mirroring effect in the Q0 region.
+
 // END DEBUG
     return vRF * (m_fAmplRF_Q0 * sin(m_fOmega_Q0 * fTime + fPhase));  // purely Q0 field.
   }

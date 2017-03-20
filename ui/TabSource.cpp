@@ -80,7 +80,7 @@ void CPropertiesWnd::add_source_ctrls()
   pSrcGroup->AddSubItem(pSelRegGroup);
 
   CMFCPropertyGridProperty* pVelGroup = new CMFCPropertyGridProperty(_T("Initial Velocity, m/s"));
-  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Use Gas Velocity"), (_variant_t)pSrc->get_use_initial_gas_vel(), _T("If ON the initial velocity is taken from the gas-dynamic data."), pSrc->get_use_initial_gas_vel_ptr());
+  CSourceCheckBox* pCheckBox = new CSourceCheckBox(this, _T("Use Gas Velocity"), (_variant_t)pSrc->get_use_initial_gas_vel(), _T("If ON the initial velocity is taken from the gas-dynamic data."), pSrc->get_use_initial_gas_vel_ptr());
   pVelGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Abs. Velocity"), COleVariant(0.01 * pSrc->get_abs_vel()), _T("Absolute value of the starting velocity of a particle."), pSrc->get_abs_vel_ptr());
   pVelGroup->AddSubItem(pProp);

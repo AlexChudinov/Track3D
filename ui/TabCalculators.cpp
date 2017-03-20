@@ -150,7 +150,7 @@ void CPropertiesWnd::add_calc_ctrls()
 
         COleVariant var(pLineCalc->get_var_name(pLineCalc->get_clc_var_type()));
         CCalcResponseProperty* pVarSelectProp = new CCalcResponseProperty(this, _T("Variable to be Calculated"), var, _T("Specify a variable to be calculated at the selected cross-section."), pLineCalc->get_clc_var_type_ptr());
-        for(int j = 0; j < EvaporatingParticle::CLineCalculator::lcCount; j++)
+        for(int j = 0; j < pLineCalc->calc_vars_count(); j++)
           pVarSelectProp->AddOption(pLineCalc->get_var_name(j));
 
         pVarSelectProp->AllowEdit(FALSE);
