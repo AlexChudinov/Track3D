@@ -437,7 +437,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
 		}
 		}
-	}, m_pProgressBar.get());
+	}, progressBar());
 
 	return result;
 }

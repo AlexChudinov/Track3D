@@ -133,13 +133,8 @@ void ThreadPool::threadEvtLoop()
 void ThreadPool::start()
 {
 	m_threads = Threads(m_nThreadNumber);
-	DWORD_PTR dwThreadAffinityMask = 0x01;
-	for (size_t i = 0; i < m_nThreadNumber; ++i, dwThreadAffinityMask <<= 1)
-	{
+	for (size_t i = 0; i < m_nThreadNumber; ++i)
 		m_threads[i] = Thread(&ThreadPool::threadEvtLoop, this);
-		SetThreadAffinityMask(m_threads[i].native_handle(), dwThreadAffinityMask);
-		SetThreadPriority(m_threads[i].native_handle(), THREAD_PRIORITY_HIGHEST);
-	}
 }
 
 void ThreadPool::stop()
