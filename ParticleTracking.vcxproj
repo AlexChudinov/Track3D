@@ -222,6 +222,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="field_solver\MemoryPool.h" />
     <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="field_solver\ParallelFor.h" />
     <ClInclude Include="MathPhys\libIntegrators.h" />
@@ -268,6 +269,7 @@
     <ClInclude Include="ui\targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="field_solver\MemoryPool.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
     <ClCompile Include="field_solver\ParallelFor.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
