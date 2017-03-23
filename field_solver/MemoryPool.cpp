@@ -15,7 +15,6 @@ void CMemoryPool::clear()
 	std::for_each(m_pages.begin(), m_pages.end(),
 		[=](PVoid page)
 	{
-		VirtualUnlock(page, s_nPageSize);
 		VirtualFree(page, NULL, MEM_RELEASE);
 	});
 	m_pages.clear();
@@ -30,7 +29,7 @@ CMemoryPool & CMemoryPool::getInstance()
 void * CMemoryPool::getPage()
 {
 	PVoid pNextPage = VirtualAlloc(NULL, s_nPageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-	if (pNextPage && VirtualLock(pNextPage, s_nPageSize))
+	if (pNextPage)
 	{
 		m_pages.push_front(pNextPage);
 		return pNextPage;
