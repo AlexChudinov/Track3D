@@ -552,6 +552,38 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
   return true;
 }
 
+//[AC 24/03/2017]
+//Memory manager
+void * CElem3D::operator new(size_t nSize)
+{
+#define TRY_ALLOC_ELEM(elem) \
+	if (nSize == sizeof(elem)) return BlockPool<elem>::getInstance().allocBlock();
+
+	TRY_ALLOC_ELEM(CTetra);
+	TRY_ALLOC_ELEM(CPyramid);
+	TRY_ALLOC_ELEM(CWedge);
+	TRY_ALLOC_ELEM(CHexa);
+
+#undef TRY_ALLOC_ELEM
+
+	throw std::bad_alloc();
+}
+
+void CElem3D::operator delete(void * m, size_t nSize)
+{
+#define TRY_FREE_ELEM(elem) \
+	if (nSize == sizeof(elem)) \
+		return BlockPool<elem>::getInstance().freeBlock(reinterpret_cast<elem*>(m));
+
+	TRY_FREE_ELEM(CTetra);
+	TRY_FREE_ELEM(CPyramid);
+	TRY_FREE_ELEM(CWedge);
+	TRY_FREE_ELEM(CHexa);
+
+#undef TRY_FREE_ELEM
+}
+//[/AC]
+
 //-------------------------------------------------------------------------------------------------
 //                      CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------

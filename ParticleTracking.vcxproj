@@ -269,7 +269,6 @@
     <ClInclude Include="ui\targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="field_solver\MemoryPool.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
     <ClCompile Include="field_solver\ParallelFor.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />

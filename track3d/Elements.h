@@ -9,6 +9,11 @@
 #include "matrix3d.hpp"
 #include "constant.hpp"
 
+//[AC 24/03/2017]
+//Memory manager
+#include "../field_solver/MemoryPool.h"
+//[/AC]
+
 namespace EvaporatingParticle
 {
 
@@ -293,6 +298,14 @@ struct CElem3D
   //[AC 03/03/2017]
   //Returns pointer to element node c-like array
   virtual const UINT* nodes() const = 0;
+  //[/AC]
+
+  //[AC 24/03/2017]
+  //Memory manager
+  static void* operator new(size_t nSize);
+  static void operator delete(void* m, size_t nSize);
+  static void* operator new(size_t, void* m) { return m; }
+  static void operator delete(void*, void*){}
   //[/AC]
 };
 

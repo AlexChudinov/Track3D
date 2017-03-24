@@ -293,7 +293,8 @@ void CMeshAdapter::lazyGraphCreation()
 		m_lazyGraph.reset(new Graph);
 		for (const Element* e : m_elems)
 		{
-			if (e->nInd % 1000 == 0) m_pProgressBar->set_progress(e->nInd * 100 / m_elems.size());
+			if (e->nInd % 10000 == 0) 
+				m_pProgressBar->set_progress(e->nInd * 100 / m_elems.size());
 			if (m_pProgressBar->get_terminate_flag()) return m_lazyGraph.reset();
 			m_lazyGraph->addElem(e);
 		}

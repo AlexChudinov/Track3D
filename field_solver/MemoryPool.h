@@ -2,50 +2,25 @@
 #ifndef _MEMORY_POOL_
 #define _MEMORY_POOL_
 
-#include <forward_list>
 #include <mutex>
 
-class CMemoryPool
-{
-public:
-	using PVoid = void*;
-	using PagesList = std::forward_list<PVoid>;
-private:
-	const static size_t s_nPageSize;
-	//Use it as a singletone
-	CMemoryPool();
-
-	CMemoryPool(const CMemoryPool&) = delete;
-	CMemoryPool(CMemoryPool&&) = delete;
-	CMemoryPool& operator=(const CMemoryPool&) = delete;
-	CMemoryPool& operator=(CMemoryPool&&) = delete;
-public:
-	static CMemoryPool& getInstance();
-
-	//Allocate new page
-	void* getPage();
-
-	~CMemoryPool();
-
-	//Returns current size of a one page
-	static size_t pageSize();
-
-	//Cleares pool's memory
-	void clear();
-private:
-	PagesList m_pages;
-};
+//Number of blocks that will be allocated during a one pool expansion
+#define BLOCKS_NUM 1024
 
 //Keeps memory blocks of a certain type
 template<typename T>
 class BlockPool
 {
 public:
-	using PVoid = void*;
 	using Mutex = std::mutex;
 	using Locker = std::unique_lock<Mutex>;
 private:
-	void formatNewPage();
+	struct PagesList
+	{
+		PagesList * pNext;
+	};
+
+	void expandPoolSize();
 
 	//Use it as a singletone
 	BlockPool();
@@ -62,34 +37,33 @@ public:
 
 	//Frees a one block of a memory
 	void freeBlock(T* pT);
-
 private:
-	const size_t m_nBlockSize;
-	const size_t m_nBlocksNum;
-	PVoid m_head;
+	PagesList * m_head;
 	Mutex m_mutexAccess;
 };
 
 template<typename T>
-inline void BlockPool<T>::formatNewPage()
+inline void BlockPool<T>::expandPoolSize()
 {
-	PVoid tmp = CMemoryPool::getInstance().getPage();
-	m_head = tmp;
-	for (size_t i = 0; i < m_nBlocksNum-1; ++i)
-	{
-		PVoid next = static_cast<char*>(tmp) + m_nBlockSize;
-		*static_cast<PVoid*>(tmp) = next;
-		tmp = next;
-	}
-	*static_cast<PVoid*>(tmp) = NULL;
+	constexpr size_t nBlockSize = max(sizeof(T), sizeof(PagesList*));
+	constexpr size_t nSize = BLOCKS_NUM * nBlockSize;
+
+	char
+		* pFirst = new char[nSize],
+		* pLast = pFirst + nSize - nBlockSize;
+	m_head = reinterpret_cast<PagesList*>(pFirst);
+	PagesList* head = m_head;
+
+	for (; pFirst < pLast; head = head->pNext)
+		head->pNext = reinterpret_cast<PagesList*>(pFirst += nBlockSize);
+
+	head->pNext = nullptr;
 }
 
 template<typename T>
 inline BlockPool<T>::BlockPool()
 	:
-	m_nBlockSize(max(sizeof(T), sizeof(PVoid))),
-	m_nBlocksNum(CMemoryPool::pageSize() / m_nBlockSize),
-	m_head(NULL)
+	m_head(nullptr)
 {
 }
 
@@ -104,18 +78,18 @@ template<typename T>
 inline T * BlockPool<T>::allocBlock()
 {
 	Locker lock(m_mutexAccess);
-	if (!m_head) formatNewPage();
-	PVoid res = m_head;
-	m_head = *static_cast<PVoid*>(m_head);
-	return static_cast<T*>(res);
+	if (!m_head) expandPoolSize();
+	T* res = reinterpret_cast<T*>(m_head);
+	m_head = m_head->pNext;
+	return res;
 }
 
 template<typename T>
 inline void BlockPool<T>::freeBlock(T * pT)
 {
 	Locker lock(m_mutexAccess);
-	*(PVoid*)pT = m_head;
-	m_head = pT;
+	reinterpret_cast<PagesList*>(pT)->pNext = m_head;
+	m_head = reinterpret_cast<PagesList*>(pT);
 }
 
 //My allocator class
@@ -218,14 +192,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	case 1: return BlockPool<T>::getInstance().allocBlock();
 	default:
 	{
-		size_t nBytes = nCount * sizeof(T);
-		void* Ptr = VirtualAlloc(NULL, nBytes, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-		if (Ptr)
-		{
-			return static_cast<T*>(Ptr);
-		}
-		throw std::runtime_error(std::string("Allocator<") + typeid(T).name()
-			+ ">::allocate: Allocation error!");
+		return new T[nCount];
 	}
 	}
 }
@@ -237,7 +204,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: if (pT) VirtualFree(pT, NULL, MEM_RELEASE);
+	default: if (pT) delete [] pT;
 	}
 }
 
