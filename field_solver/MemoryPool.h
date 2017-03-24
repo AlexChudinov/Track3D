@@ -192,7 +192,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	case 1: return BlockPool<T>::getInstance().allocBlock();
 	default:
 	{
-		return new T[nCount];
+		return reinterpret_cast<T*>(::malloc(nCount * sizeof(T)));
 	}
 	}
 }
@@ -204,7 +204,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: if (pT) delete [] pT;
+	default: if (pT) ::free(pT);
 	}
 }
 
