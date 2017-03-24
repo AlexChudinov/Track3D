@@ -392,6 +392,20 @@ const CIndexVector & CNode3D::nbr_elems() const
 	return vNbrElems;
 }
 
+//[AC 24/03/2017]
+//Memory manager
+void * CNode3D::operator new(size_t nSize)
+{
+	CNode3D* ptr = BlockPool<CNode3D>::getInstance().allocBlock();
+	if (ptr) return ptr;
+	throw std::bad_alloc();
+}
+void CNode3D::operator delete(void * m, size_t nSize)
+{
+	BlockPool<CNode3D>::getInstance().freeBlock(reinterpret_cast<CNode3D*>(m));
+}
+//[/AC]
+
 //-------------------------------------------------------------------------------------------------
 // CElem3D - a base class for all 3D elements - tetrahedra, pyramids, wedges and hexes. 
 //-------------------------------------------------------------------------------------------------
@@ -557,7 +571,12 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
 void * CElem3D::operator new(size_t nSize)
 {
 #define TRY_ALLOC_ELEM(elem) \
-	if (nSize == sizeof(elem)) return BlockPool<elem>::getInstance().allocBlock();
+	if (nSize == sizeof(elem)) \
+	{\
+		elem* ptr = BlockPool<elem>::getInstance().allocBlock();\
+		if(ptr) return ptr;\
+		throw std::bad_alloc();\
+	}
 
 	TRY_ALLOC_ELEM(CTetra);
 	TRY_ALLOC_ELEM(CPyramid);

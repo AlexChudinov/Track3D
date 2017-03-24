@@ -99,6 +99,14 @@ struct CNode3D
   //Returns references to a neighbor element indices array
   const CIndexVector& nbr_elems() const;
   //[/AC 03/03/2017]
+
+  //[AC 24/03/2017]
+  //Memory manager
+  static void* operator new(size_t nSize);
+  static void operator delete(void* m, size_t nSize);
+  static void* operator new(size_t, void* m) { return m; }
+  static void operator delete(void*, void*) {}
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------

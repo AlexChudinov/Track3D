@@ -320,6 +320,9 @@
     <ClCompile Include="field_solver\ParallelFor.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="field_solver\MemoryPool.cpp">
+      <Filter>field_solver\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="ui\res\MoveRotateToolbar.bmp">
