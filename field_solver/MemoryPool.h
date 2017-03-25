@@ -221,7 +221,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	default:
 	{
 		return 
-			reinterpret_cast<T*>(VirtualAlloc(NULL, nCount * sizeof(T), MEM_COMMIT, PAGE_READWRITE));
+			reinterpret_cast<T*>(::malloc(nCount*sizeof(T)));
 	}
 	}
 }
@@ -233,7 +233,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: if (pT) VirtualFree(pT, NULL, MEM_RELEASE);
+	default: if (pT) ::free(pT);
 	}
 }
 

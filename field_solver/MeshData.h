@@ -210,7 +210,7 @@ class CMeshConnectivity
 public:
 	using Label = uint32_t;
 	using NodeConnections = std::set<uint32_t, std::less<uint32_t>, Allocator<uint32_t>>;
-	using Graph = std::vector<NodeConnections, Allocator<uint32_t>>;
+	using Graph = std::vector<NodeConnections>;
 	using Elem = EvaporatingParticle::CElem3D;
 	using Node = EvaporatingParticle::CNode3D;
 	using Nodes = std::vector<Node*>;
@@ -290,9 +290,8 @@ class CFieldOperator
 {
 public:
 	using MatrixCoef = std::pair<uint32_t, double>;
-	using MatrixRow = std::map<uint32_t, double, 
-		std::less<uint32_t>, Allocator<std::pair<const uint32_t, double>>>;
-	using Matrix = std::vector<MatrixRow, Allocator<MatrixRow>>;
+	using MatrixRow = std::map<uint32_t, double, std::less<uint32_t>, Allocator<MatrixCoef>>;
+	using Matrix = std::vector<MatrixRow>;
 	using Field = std::vector<FieldType>;
 
 	friend class CMeshAdapter;
@@ -329,7 +328,7 @@ public:
 	using PBoundary = std::unique_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double, 
-		std::less<uint32_t>, Allocator<std::pair<const uint32_t, double>>>;
+		std::less<uint32_t>, Allocator<InterpCoef>>;
 	using Label = UINT;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
