@@ -1,6 +1,11 @@
 
 #include "stdafx.h"
 #include "TrackItem.h"
+
+//[AC 25\03\2017] Memory manager
+#include "../field_solver/MemoryPool.h"
+//[/AC]
+
 //#include "Integrators.hpp"
 //#include "BarnesHut.h"
 //#include "StochasticGasDynamic.hpp"
@@ -107,6 +112,31 @@ void CBaseTrackItem::load(CArchive& ar)
   ar >> vel.z;
   ar >> time;
 }
+
+//[AC 25\03\2017] Memory manager
+void * CBaseTrackItem::operator new(size_t nSize)
+{
+	if (nSize == sizeof(CIonTrackItem))
+	{
+		void* ptr = reinterpret_cast<void*>(BlockPool<CIonTrackItem>::getInstance().allocBlock());
+		if (ptr) return ptr;
+	}
+	if (nSize == sizeof(CDropletTrackItem))
+	{
+		void* ptr = reinterpret_cast<void*>(BlockPool<CDropletTrackItem>::getInstance().allocBlock());
+		if (ptr) return ptr;
+	}
+	throw std::bad_alloc();
+}
+
+void CBaseTrackItem::operator delete(void * m, size_t nSize)
+{
+	if (nSize == sizeof(CIonTrackItem))
+		return BlockPool<CIonTrackItem>::getInstance().freeBlock((CIonTrackItem*)m);
+	if (nSize == sizeof(CDropletTrackItem))
+		return BlockPool<CDropletTrackItem>::getInstance().freeBlock((CDropletTrackItem*)m);
+}
+//[/AC]
 
 //---------------------------------------------------------------------------------------
 //  CIonTrackItem

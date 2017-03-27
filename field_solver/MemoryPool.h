@@ -3,30 +3,6 @@
 #define _MEMORY_POOL_
 
 #include <mutex>
-#include <forward_list>
-
-#define NUM_OF_PAGES_TO_COMMIT 1
-//Pool keeps commited pages of memory
-class PagePool
-{
-	//Use it as a singletone
-	PagePool();
-
-	PagePool(const PagePool&) = delete;
-	PagePool(PagePool&&) = delete;
-	PagePool& operator=(const PagePool&) = delete;
-	PagePool& operator=(PagePool&&) = delete;
-public:
-	//Returns reference to a global page pool instance
-	static PagePool& getInstance();
-	//Allocates next page and returns pointer to it
-	void * allocatePage();
-	//Returns page size
-	size_t pageSize() const;
-private:
-	const size_t m_nPageSize;
-	std::forward_list<void*> m_flAllocatedPages;
-};
 
 //Keeps memory blocks of a certain type
 template<typename T>
@@ -41,7 +17,7 @@ private:
 		BlocksList * pNext;
 	};
 
-	void expandPoolSize();
+	void expandPoolSize() noexcept;
 
 	//Use it as a singletone
 	BlockPool();
@@ -61,21 +37,20 @@ public:
 private:
 	BlocksList * m_head;
 	Mutex m_mutexAccess;
+	const size_t m_nPageSize;
 };
 
 template<typename T>
-inline void BlockPool<T>::expandPoolSize()
+inline void BlockPool<T>::expandPoolSize() noexcept
 {
-	constexpr size_t nBlockSize = max(sizeof(T), sizeof(BlocksList*));
-	size_t nBlocks = PagePool::getInstance().pageSize() / nBlockSize;
-	if (!nBlocks) 
-		throw std::runtime_error(
-		std::string("BlackPool<")+ typeid(T).name() 
-		+ ">::expandPoolSize: Block is bigger than a machine page!");
+	constexpr size_t nBlockSize = sizeof(T);
 
 	char
-		*pFirst = reinterpret_cast<char*>(PagePool::getInstance().allocatePage()),
-		*pLast = pFirst + (nBlocks - 1)*nBlockSize;
+		*pFirst = reinterpret_cast<char*>(VirtualAlloc(NULL, m_nPageSize, MEM_COMMIT, PAGE_READWRITE)),
+		*pLast  = pFirst + m_nPageSize - nBlockSize;
+
+	if (!pFirst) return;
+
 	m_head = reinterpret_cast<BlocksList*>(pFirst);
 	BlocksList* head = m_head;
 
@@ -88,8 +63,12 @@ inline void BlockPool<T>::expandPoolSize()
 template<typename T>
 inline BlockPool<T>::BlockPool()
 	:
-	m_head(nullptr)
+	m_head(nullptr),
+	m_nPageSize(0)
 {
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize * sizeof(T);
 }
 
 template<typename T>
@@ -113,11 +92,8 @@ template<typename T>
 inline void BlockPool<T>::freeBlock(T * pT)
 {
 	Locker lock(m_mutexAccess);
-	if (pT)
-	{
-		reinterpret_cast<BlocksList*>(pT)->pNext = m_head;
-		m_head = reinterpret_cast<BlocksList*>(pT);
-	}
+	reinterpret_cast<BlocksList*>(pT)->pNext = m_head;
+	m_head = reinterpret_cast<BlocksList*>(pT);
 }
 
 //My allocator class
@@ -233,7 +209,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: if (pT) ::free(pT);
+	default: ::free(pT);
 	}
 }
 

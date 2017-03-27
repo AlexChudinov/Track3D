@@ -47,6 +47,13 @@ struct CBaseTrackItem
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
+
+  //[AC 25/03/2017] Memory management
+  static void* operator new(size_t nSize);
+  static void operator delete(void* m, size_t nSize);
+  static void* operator new(size_t, void* m) { return m; }
+  static void operator delete(void*, void*) {}
+  //[/AC]
 };
 
 //---------------------------------------------------------------------------------------
