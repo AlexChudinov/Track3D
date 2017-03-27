@@ -392,20 +392,6 @@ const CIndexVector & CNode3D::nbr_elems() const
 	return vNbrElems;
 }
 
-//[AC 24/03/2017]
-//Memory manager
-void * CNode3D::operator new(size_t nSize)
-{
-	CNode3D* ptr = BlockPool<CNode3D>::getInstance().allocBlock();
-	if (ptr) return ptr;
-	throw std::bad_alloc();
-}
-void CNode3D::operator delete(void * m, size_t nSize)
-{
-	BlockPool<CNode3D>::getInstance().freeBlock(reinterpret_cast<CNode3D*>(m));
-}
-//[/AC]
-
 //-------------------------------------------------------------------------------------------------
 // CElem3D - a base class for all 3D elements - tetrahedra, pyramids, wedges and hexes. 
 //-------------------------------------------------------------------------------------------------
@@ -566,43 +552,6 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
   return true;
 }
 
-//[AC 24/03/2017]
-//Memory manager
-void * CElem3D::operator new(size_t nSize)
-{
-#define TRY_ALLOC_ELEM(elem) \
-	if (nSize == sizeof(elem)) \
-	{\
-		elem* ptr = BlockPool<elem>::getInstance().allocBlock();\
-		if(ptr) return ptr;\
-		throw std::bad_alloc();\
-	}
-
-	TRY_ALLOC_ELEM(CTetra);
-	TRY_ALLOC_ELEM(CPyramid);
-	TRY_ALLOC_ELEM(CWedge);
-	TRY_ALLOC_ELEM(CHexa);
-
-#undef TRY_ALLOC_ELEM
-
-	throw std::bad_alloc();
-}
-
-void CElem3D::operator delete(void * m, size_t nSize)
-{
-#define TRY_FREE_ELEM(elem) \
-	if (nSize == sizeof(elem)) \
-		return BlockPool<elem>::getInstance().freeBlock(reinterpret_cast<elem*>(m));
-
-	TRY_FREE_ELEM(CTetra);
-	TRY_FREE_ELEM(CPyramid);
-	TRY_FREE_ELEM(CWedge);
-	TRY_FREE_ELEM(CHexa);
-
-#undef TRY_FREE_ELEM
-}
-//[/AC]
-
 //-------------------------------------------------------------------------------------------------
 //                      CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
@@ -714,7 +663,24 @@ const UINT * CTetra::nodes() const
 {
 	return vTetNodeIds;
 }
-
+//[AC 27/03/2017] memory manager
+void CTetra::deleteObj()
+{
+	BlockPool<CTetra>::getInstance().freeBlock(this);
+}
+void CPyramid::deleteObj()
+{
+	BlockPool<CPyramid>::getInstance().freeBlock(this);
+}
+void CWedge::deleteObj()
+{
+	BlockPool<CWedge>::getInstance().freeBlock(this);
+}
+void CHexa::deleteObj()
+{
+	BlockPool<CHexa>::getInstance().freeBlock(this);
+}
+//[/AC]
 
 //-------------------------------------------------------------------------------------------------
 //                          CPyramid - a pyramid object of 5 nodes.

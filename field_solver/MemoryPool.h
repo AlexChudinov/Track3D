@@ -17,7 +17,7 @@ private:
 		BlocksList * pNext;
 	};
 
-	void expandPoolSize() noexcept;
+	void expandPoolSize();
 
 	//Use it as a singletone
 	BlockPool();
@@ -34,28 +34,31 @@ public:
 
 	//Frees a one block of a memory
 	void freeBlock(T* pT);
+
+	//Clenups memory pool
+	void clean();
+
+	~BlockPool();
 private:
 	BlocksList * m_head;
 	Mutex m_mutexAccess;
-	const size_t m_nPageSize;
+	const size_t m_nPageSize; //Size of a one machine page in bytes
 };
 
 template<typename T>
-inline void BlockPool<T>::expandPoolSize() noexcept
+inline void BlockPool<T>::expandPoolSize()
 {
-	constexpr size_t nBlockSize = sizeof(T);
-
-	char
-		*pFirst = reinterpret_cast<char*>(VirtualAlloc(NULL, m_nPageSize, MEM_COMMIT, PAGE_READWRITE)),
-		*pLast  = pFirst + m_nPageSize - nBlockSize;
-
-	if (!pFirst) return;
-
-	m_head = reinterpret_cast<BlocksList*>(pFirst);
+	constexpr size_t nBlockSize = max(sizeof(T), sizeof(BlocksList*));
+	const size_t nSize = nBlockSize * m_nPageSize;
+	m_head = (BlocksList*)VirtualAlloc(NULL, nSize, MEM_COMMIT, PAGE_READWRITE);
 	BlocksList* head = m_head;
 
+	char
+		*pFirst = (char*)head,
+		*pLast = pFirst + (nSize - nBlockSize);
+
 	for (; pFirst < pLast; head = head->pNext)
-		head->pNext = reinterpret_cast<BlocksList*>(pFirst += nBlockSize);
+		head->pNext = (BlocksList*)(pFirst += nBlockSize);
 
 	head->pNext = nullptr;
 }
@@ -68,7 +71,7 @@ inline BlockPool<T>::BlockPool()
 {
 	SYSTEM_INFO sysInfo;
 	GetSystemInfo(&sysInfo);
-	*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize * sizeof(T);
+	*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize;
 }
 
 template<typename T>
@@ -83,7 +86,7 @@ inline T * BlockPool<T>::allocBlock()
 {
 	Locker lock(m_mutexAccess);
 	if (!m_head) expandPoolSize();
-	T* res = reinterpret_cast<T*>(m_head);
+	T* res = (T*) m_head;
 	m_head = m_head->pNext;
 	return res;
 }
@@ -92,9 +95,42 @@ template<typename T>
 inline void BlockPool<T>::freeBlock(T * pT)
 {
 	Locker lock(m_mutexAccess);
-	reinterpret_cast<BlocksList*>(pT)->pNext = m_head;
-	m_head = reinterpret_cast<BlocksList*>(pT);
+	((BlocksList*) pT)->pNext = m_head;
+	m_head = (BlocksList*) pT;
 }
+
+template<typename T>
+inline void BlockPool<T>::clean()
+{//No clean possibility
+}
+
+template<typename T>
+inline BlockPool<T>::~BlockPool()
+{
+	clean();
+}
+
+//Class for a one block allocation from pool
+template<typename T>
+class BlockAllocator
+{
+public:
+	static void* operator new(size_t n)
+	{
+		if (n != sizeof(T)) return ::operator new(n);
+		else return (void*)BlockPool<T>::getInstance().allocBlock();
+	}
+
+	static void* operator new(size_t, void* m) { return m; }
+
+	static void operator delete(void* m, size_t n)
+	{
+		if (n != sizeof(T)) return ::operator delete(m, n);
+		else return BlockPool<T>::getInstance().freeBlock((T*)m);
+	}
+
+	static void operator delete(void*, void*){}
+};
 
 //My allocator class
 template<typename T>
@@ -196,8 +232,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	case 1: return BlockPool<T>::getInstance().allocBlock();
 	default:
 	{
-		return 
-			reinterpret_cast<T*>(::malloc(nCount*sizeof(T)));
+		return (T*)::operator new(sizeof(T)*nCount);
 	}
 	}
 }
@@ -209,7 +244,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: ::free(pT);
+	default: ::operator delete((void*)pT, sizeof(T)*nCount);
 	}
 }
 

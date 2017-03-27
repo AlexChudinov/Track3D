@@ -112,32 +112,20 @@ void CBaseTrackItem::load(CArchive& ar)
   ar >> vel.z;
   ar >> time;
 }
-
-//[AC 25\03\2017] Memory manager
-void * CBaseTrackItem::operator new(size_t nSize)
+//[AC] Memory management
+void CBaseTrackItem::operator delete(void * ptr, size_t n)
 {
-	if (nSize == sizeof(CIonTrackItem))
-	{
-		void* ptr = reinterpret_cast<void*>(BlockPool<CIonTrackItem>::getInstance().allocBlock());
-		if (ptr) return ptr;
-	}
-	if (nSize == sizeof(CDropletTrackItem))
-	{
-		void* ptr = reinterpret_cast<void*>(BlockPool<CDropletTrackItem>::getInstance().allocBlock());
-		if (ptr) return ptr;
-	}
-	throw std::bad_alloc();
+	((CBaseTrackItem*)ptr)->deleteObj();
 }
-
-void CBaseTrackItem::operator delete(void * m, size_t nSize)
+void CIonTrackItem::deleteObj()
 {
-	if (nSize == sizeof(CIonTrackItem))
-		return BlockPool<CIonTrackItem>::getInstance().freeBlock((CIonTrackItem*)m);
-	if (nSize == sizeof(CDropletTrackItem))
-		return BlockPool<CDropletTrackItem>::getInstance().freeBlock((CDropletTrackItem*)m);
+	BlockPool<CIonTrackItem>::getInstance().freeBlock(this);
+}
+void CDropletTrackItem::deleteObj()
+{
+	BlockPool<CDropletTrackItem>::getInstance().freeBlock(this);
 }
 //[/AC]
-
 //---------------------------------------------------------------------------------------
 //  CIonTrackItem
 //---------------------------------------------------------------------------------------

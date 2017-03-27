@@ -5,7 +5,7 @@
 #include <vector>
 //#include "Symmetry.hpp"
 #include "vector3d.hpp"
-
+#include "../field_solver/MemoryPool.h"
 
 namespace EvaporatingParticle
 {
@@ -48,19 +48,18 @@ struct CBaseTrackItem
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
 
-  //[AC 25/03/2017] Memory management
-  static void* operator new(size_t nSize);
-  static void operator delete(void* m, size_t nSize);
-  static void* operator new(size_t, void* m) { return m; }
-  static void operator delete(void*, void*) {}
+  //[AC] Memory management
+  static void operator delete(void* ptr, size_t n);
+  virtual void deleteObj() = 0;
   //[/AC]
 };
 
 //---------------------------------------------------------------------------------------
 //
 //---------------------------------------------------------------------------------------
-struct CIonTrackItem : public CBaseTrackItem
+struct CIonTrackItem : public CBaseTrackItem, public BlockAllocator<CIonTrackItem>
 {
+	using CBaseTrackItem::operator delete;
   CIonTrackItem()
     : CBaseTrackItem(), temp(0), tempinf(0), unfragm(1)
   {
@@ -86,13 +85,18 @@ struct CIonTrackItem : public CBaseTrackItem
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
+
+  //[AC] Memory management
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //---------------------------------------------------------------------------------------
 //
 //---------------------------------------------------------------------------------------
-struct CDropletTrackItem : public CBaseTrackItem
+struct CDropletTrackItem : public CBaseTrackItem, public BlockAllocator<CDropletTrackItem>
 {
+	using CBaseTrackItem::operator delete;
   CDropletTrackItem()
     : CBaseTrackItem(), temp(0), mass(0)
   {
@@ -116,6 +120,10 @@ struct CDropletTrackItem : public CBaseTrackItem
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
+
+  //[AC] Memory management
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //---------------------------------------------------------------------------------------

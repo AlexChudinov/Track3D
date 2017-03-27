@@ -50,7 +50,7 @@ typedef std::vector<UINT> CIndexVector;
 // CNode3D - a structure containing all the gas-dynamic parameters at the node of the input mesh.
 //           In addition, it contains information on neighboring elements.
 //-------------------------------------------------------------------------------------------------
-struct CNode3D
+struct CNode3D : public BlockAllocator<CNode3D>
 {
   CNode3D()
     : dens(0), press(0), temp(0), visc(0), cond(0), cp(0), nInd(0)
@@ -99,14 +99,6 @@ struct CNode3D
   //Returns references to a neighbor element indices array
   const CIndexVector& nbr_elems() const;
   //[/AC 03/03/2017]
-
-  //[AC 24/03/2017]
-  //Memory manager
-  static void* operator new(size_t nSize);
-  static void operator delete(void* m, size_t nSize);
-  static void* operator new(size_t, void* m) { return m; }
-  static void operator delete(void*, void*) {}
-  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -137,7 +129,7 @@ struct CBox
 // CFace - a structure containing normalized vector "norm" in addition to pointers to
 //         the three nodes of the triangle.
 //-------------------------------------------------------------------------------------------------
-struct CFace
+struct CFace : public BlockAllocator<CFace>
 {
   CFace(CNode3D* pn0, CNode3D* pn1, CNode3D* pn2);
 
@@ -170,7 +162,7 @@ typedef std::vector<CIntersectPoint> CIntersectColl;
 //-------------------------------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------------------------------
-struct CRegion
+struct CRegion : public BlockAllocator<CRegion>
 {
   CRegion(const char* pName)
     : sName(pName), bEnabled(true), bSelected(false), bCrossSection(false)
@@ -198,7 +190,7 @@ typedef std::vector<CRegion*> CRegionsCollection;
 //-------------------------------------------------------------------------------------------------
 // CTreeBox - is an element of the octo-tree of the CTracker.
 //-------------------------------------------------------------------------------------------------
-struct CTreeBox : public CBox
+struct CTreeBox : public CBox, public BlockAllocator<CTreeBox>
 {
   CTreeBox()
     : CBox(), pChild(NULL), pParent(NULL), nLevel(0)
@@ -231,7 +223,7 @@ struct CTreeBox : public CBox
 //-------------------------------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------------------------------
-struct CPlane
+struct CPlane : public BlockAllocator<CPlane>
 {
   CPlane(const Vector3D& v = Vector3D(0, 0, 0), const Vector3D& n = Vector3D(0, 0, 1))
     : pos(v), norm(n)
@@ -308,20 +300,20 @@ struct CElem3D
   virtual const UINT* nodes() const = 0;
   //[/AC]
 
-  //[AC 24/03/2017]
-  //Memory manager
-  static void* operator new(size_t nSize);
-  static void operator delete(void* m, size_t nSize);
-  static void* operator new(size_t, void* m) { return m; }
-  static void operator delete(void*, void*){}
+  //[AC 27/03/2017] memory manager
+  static void operator delete(void* ptr, size_t n);
+  virtual void deleteObj() = 0;
   //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
 //                    CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
-struct CTetra : public CElem3D
+struct CTetra : public CElem3D, public BlockAllocator<CTetra>
 {
+	//[AC] memory manager
+	using CElem3D::operator delete;
+	//[/AC]
   CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3);
   CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3);
 
@@ -343,14 +335,21 @@ struct CTetra : public CElem3D
   //Returns pointer to element node c-like array
   const UINT* nodes() const;
   //[/AC]
+
+  //[AC 27/03/2017] memory manager
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
 // CPyramid - a pyramid object of 5 nodes. To determine whether or not a point is inside the element,
 //            the pyramid is subdivided in two tetras.
 //-------------------------------------------------------------------------------------------------
-struct CPyramid : public CElem3D
+struct CPyramid : public CElem3D, public BlockAllocator<CPyramid>
 {
+	//[AC] memory manager
+	using CElem3D::operator delete;
+	//[/AC]
   CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4);
   virtual ~CPyramid();
 
@@ -372,14 +371,21 @@ struct CPyramid : public CElem3D
   //Returns pointer to element node c-like array
   const UINT* nodes() const;
   //[/AC]
+
+  //[AC 27/03/2017] memory manager
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
 // CWedge - has 6 nodes. To determine whether or not a point is inside the element, the wedge is
 //          subdivided in eight tetras with a common node at the center of the wedge.
 //-------------------------------------------------------------------------------------------------
-struct CWedge : public CElem3D
+struct CWedge : public CElem3D, public BlockAllocator<CWedge>
 {
+	//[AC] memory manager
+	using CElem3D::operator delete;
+	//[/AC]
   CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5);
   virtual ~CWedge();
 
@@ -401,13 +407,20 @@ struct CWedge : public CElem3D
   //Returns pointer to element node c-like array
   const UINT* nodes() const;
   //[/AC]
+
+  //[AC 27/03/2017] memory manager
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
 // CHexa - has 8 nodes.
 //-------------------------------------------------------------------------------------------------
-struct CHexa : public CElem3D
+struct CHexa : public CElem3D, public BlockAllocator<CHexa>
 {
+	//[AC] memory manager
+	using CElem3D::operator delete;
+	//[/AC]
   CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7);
 
   UINT              vHexNodeIds[8]; // indices of the wedge nodes in the global collection.
@@ -428,12 +441,16 @@ struct CHexa : public CElem3D
   //Returns pointer to element node c-like array
   const UINT* nodes() const;
   //[/AC]
+
+  //[AC 27/03/2017] memory manager
+  virtual void deleteObj();
+  //[/AC]
 };
 
 //-------------------------------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------------------------------
-struct CEdge
+struct CEdge : public BlockAllocator<CEdge>
 {
   CEdge(CNode3D* p0, CNode3D* p1, CFace* pf0)
     : pNode0(p0), pNode1(p1), pFace0(pf0), pFace1(NULL)
@@ -614,6 +631,12 @@ inline CNodesCollection CElem3D::get_nodes() const
 
   return vNodes;
 }
+//[AC 27/03/2017] memory manager
+inline void CElem3D::operator delete(void * ptr, size_t n)
+{
+	((CElem3D*)ptr)->deleteObj();
+}
+//[/AC]
 
 //-------------------------------------------------------------------------------------------------
 // CAverBin: inline implementation.
