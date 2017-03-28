@@ -4,23 +4,26 @@
 
 #include <mutex>
 
-//Keeps memory blocks of a certain size
-template<size_t nBlockSize>
-class BlockSizePool
+//Points from one memory block to another
+class MemoryBlocksList
 {
-public:
-	using Mutex = std::mutex;
-	using Locker = std::unique_lock<Mutex>;
-private:
 	struct BlocksList
 	{
 		BlocksList * pNext;
 	};
+	template<size_t nBlockSize> friend class BlockSizePool;
+	template<typename T> friend class BlockPool;
+};
 
-	static_assert(nBlockSize >= sizeof(BlocksList*), 
-		"BlocksSizePool: Block's size should be bigger than"
-		" a machine pointer size.");
-
+//Keeps memory blocks of a certain size
+template<size_t nBlockSize>
+class BlockSizePool
+{
+	using BlocksList = MemoryBlocksList::BlocksList;
+public:
+	using Mutex = std::mutex;
+	using Locker = std::unique_lock<Mutex>;
+private:
 	void expandPoolSize()
 	{
 		const size_t nSize = nBlockSize * m_nPageSize;
@@ -83,10 +86,13 @@ private:
 template<typename T>
 class BlockPool
 {
+	using BlocksList = MemoryBlocksList::BlocksList;
+	using UsedBlockSizePool = BlockSizePool<max(sizeof(T), sizeof(BlocksList))>;
+
 	//Use it as a singletone
 	BlockPool()
 		:
-		m_bspGlobalRef(BlockSizePool<sizeof(T)>::getInstance())
+		m_bspGlobalRef(UsedBlockSizePool::getInstance())
 	{
 	}
 
@@ -113,7 +119,7 @@ public:
 		m_bspGlobalRef.freeBlock((void*)pT);
 	}
 private:
-	BlockSizePool<sizeof(T)>& m_bspGlobalRef;
+	UsedBlockSizePool& m_bspGlobalRef;
 };
 
 //Class for a one block allocation from pool
@@ -227,6 +233,9 @@ public:
 	{	// estimate maximum array size
 		return ((size_t)(-1) / sizeof(T));
 	}
+
+private:
+	std::allocator<T> m_stdAllocator;
 };
 
 template<typename T>
@@ -238,7 +247,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	case 1: return BlockPool<T>::getInstance().allocBlock();
 	default:
 	{
-		return (T*)::operator new(sizeof(T)*nCount);
+		return m_stdAllocator.allocate(nCount);
 	}
 	}
 }
@@ -250,7 +259,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	{
 	case 0: break;
 	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
-	default: ::operator delete((void*)pT, sizeof(T)*nCount);
+	default: m_stdAllocator.deallocate(pT, nCount);
 	}
 }
 
