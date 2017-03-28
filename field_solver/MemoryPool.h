@@ -4,9 +4,9 @@
 
 #include <mutex>
 
-//Keeps memory blocks of a certain type
-template<typename T>
-class BlockPool
+//Keeps memory blocks of a certain size
+template<size_t nBlockSize>
+class BlockSizePool
 {
 public:
 	using Mutex = std::mutex;
@@ -17,98 +17,104 @@ private:
 		BlocksList * pNext;
 	};
 
-	void expandPoolSize();
+	static_assert(nBlockSize >= sizeof(BlocksList*), 
+		"BlocksSizePool: Block's size should be bigger than"
+		" a machine pointer size.");
+
+	void expandPoolSize()
+	{
+		const size_t nSize = nBlockSize * m_nPageSize;
+		m_head = (BlocksList*)VirtualAlloc(NULL, nSize, MEM_COMMIT, PAGE_READWRITE);
+		BlocksList* head = m_head;
+		char
+			*pFirst = (char*)head,
+			*pLast = pFirst + (nSize - nBlockSize);
+		for (; pFirst < pLast; head = head->pNext)
+			head->pNext = (BlocksList*)(pFirst += nBlockSize);
+		head->pNext = nullptr;
+	}
 
 	//Use it as a singletone
-	BlockPool();
+	BlockSizePool()
+		:
+		m_head(nullptr),
+		m_nPageSize(0)
+	{
+		SYSTEM_INFO sysInfo;
+		GetSystemInfo(&sysInfo);
+		*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize;
+	}
+
+	BlockSizePool(const BlockSizePool&) = delete;
+	BlockSizePool(BlockSizePool&&) = delete;
+	BlockSizePool& operator=(const BlockSizePool&) = delete;
+	BlockSizePool& operator=(BlockSizePool&&) = delete;
+public:
+	static BlockSizePool& getInstance()
+	{
+		static BlockSizePool g_blockSizePool;
+		return g_blockSizePool;
+	}
+
+	//Allocates a one block of a memory
+	void * allocBlock()
+	{
+		Locker lock(m_mtxDataAccess);
+		if (!m_head) expandPoolSize();
+		void* res = (void*)m_head;
+		m_head = m_head->pNext;
+		return res;
+	}
+
+	//Frees a one block of a memory
+	void freeBlock(void * pT)
+	{
+		Locker lock(m_mtxDataAccess);
+		((BlocksList*)pT)->pNext = m_head;
+		m_head = (BlocksList*)pT;
+	}
+private:
+	BlocksList * m_head;
+	const size_t m_nPageSize;
+	Mutex m_mtxDataAccess;
+};
+
+//Keeps memory blocks of a certain type
+template<typename T>
+class BlockPool
+{
+	//Use it as a singletone
+	BlockPool()
+		:
+		m_bspGlobalRef(BlockSizePool<sizeof(T)>::getInstance())
+	{
+	}
 
 	BlockPool(const BlockPool&) = delete;
 	BlockPool(BlockPool&&) = delete;
 	BlockPool& operator=(const BlockPool&) = delete;
 	BlockPool& operator=(BlockPool&&) = delete;
 public:
-	static BlockPool& getInstance();
+	static BlockPool& getInstance()
+	{
+		static BlockPool g_blockPool;
+		return g_blockPool;
+	}
 
 	//Allocates a one block of a memory
-	T* allocBlock();
+	T* allocBlock()
+	{
+		return (T*)m_bspGlobalRef.allocBlock();
+	}
 
 	//Frees a one block of a memory
-	void freeBlock(T* pT);
-
-	//Clenups memory pool
-	void clean();
-
-	~BlockPool();
+	void freeBlock(T* pT)
+	{
+		m_bspGlobalRef.freeBlock((void*)pT);
+	}
 private:
-	BlocksList * m_head;
-	Mutex m_mutexAccess;
-	const size_t m_nPageSize; //Size of a one machine page in bytes
+	BlockSizePool<sizeof(T)>& m_bspGlobalRef;
 };
-
-template<typename T>
-inline void BlockPool<T>::expandPoolSize()
-{
-	constexpr size_t nBlockSize = max(sizeof(T), sizeof(BlocksList*));
-	const size_t nSize = nBlockSize * m_nPageSize;
-	m_head = (BlocksList*)VirtualAlloc(NULL, nSize, MEM_COMMIT, PAGE_READWRITE);
-	BlocksList* head = m_head;
-
-	char
-		*pFirst = (char*)head,
-		*pLast = pFirst + (nSize - nBlockSize);
-
-	for (; pFirst < pLast; head = head->pNext)
-		head->pNext = (BlocksList*)(pFirst += nBlockSize);
-
-	head->pNext = nullptr;
-}
-
-template<typename T>
-inline BlockPool<T>::BlockPool()
-	:
-	m_head(nullptr),
-	m_nPageSize(0)
-{
-	SYSTEM_INFO sysInfo;
-	GetSystemInfo(&sysInfo);
-	*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize;
-}
-
-template<typename T>
-inline BlockPool<T> & BlockPool<T>::getInstance()
-{
-	static BlockPool<T> s_blockPool;
-	return s_blockPool;
-}
-
-template<typename T>
-inline T * BlockPool<T>::allocBlock()
-{
-	Locker lock(m_mutexAccess);
-	if (!m_head) expandPoolSize();
-	T* res = (T*) m_head;
-	m_head = m_head->pNext;
-	return res;
-}
-
-template<typename T>
-inline void BlockPool<T>::freeBlock(T * pT)
-{
-	Locker lock(m_mutexAccess);
-	((BlocksList*) pT)->pNext = m_head;
-	m_head = (BlocksList*) pT;
-}
-
-template<typename T>
-inline void BlockPool<T>::clean()
-{//No clean possibility
-}
-
-template<typename T>
-inline BlockPool<T>::~BlockPool()
-{
-	clean();
-}
 
 //Class for a one block allocation from pool
 template<typename T>

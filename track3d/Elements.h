@@ -249,7 +249,7 @@ struct CElem3D
   {
   };
 
-  virtual ~CElem3D() {};
+  //virtual ~CElem3D() {};
 
   size_t                  nInd;       // index of this element in the global elements collection.
 
