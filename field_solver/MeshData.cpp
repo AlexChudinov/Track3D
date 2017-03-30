@@ -474,7 +474,6 @@ CMeshAdapter::InterpCoefs CMeshAdapter::zeroGradientBoundaryForLaplacianSolver(L
 			break;
 		}
 	}
-	ue symmetry
 	Vector3D e1;
 	for (; first != last; ++first)
 	{ //Choose second orthogonal to n vector
