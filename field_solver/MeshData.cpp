@@ -94,7 +94,7 @@ bool BoundaryMesh::isFirstType(uint32_t l) const
 	});
 }
 
-BoundaryMesh::Vector3D BoundaryMesh::normal(uint32_t l) const
+const BoundaryMesh::Vector3D& BoundaryMesh::normal(uint32_t l) const
 {
 	return m_mapReversedBoundariesList.at(l).first;
 }
@@ -103,6 +103,8 @@ size_t BoundaryMesh::patchSize(const std::string & strName) const
 {
 	return m_mapBoundariesList.at(strName).second.size();
 }
+
+double CMeshAdapter::s_fEpsilon;
 
 const CMeshAdapter::Element * CMeshAdapter::element(
 	const CMeshAdapter::Vector3D & v,
@@ -148,12 +150,28 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::add(InterpCoefs & ic1, const InterpCoe
 		else
 			it->second += c.second;
 	}
+	removeZeros(ic1);
 	return ic1;
 }
 
 CMeshAdapter::InterpCoefs & CMeshAdapter::mul(double h, InterpCoefs & ic)
 {
 	for (auto& c : ic) c.second *= h;
+	return ic;
+}
+
+CMeshAdapter::InterpCoefs & CMeshAdapter::removeZeros(InterpCoefs & ic)
+{
+	double fMax = std::max_element(ic.begin(), ic.end(), 
+		[](const auto& e1, const auto& e2)->bool
+	{
+		return e1.second < e2.second;
+	})->second; fMax *= fMax;
+	for (InterpCoefs::iterator it = ic.begin(); it != ic.end();)
+	{
+		if (fMax*eps() >= it->second*it->second) it = ic.erase(it);
+		else ++it;
+	}
 	return ic;
 }
 
@@ -301,9 +319,9 @@ void CMeshAdapter::lazyGraphCreation()
 	}
 }
 
-std::vector<CMeshAdapter::NodeType> CMeshAdapter::nodeTypes() const
+CMeshAdapter::NodeTypes CMeshAdapter::nodeTypes() const
 {
-	std::vector<NodeType> res(m_nodes.size());
+	NodeTypes res(m_nodes.size());
 	ThreadPool::getInstance().splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx) 
 	{
@@ -389,15 +407,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 			break;
 		case SecondTypeBoundaryNode: //Zero gradient
 		{
-			Vector3D norm = boundaryMesh()->normal(nCurNodeIdx);
-			InterpCoefs normalDerivative = std::move(add(
-				mul(norm.x, gradX(nCurNodeIdx)),
-				add(mul(norm.y, gradY(nCurNodeIdx)),
-					mul(norm.z, gradZ(nCurNodeIdx)))));
-			double fSum = normalDerivative[nCurNodeIdx];
-			normalDerivative.erase(nCurNodeIdx);
-			mul(-1. / fSum, normalDerivative);
-			result.m_matrix[nCurNodeIdx] = std::move(normalDerivative);
+			result.m_matrix[nCurNodeIdx] = zeroGradientBoundaryForLaplacianSolver(nCurNodeIdx, vNodeTypes);
 			break;
 		}
 		default: //It is inner point
@@ -441,6 +451,99 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	}, progressBar());
 
 	return result;
+}
+
+CMeshAdapter::InterpCoefs CMeshAdapter::zeroGradientBoundaryForLaplacianSolver(Label nNodeIdx, const NodeTypes& vNodeTypes) const
+{
+	InterpCoefs res;
+
+	const Vector3D& 
+		n = boundaryMesh()->normal(nNodeIdx),
+		r0 = m_nodes[nNodeIdx]->pos;
+
+	Vector3D e0;
+	typename Graph::NodeConnections::const_iterator
+		first = m_lazyGraph->neighbor(nNodeIdx).begin(),
+		last = m_lazyGraph->neighbor(nNodeIdx).end();
+	for (;first != last; ++first)
+	{ //Choose first othogonal to n vector
+		if (vNodeTypes[*first] != InnerNode)
+		{
+			e0 = m_nodes[*first]->pos - r0;
+			e0.normalize();
+			break;
+		}
+	}
+	ue symmetry
+	Vector3D e1;
+	for (; first != last; ++first)
+	{ //Choose second orthogonal to n vector
+		if (vNodeTypes[*first] != InnerNode)
+		{
+			e1 = m_nodes[*first]->pos - r0;
+			e1 = e1 - (e1 & e0) * e0;
+			if ((e1 & e1) > eps())
+			{
+				e1.normalize();
+				break;
+			}
+		}
+	}
+
+	bool bIsFlat = true;
+	for (Label nIdx : m_lazyGraph->neighbor(nNodeIdx))
+		if (vNodeTypes[nIdx] != InnerNode)
+		{
+			Vector3D r = m_nodes[nIdx]->pos - r0;
+			if((r & r) > eps()) bIsFlat = false;
+		}
+	
+	if (!bIsFlat)
+	{ //Not a flat boundary
+		res = std::move(add(
+			mul(n.x, gradX(nNodeIdx)),
+			add(mul(n.y, gradY(nNodeIdx)),
+				mul(n.z, gradZ(nNodeIdx)))));
+		double fSum = res[nNodeIdx];
+		res.erase(nNodeIdx);
+		mul(-1. / fSum, res);
+	}
+	else
+	{ //For a flat boundary
+		Label dummy;
+		double
+			hn = optimalStep(n, nNodeIdx),
+			he01 = optimalStep(-e0, nNodeIdx),
+			he02 = optimalStep(e0, nNodeIdx),
+			he11 = optimalStep(-e1, nNodeIdx),
+			he12 = optimalStep(e1, nNodeIdx);
+
+		Vector3D
+			n0 = r0 + hn * n,
+			e01 = r0 - he01 * e0,
+			e02 = r0 + he02 * e0,
+			e11 = r0 - he11 * e1,
+			e12 = r0 + he12 * e1;
+
+		InterpCoefs coefsN = mul(2. / (hn * hn), interpCoefs(n0, dummy, nNodeIdx));
+
+		InterpCoefs coefsE0 = mul(1. / he01, interpCoefs(e01, dummy, nNodeIdx));
+		add(coefsE0, mul(1. / he02, interpCoefs(e02, dummy, nNodeIdx)));
+		mul(1. / (he01 + he02), coefsE0);
+
+		InterpCoefs coefsE1 = mul(1. / he11, interpCoefs(e11, dummy, nNodeIdx));
+		add(coefsE1, mul(1. / he12, interpCoefs(e12, dummy, nNodeIdx)));
+		mul(1. / (he11 + he12), coefsE1);
+
+		mul(1. / (
+			2. / (hn * hn)
+			+ (1. / he01 + 1. / he02) / (he01 + he02)
+			+ (1. / he11 + 1. / he12) / (he11 + he12)),
+			add(coefsN, add(coefsE0, coefsE1)));
+		res = std::move(coefsN);
+	}
+
+	return res;
 }
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3D & dir)
@@ -500,9 +603,9 @@ CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallS
 	m_nodes(ns),
 	m_pBoundary(new BoundaryMesh),
 	m_pProgressBar(new ProgressBar),
-	m_fSmallStepFactor(fSmallStepFactor),
-	m_fEpsilon(100*std::numeric_limits<double>::epsilon())
+	m_fSmallStepFactor(fSmallStepFactor)
 {
+	s_fEpsilon = 100 * std::numeric_limits<double>::epsilon();
 }
 
 CMeshAdapter::ProgressBar * CMeshAdapter::progressBar() const
@@ -525,14 +628,14 @@ void CMeshAdapter::smallStepFactor(double fVal)
 	m_fSmallStepFactor = fVal;
 }
 
-double CMeshAdapter::eps() const
+double CMeshAdapter::eps()
 {
-	return m_fEpsilon;
+	return s_fEpsilon;
 }
 
 void CMeshAdapter::eps(size_t nFactor)
 {
-	m_fEpsilon = std::numeric_limits<double>::epsilon()*nFactor;
+	s_fEpsilon = std::numeric_limits<double>::epsilon()*nFactor;
 }
 
 double CMeshAdapter::minElemSize(Label l) const

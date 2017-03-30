@@ -128,7 +128,7 @@ public:
 	bool isFirstType(uint32_t l) const;
 
 	//Gets the normal for given node label
-	Vector3D normal(uint32_t l) const;
+	const Vector3D& normal(uint32_t l) const;
 
 	//Returns size of a patch strName
 	size_t patchSize(const std::string& strName) const;
@@ -357,7 +357,7 @@ private:
 
 	//Factor for small step calculation depending on position inside mesh
 	double m_fSmallStepFactor;
-	double m_fEpsilon;
+	static double s_fEpsilon;
 
 	//Looks for an element containing point with coordinates v
 	const Element* element(const Vector3D& v, Label& nCurNode, const Label& nPrevNode = Label(0)) const;
@@ -365,7 +365,9 @@ private:
 	//Math operations with interpolation coeffs
 	static InterpCoefs& add(InterpCoefs& ic1, const InterpCoefs& ic2);
 	static InterpCoefs& mul(double h, InterpCoefs& ic);
-	
+	//Removes zero elements making memory consumption by InterpCoefs smaller
+	static InterpCoefs& removeZeros(InterpCoefs& ic);
+
 	//Creates covariance matrix for dirrections around label 
 	Matrix3D covarianceOfDirections(Label l) const;
 	//Returns vector of finite difference total projections on a directions x,y,z
@@ -385,13 +387,16 @@ private:
 		SecondTypeBoundaryNode,
 		InnerNode
 	};
+	using NodeTypes = std::vector<NodeType>;
 	//Returns array of node types
-	std::vector<NodeType> nodeTypes() const;
+	NodeTypes nodeTypes() const;
 
 	//Create rough and fast LaplacianField solver DU = 0 for a zero approximation
 	ScalarFieldOperator laplacianSolver0();
 	//Simple Laplacian solver with step myltiplication by a factor
 	ScalarFieldOperator laplacianSolver1();
+	//Calculates zero gradient condition for laplacianSolver1
+	InterpCoefs zeroGradientBoundaryForLaplacianSolver(Label nNodeIdx, const NodeTypes& vNodeTypes) const;
 	//Directed derivative calculation
 	ScalarFieldOperator directedDerivative(const Vector3D& dir);
 
@@ -413,8 +418,8 @@ public:
 	double smallStepFactor() const;
 	void smallStepFactor(double fVal);
 	//Gets and sets epsilon
-	double eps() const;
-	void eps(size_t nFactor);
+	static double eps();
+	static void eps(size_t nFactor);
 
 	//Returns minimum characteristic size of surrounding elements
 	double minElemSize(Label l) const;
