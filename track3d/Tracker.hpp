@@ -224,6 +224,13 @@ public:
   DWORD_PTR               get_radial_coulomb_trans_ptr() const;
   void                    set_radial_coulomb_trans(double fX);
 
+  bool                    get_use_pre_calc_coulomb() const;
+  DWORD_PTR               get_use_pre_calc_coulomb_ptr() const;
+
+  const char*             get_pre_calc_clmb_file() const;
+  DWORD_PTR               get_pre_calc_clmb_file_ptr() const;
+  void                    set_pre_calc_clmb_file(const char* pName);
+
 // Different integrators:
   bool                    get_use_old_integrator() const;
   DWORD_PTR               get_use_old_integrator_ptr() const;
@@ -311,6 +318,9 @@ protected:
 
 public:
   bool                    read_gasdyn_data();
+
+  bool                    save_coulomb_field(const char* pFile);
+  bool                    read_coulomb_field();
 
 protected:
   void                    add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3);
@@ -429,7 +439,6 @@ private:
 
 // Mesh specific data:
   std::string             m_sDataFile;
-  std::string             m_sFieldDataFile;
 
   CBox                    m_Box;          // bounding box.
 
@@ -509,7 +518,10 @@ public:
 
 protected:
   bool                    m_bEnableCoulomb,
-                          m_bAxialSymm;       // if "false" the iterational approach is applied.
+                          m_bUsePreCalcCoulomb, // if true, look for the pre-calculated field in a file.
+                          m_bAxialSymm;         // if "false" the iterational approach is applied.
+
+  std::string             m_sClmbDataFile;    // file in which pre-calculated Coulomb field is stored.
 
   double                  m_fFullCurrent,     // full current in the bunch.
                           m_fInitBunchRadius; // initial radius of the bunch for axial symmetry, cm.
@@ -524,9 +536,8 @@ protected:
 
   bool                    m_bEnableQuadTerms; // if true than the quadrupole terms are added to the field of a distant charge.
 
-public:
   CBarnesHut*             m_pBarnesHut;
-protected:
+
   CSpaceChargeDistrib     m_SpaceChargeDist;
 // If true, the Gabovich radial formula for the Coulomb field will be used for x > m_fRadialCoulombX.
   bool                    m_bUseRadialCoulomb;
@@ -1194,6 +1205,31 @@ inline DWORD_PTR CTracker::get_radial_coulomb_trans_ptr() const
 inline void CTracker::set_radial_coulomb_trans(double fX)
 {
   m_fRadialCoulombX = fX;
+}
+
+inline bool CTracker::get_use_pre_calc_coulomb() const
+{
+  return m_bUsePreCalcCoulomb;
+}
+
+inline DWORD_PTR CTracker::get_use_pre_calc_coulomb_ptr() const
+{
+  return (DWORD_PTR)&m_bUsePreCalcCoulomb;
+}
+
+inline const char* CTracker::get_pre_calc_clmb_file() const
+{
+  return m_sClmbDataFile.c_str();
+}
+
+inline DWORD_PTR CTracker::get_pre_calc_clmb_file_ptr() const
+{
+  return (DWORD_PTR)&m_sClmbDataFile;
+}
+
+inline void CTracker::set_pre_calc_clmb_file(const char* pName)
+{
+  m_sClmbDataFile = pName;
 }
 
 // Import of gas-dynamic data support:

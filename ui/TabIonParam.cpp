@@ -63,6 +63,22 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Radial Coulomb Transition X, mm"), COleVariant(10 * pObj->get_radial_coulomb_trans()), _T("The radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_radial_coulomb_trans_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
+// Save Coulomb field to a file:
+  COleVariant vrn(_T(""));
+  CSaveFieldButton* pSaveBtn = new CSaveFieldButton(this, _T("Save Coulomb Field"), vrn, _T("Click this button to save the pre-calculated Coulomb field in a disk file"), (DWORD_PTR)pObj);
+  pCoulombGroup->AddSubItem(pSaveBtn);
+
+// Pre-calculated Coulomb field:
+  pCheckBox = new CCheckBoxButton(this, _T("Use Pre-calculated Coulomb"), (_variant_t)pObj->get_use_pre_calc_coulomb(), _T("If this is true the Coulomb field will be read from the file specified below."), pObj->get_use_pre_calc_coulomb_ptr());
+  pCoulombGroup->AddSubItem(pCheckBox);
+
+// Coulomb data filename:
+  static TCHAR BASED_CODE szFilter[] = _T("CSV Files(*.csv)|*.csv|All Files(*.*)|*.*||");
+  CMFCPropertyGridFileProperty* pFileProp = new CMFCPropertyGridFileProperty(_T("Coulomb Field Data"), TRUE, pObj->get_pre_calc_clmb_file(), _T("csv"),
+    OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szFilter, _T("Specify location of the pre-calculated Coulomb field data file."), pObj->get_pre_calc_clmb_file_ptr());
+
+  pCoulombGroup->AddSubItem(pFileProp);
+
 // Barnes-Hut group of controls:
   CMFCPropertyGridProperty* pBHGroup = new CMFCPropertyGridProperty(_T("Barnes-Hut Method Parameters"));
   pProp = new CMFCPropertyGridProperty(_T("Dimensionless Dist. Coeff."), COleVariant(pObj->get_BH_dist_par()), _T("The greater this parameter the farther from a cubical cell the exact Coulomb force is substituted by its approximate expression."), pObj->get_BH_dist_par_ptr());
@@ -149,6 +165,15 @@ void CPropertiesWnd::set_ion_data()
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
     pObj->set_radial_coulomb_trans(0.1 * pProp->GetValue().dblVal);
+
+// Coulomb data filename:
+  pProp = m_wndPropList.FindItemByData(pObj->get_pre_calc_clmb_file_ptr());
+  if(pProp != NULL)
+  {
+    CString cFile = (CString)pProp->GetValue();
+    std::string str = std::string(CT2CA(cFile));
+    pObj->set_pre_calc_clmb_file(str.c_str());
+  }
 
 // Barnes-Hut group of controls: 
   pProp = m_wndPropList.FindItemByData(pObj->get_BH_dist_par_ptr());
@@ -288,4 +313,22 @@ void CPropertiesWnd::update_ion_ctrls()
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnableRadialCoulomb);
+
+  bool bEnablePreCalc = false;
+  pProp = m_wndPropList.FindItemByData(pObj->get_use_pre_calc_coulomb_ptr());
+  if(pProp != NULL)
+  {
+    bool bEnableCheckBox = bEnable && bEnableCoulomb && !bAxialSymm;
+    pProp->Enable(bEnableCheckBox);
+    if(bEnableCheckBox)
+      bEnablePreCalc = pProp->GetValue().boolVal;
+  }
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_pre_calc_clmb_file_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bEnablePreCalc);
+
+  pProp = m_wndPropList.FindItemByData((DWORD_PTR)pObj);
+  if(pProp != NULL)
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
 }

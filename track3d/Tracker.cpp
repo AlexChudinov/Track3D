@@ -98,6 +98,7 @@ void CTracker::set_default()
   m_bOldIntegrator = false;
   m_bAnsysFields = true;
   m_bUseRadialCoulomb = true;
+  m_bUsePreCalcCoulomb = false;
   m_bSaveTracks = false;
 
   m_bReady = false;
@@ -285,7 +286,9 @@ void CTracker::single_thread_calculate()
     return;
   }
 
-  bool bIter = (m_nType == CTrack::ptIon) && m_bEnableCoulomb && !m_bAxialSymm;
+// Interations are used for ions if the Coulomb repulsion is enabled and the system is not axially symmetric.
+// But: when the pre-calculated Coulomb field is used, the iterations are not allowed even for asymmetric cases.
+  bool bIter = (m_nType == CTrack::ptIon) && m_bEnableCoulomb && !m_bAxialSymm && !m_bUsePreCalcCoulomb;
   if(bIter)
     do_iterations();
   else
@@ -447,7 +450,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
     return false;
   }
   
-  m_pBarnesHut->prepare(vThreads, m_vNodes);
+  m_pBarnesHut->prepare(vThreads, m_vNodes, nIter);
 
   m_SpaceChargeDist.set_handlers(NULL, NULL);
   return true;
@@ -529,6 +532,12 @@ bool CTracker::prepare()
 
   if(!m_bReady && !read_data())
     return false;
+
+  if(m_bUsePreCalcCoulomb && !read_coulomb_field())
+  {
+    AfxMessageBox("Coulomb field data can not be read.");
+    return false;
+  }
 
   initial_conditions();
 
@@ -645,7 +654,9 @@ void CTracker::multi_thread_calculate()
   if(nPartCount == 0)
     return;
 
-  bool bIter = (m_nType == CTrack::ptIon) && m_bEnableCoulomb && !m_bAxialSymm;
+// Interations are used for ions if the Coulomb repulsion is enabled and the system is not axially symmetric.
+// But: when the pre-calculated Coulomb field is used, the iterations are not allowed even for asymmetric cases.
+  bool bIter = (m_nType == CTrack::ptIon) && m_bEnableCoulomb && !m_bAxialSymm && !m_bUsePreCalcCoulomb;
   UINT nIterCount = bIter ? m_nIterCount : 1;
 
   char buff[8];
@@ -928,9 +939,10 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   double fPow = fTimeStep * fOneOvrTau;           // in fact, fPow = dt / tau.
   fExpCoeff = fPow < 0.01 ? fOneOvrTau : (1. - exp(-fPow)) / fTimeStep;
 
+// External electric fields:
   Vector3D vE(0, 0, 0);
-  if(m_bAnsysFields)  // the backward compatibility is not full: if there is no axial symmetry and if you disable the DC fields
-  {                   // the Coulomb field also will be disabled.
+  if(m_bAnsysFields)
+  {
     if(m_bEnableField)  // DC Field:
       vE += (node.field + m_vFieldPtbColl.apply(node.pos));
     if(m_bEnableRF)     // RF field:
@@ -941,9 +953,23 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
     vE += (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
   }
 
-// Coulomb: if there is no axial symmetry, the Coulomb field is already included as a part of the node.field. 
-  if(m_bEnableCoulomb && m_bAxialSymm && (vVel.x > Const_Almost_Zero))
-    vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
+// Coulomb repulsion:
+  if(m_bEnableCoulomb)
+  {
+    if(m_bAxialSymm)
+    {
+      if(vVel.x > Const_Almost_Zero)
+        vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
+    }
+    else
+    {
+      Vector3D vClmb = node.clmb;
+      if(m_bUseRadialCoulomb && (node.pos.x > m_fRadialCoulombX))
+        vClmb.x = 0;  // This is a workaround. I hope to get rid of in later.
+
+      vE += vClmb;
+    }
+  }
 
   return (node.vel - vVel + fMob * vE) * fExpCoeff;
 }
@@ -1142,8 +1168,7 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);  // this is just a container for interpolated data.
 
   double w;
-  Vector3D vClmb;
-  bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm && (m_pBarnesHut != NULL);
+  bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm;
   CNode3D* pNode = NULL;
   size_t nInd, nNodesCount = pElem->get_node_count();
   for(size_t i = 0; i < nNodesCount; i++)
@@ -1162,13 +1187,7 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
     node.vel   += w * pNode->vel;
     node.field += w * pNode->field;
     if(bAddCoulomb)
-    {
-      vClmb = m_pBarnesHut->coulomb_field(nInd);
-      if(m_bUseRadialCoulomb && (vPos.x > m_fRadialCoulombX))
-        vClmb.x = 0;
-
-      node.field += w * vClmb;
-    }
+      node.clmb += w * pNode->clmb;
 
     if(m_bAnsysFields)
       node.rf += w * pNode->rf;
@@ -1707,14 +1726,14 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 23;  // 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 24;  // 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
 // General parameters:
   CString cFileName(m_sDataFile.c_str());
   ar << cFileName;
-  CString cFieldFileName(m_sFieldDataFile.c_str());
-  ar << cFieldFileName;   // since version 1.
+  CString cFieldFileName(m_sClmbDataFile.c_str());
+  ar << cFieldFileName;
 
   ar << m_bUseMultiThread;
   ar << m_nType;
@@ -1803,6 +1822,8 @@ void CTracker::save(CArchive& ar)
   pCollCS->save(ar);  // since version 22.
 
   ar << m_bAnsysFields;
+
+  ar << m_bUsePreCalcCoulomb;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1840,7 +1861,7 @@ void CTracker::load(CArchive& ar)
   {
     CString cFieldFileName;
     ar >> cFieldFileName;
-//    set_field_filename((const char*)cFieldFileName);  // this function has been removed, but the variable is reserved.
+    set_pre_calc_clmb_file((const char*)cFieldFileName);
   }
 
   ar >> m_bUseMultiThread;
@@ -2036,6 +2057,9 @@ void CTracker::load(CArchive& ar)
 
   if(nVersion >= 23)
     ar >> m_bAnsysFields;
+
+  if(nVersion >= 24)
+    ar >> m_bUsePreCalcCoulomb;
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);
@@ -2186,6 +2210,63 @@ void CTracker::load_tracks(CArchive& ar)
   }
 
   set_status("Ready", -1);
+}
+
+bool CTracker::save_coulomb_field(const char* pFile)
+{
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, pFile, (const char*)("w"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  CNode3D* pNode = NULL;
+  size_t nNodeCount = m_vNodes.size();
+  fprintf(pStream, "%zd\n", nNodeCount);
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = m_vNodes.at(i);
+    fprintf(pStream, "%f, %f, %f\n", pNode->clmb.x, pNode->clmb.y, pNode->clmb.z);
+  }
+
+  fclose(pStream);
+  return true;
+}
+
+bool CTracker::read_coulomb_field()
+{
+  if(m_sClmbDataFile.size() == 0)
+    return false;
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, m_sClmbDataFile.c_str(), (const char*)("r"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  size_t nNodeCount = 0;
+  float fEx, fEy, fEz;
+  int nRes = fscanf_s(pStream, "%zd\n", &nNodeCount);
+  if(nRes == EOF || nRes == 0 || nNodeCount != m_vNodes.size())
+  {
+    fclose(pStream);
+    return false;
+  }
+
+  CNode3D* pNode = NULL;
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    nRes = fscanf_s(pStream, "%f, %f, %f", &fEx, &fEy, &fEz);
+    if(nRes == EOF || nRes == 0)
+    {
+      fclose(pStream);
+      return false;
+    }
+
+    pNode = m_vNodes.at(i);
+    pNode->clmb = Vector3D(fEx, fEy, fEz);
+  }
+
+  fclose(pStream);
+  return true;
 }
 
 void CTracker::clear_scene()

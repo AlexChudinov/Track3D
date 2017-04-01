@@ -566,6 +566,42 @@ void CCalcFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
 }
 
 //---------------------------------------------------------------------------------------
+// CSaveFieldButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSaveFieldButton, CProprtyListButton)
+
+void CSaveFieldButton::OnClickButton(CPoint point)
+{
+  CString cFilter = "CSV Data File|*.csv||";
+	CFileDialog dlg(FALSE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_EXPLORER, cFilter);
+  dlg.m_ofn.nFilterIndex = 1;
+
+	HRESULT hResult = (int)dlg.DoModal();
+	if(FAILED(hResult))
+		return;
+
+	CString cFileName = dlg.m_ofn.lpstrFile, cExt;
+
+// Add the file extension if the user didn't supply one
+	if(dlg.m_ofn.nFileExtension == 0) 
+		cFileName = cFileName + ".csv";
+
+  std::string cName((const char*)cFileName);
+  bool bFilled = cName.size() != 0;
+  if(bFilled)
+  {
+    EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+    pObj->save_coulomb_field((const char*)cFileName);
+  }
+}
+
+void CSaveFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
+{
+// TO DO: draw a non-trivial icon here.
+  CProprtyListButton::OnDrawButton(pDC, rectButton);
+}
+
+//---------------------------------------------------------------------------------------
 // CCheckBoxButton.
 //---------------------------------------------------------------------------------------
 IMPLEMENT_DYNAMIC(CCheckBoxButton, CProprtyListButton)

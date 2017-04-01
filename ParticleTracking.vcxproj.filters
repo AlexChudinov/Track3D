@@ -34,6 +34,15 @@
     <Filter Include="field_solver\Source Files">
       <UniqueIdentifier>{53ae9eea-ed2e-4e68-8b53-5db04234c712}</UniqueIdentifier>
     </Filter>
+    <Filter Include="utilities">
+      <UniqueIdentifier>{3d9a1bef-8013-4530-9a7b-3e9ed63012f2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utilities\Header Files">
+      <UniqueIdentifier>{dfd73fcd-ea57-4fc3-b8f2-2f181b26d420}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utilities\Source Files">
+      <UniqueIdentifier>{0355c1a6-0fd9-4836-ba7a-e392ac27dfb0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="track3d\BarnesHut.h">
@@ -165,11 +174,14 @@
     <ClInclude Include="field_solver\MeshData.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="field_solver\ParallelFor.h">
+    <ClInclude Include="field_solver\BoundaryMesh.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="field_solver\MemoryPool.h">
-      <Filter>field_solver\Header Files</Filter>
+    <ClInclude Include="utilities\MemoryPool.h">
+      <Filter>utilities\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utilities\ParallelFor.h">
+      <Filter>utilities\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -317,7 +329,10 @@
     <ClCompile Include="field_solver\MeshData.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="field_solver\ParallelFor.cpp">
+    <ClCompile Include="utilities\ParallelFor.cpp">
+      <Filter>utilities\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="field_solver\BoundaryMesh.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

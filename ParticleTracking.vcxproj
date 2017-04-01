@@ -222,9 +222,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="field_solver\MemoryPool.h" />
+    <ClInclude Include="field_solver\BoundaryMesh.h" />
     <ClInclude Include="field_solver\MeshData.h" />
-    <ClInclude Include="field_solver\ParallelFor.h" />
     <ClInclude Include="MathPhys\libIntegrators.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
     <ClInclude Include="track3d\BarnesHut.h" />
@@ -267,10 +266,12 @@
     <ClInclude Include="ui\ResponseProperty.h" />
     <ClInclude Include="ui\stdafx.h" />
     <ClInclude Include="ui\targetver.h" />
+    <ClInclude Include="utilities\MemoryPool.h" />
+    <ClInclude Include="utilities\ParallelFor.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="field_solver\BoundaryMesh.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
-    <ClCompile Include="field_solver\ParallelFor.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
     <ClCompile Include="track3d\BeamCrossSection.cpp" />
     <ClCompile Include="track3d\CalcThread.cpp" />
@@ -323,6 +324,7 @@
     <ClCompile Include="ui\TabOpenFoamImport.cpp" />
     <ClCompile Include="ui\TabSource.cpp" />
     <ClCompile Include="ui\TabTracking.cpp" />
+    <ClCompile Include="utilities\ParallelFor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="MoveRotateToolbar.bmp" />

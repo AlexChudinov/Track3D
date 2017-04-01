@@ -308,8 +308,6 @@ bool CElectricFieldData::calc_field(bool bTest)
     std::vector<double> dPhiDz(nNodesCount, 0.0);
     dPhiDz = pGrad->applyToField(field);
 
-    Vector3D vPos;
-    double fLowLimX = m_fLowLimX + 0.2, fR;
     m_vField.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
@@ -342,7 +340,7 @@ bool CElectricFieldData::get_result(bool bTest) const
   for(size_t i = 0; i < nNodeCount; i++)
   {
     if(bTest)
-      vNodes.at(i)->phi = m_vField[i].length(); // for tests the scale is ignored.
+      vNodes.at(i)->phi = m_vField[i].length();
     else if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
   }

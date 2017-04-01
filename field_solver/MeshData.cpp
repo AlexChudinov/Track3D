@@ -2,108 +2,6 @@
 #include <queue>
 #include "MeshData.h"
 
-bool BoundaryMesh::empty() const
-{
-	return m_mapBoundariesList.empty(); 
-}
-
-uint32_t BoundaryMesh::maxLabel() const
-{
-	return m_mapReversedBoundariesList.rbegin()->first;
-}
-
-void BoundaryMesh::addBoundary(
-	const std::string& strName, 
-	const std::vector<uint32_t>& vLabels,
-	const std::vector<Vector3D>& vNormals,
-	BoundaryType type)
-{
-	if (vLabels.size() != vNormals.size())
-		throw std::runtime_error("BoundaryMesh::addBoundary:"
-			" Sizes of normals and labels vectors are different.");
-	if (isBoundary(strName)) removeBoundary(strName);
-	m_mapBoundariesList[strName] = std::make_pair(type, SetLabels(vLabels.begin(), vLabels.end()));
-	BoundariesMap::const_iterator it = m_mapBoundariesList.find(strName);
-	for (size_t i = 0; i < vLabels.size(); ++i)
-	{
-		std::pair<Vector3D, NamesList>& entry = m_mapReversedBoundariesList[vLabels[i]];
-		entry.first = vNormals[i];
-		entry.second.insert(std::cref(it->first));
-	}
-}
-
-void BoundaryMesh::removeBoundary(const std::string& strName)
-{
-	if(m_pBoundaryVals) m_pBoundaryVals->removeBoundary(strName);
-	for (uint32_t l : m_mapBoundariesList.at(strName).second)
-	{
-		m_mapReversedBoundariesList[l].second.erase(strName);
-		if (m_mapReversedBoundariesList[l].second.empty()) m_mapReversedBoundariesList.erase(l);
-	}
-	m_mapBoundariesList.erase(strName);
-}
-
-void BoundaryMesh::boundaryType(const std::string& strName, BoundaryType type)
-{
-	m_mapBoundariesList.at(strName).first = type;
-}
-
-BoundaryMesh::BoundaryType BoundaryMesh::boundaryType(const std::string& strName) const
-{
-	return m_mapBoundariesList.at(strName).first;
-}
-
-const BoundaryMesh::NamesList& BoundaryMesh::boundaryNames(uint32_t l) const
-{
-	return m_mapReversedBoundariesList.at(l).second;
-}
-
-const BoundaryMesh::SetLabels& BoundaryMesh::boundaryLabels(const std::string& strName) const
-{
-	return m_mapBoundariesList.at(strName).second;
-}
-
-BoundaryMesh::const_iterator BoundaryMesh::begin()const{ return m_mapReversedBoundariesList.begin(); }
-BoundaryMesh::iterator BoundaryMesh::begin() { return m_mapReversedBoundariesList.begin(); }
-BoundaryMesh::const_iterator BoundaryMesh::end() const { return m_mapReversedBoundariesList.end(); }
-BoundaryMesh::iterator BoundaryMesh::end() { return m_mapReversedBoundariesList.end(); }
-
-bool BoundaryMesh::isBoundary(const std::string& sName) const
-{
-	return m_mapBoundariesList.find(sName) != m_mapBoundariesList.end();
-}
-
-bool BoundaryMesh::isBoundary(uint32_t l) const
-{
-	return m_mapReversedBoundariesList.find(l) != m_mapReversedBoundariesList.end();
-}
-
-
-bool BoundaryMesh::isFirstType(const std::string& strName) const
-{
-	return m_mapBoundariesList.at(strName).first == FIXED_VAL;
-}
-
-bool BoundaryMesh::isFirstType(uint32_t l) const
-{
-	return std::accumulate(m_mapReversedBoundariesList.at(l).second.begin(),
-		m_mapReversedBoundariesList.at(l).second.end(), false,
-		[=](bool val, const std::string& strName)->bool
-	{
-		return val |= isFirstType(strName);
-	});
-}
-
-const BoundaryMesh::Vector3D& BoundaryMesh::normal(uint32_t l) const
-{
-	return m_mapReversedBoundariesList.at(l).first;
-}
-
-size_t BoundaryMesh::patchSize(const std::string & strName) const
-{
-	return m_mapBoundariesList.at(strName).second.size();
-}
-
 double CMeshAdapter::s_fEpsilon;
 
 const CMeshAdapter::Element * CMeshAdapter::element(
@@ -112,7 +10,7 @@ const CMeshAdapter::Element * CMeshAdapter::element(
 	const CMeshAdapter::Label & nPrevNode) const
 {
 	std::vector<bool> visitedNodes(m_nodes.size(), false);
-	std::set<Label> visitedElemets;
+	std::set<Label, std::less<Label>, Allocator<Label>> visitedElemets;
 	std::queue<Label> nodesQueue;
 	nodesQueue.push(nPrevNode);
 	visitedNodes[nPrevNode] = true;
@@ -178,7 +76,7 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::removeZeros(InterpCoefs & ic)
 CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
 {
 	Matrix3D result; result.fill(0.0);
-	for (Label i : m_lazyGraph->neighbor(l))
+	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
 		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
@@ -195,7 +93,7 @@ CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
 CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 {
 	Vector3DOp result;
-	for (Label i : m_lazyGraph->neighbor(l))
+	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
 		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
@@ -254,9 +152,20 @@ CMeshAdapter::InterpCoefs CMeshAdapter::gradZ(Label l) const
 	return result;
 }
 
+void CMeshAdapter::createGraph()
+{
+	m_pProgressBar->set_job_name("Creating connectivity graph...");
+	m_pProgressBar->set_progress(0);
+	for (const Element* e : m_elems)
+	{
+		if (e->nInd % 10000 == 0)
+			m_pProgressBar->set_progress(e->nInd * 100 / m_elems.size());
+		m_meshGraph.addElem(e);
+	}
+}
+
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
 {
-	lazyGraphCreation();
 	m_pProgressBar->set_job_name("Creating gradient x-component operator...");
 	m_pProgressBar->set_progress(0);
 
@@ -272,7 +181,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
 {
-	lazyGraphCreation();
 	m_pProgressBar->set_job_name("Creating gradient y-component operator...");
 	m_pProgressBar->set_progress(0);
 
@@ -288,7 +196,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ()
 {
-	lazyGraphCreation();
 	m_pProgressBar->set_job_name("Creating gradient z-component operator...");
 	m_pProgressBar->set_progress(0);
 
@@ -300,23 +207,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ()
 		m_pProgressBar.get());
 
 	return result;
-}
-
-void CMeshAdapter::lazyGraphCreation()
-{
-	if (!m_lazyGraph)
-	{
-		m_pProgressBar->set_job_name("Creating connectivity graph...");
-		m_pProgressBar->set_progress(0);
-		m_lazyGraph.reset(new Graph);
-		for (const Element* e : m_elems)
-		{
-			if (e->nInd % 10000 == 0) 
-				m_pProgressBar->set_progress(e->nInd * 100 / m_elems.size());
-			if (m_pProgressBar->get_terminate_flag()) return m_lazyGraph.reset();
-			m_lazyGraph->addElem(e);
-		}
-	}
 }
 
 CMeshAdapter::NodeTypes CMeshAdapter::nodeTypes() const
@@ -332,10 +222,25 @@ CMeshAdapter::NodeTypes CMeshAdapter::nodeTypes() const
 	return res;
 }
 
+bool CMeshAdapter::isFlatBoundary(Label nNodeIdx, 
+	const Vector3D& norm, 
+	const NodeTypes & types) const
+{
+	const Vector3D r0 = m_nodes[nNodeIdx]->pos;
+	for (Label Idx : m_meshGraph.neighbor(nNodeIdx))
+	{
+		if (types[Idx] != InnerNode)
+		{
+			const Vector3D v = m_nodes[Idx]->pos - r0;
+			if ((v&norm) * (v&norm) > eps()) return false;
+		}
+	}
+	return true;
+}
+
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 {
 	ScalarFieldOperator result;
-	lazyGraphCreation();
 
 	m_pProgressBar->set_job_name("Laplacian solver #0 creation...");
 	m_pProgressBar->set_progress(0);
@@ -354,7 +259,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 			{
 				double fTotDist = 0.0, fDist;
 				InterpCoefs coefs;
-				for (Label l : m_lazyGraph->neighbor(nNodeIdx))
+				for (Label l : m_meshGraph.neighbor(nNodeIdx))
 				{
 					fDist = m_pBoundary->isBoundary(l) ?
 						1. / (m_nodes[l]->pos - n->pos).length()
@@ -370,7 +275,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 		{
 			double fTotDist = 0.0, fDist;
 			InterpCoefs coefs;
-			for (Label l : m_lazyGraph->neighbor(nNodeIdx))
+			for (Label l : m_meshGraph.neighbor(nNodeIdx))
 			{
 				fDist = 1. / (m_nodes[l]->pos - n->pos).sqlength();
 				fTotDist += fDist;
@@ -386,7 +291,6 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 {
 	ScalarFieldOperator result;
-	lazyGraphCreation();
 
 	m_pProgressBar->set_job_name("Laplacian solver #1 creation...");
 	m_pProgressBar->set_progress(0);
@@ -456,99 +360,21 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 CMeshAdapter::InterpCoefs CMeshAdapter::zeroGradientBoundaryForLaplacianSolver(Label nNodeIdx, const NodeTypes& vNodeTypes) const
 {
 	InterpCoefs res;
-
 	const Vector3D& 
-		n = boundaryMesh()->normal(nNodeIdx),
-		r0 = m_nodes[nNodeIdx]->pos;
-
-	Vector3D e0;
-	typename Graph::NodeConnections::const_iterator
-		first = m_lazyGraph->neighbor(nNodeIdx).begin(),
-		last = m_lazyGraph->neighbor(nNodeIdx).end();
-	for (;first != last; ++first)
-	{ //Choose first othogonal to n vector
-		if (vNodeTypes[*first] != InnerNode)
-		{
-			e0 = m_nodes[*first]->pos - r0;
-			e0.normalize();
-			break;
-		}
-	}
-	Vector3D e1;
-	for (; first != last; ++first)
-	{ //Choose second orthogonal to n vector
-		if (vNodeTypes[*first] != InnerNode)
-		{
-			e1 = m_nodes[*first]->pos - r0;
-			e1 = e1 - (e1 & e0) * e0;
-			if ((e1 & e1) > eps())
-			{
-				e1.normalize();
-				break;
-			}
-		}
-	}
-
-	bool bIsFlat = true;
-	for (Label nIdx : m_lazyGraph->neighbor(nNodeIdx))
-		if (vNodeTypes[nIdx] != InnerNode)
-		{
-			Vector3D r = m_nodes[nIdx]->pos - r0;
-			if((r & r) > eps()) bIsFlat = false;
-		}
-	
-	if (!bIsFlat)
-	{ //Not a flat boundary
-		res = std::move(add(
-			mul(n.x, gradX(nNodeIdx)),
-			add(mul(n.y, gradY(nNodeIdx)),
-				mul(n.z, gradZ(nNodeIdx)))));
-		double fSum = res[nNodeIdx];
-		res.erase(nNodeIdx);
-		mul(-1. / fSum, res);
-	}
-	else
-	{ //For a flat boundary
-		Label dummy;
-		double
-			hn = optimalStep(n, nNodeIdx),
-			he01 = optimalStep(-e0, nNodeIdx),
-			he02 = optimalStep(e0, nNodeIdx),
-			he11 = optimalStep(-e1, nNodeIdx),
-			he12 = optimalStep(e1, nNodeIdx);
-
-		Vector3D
-			n0 = r0 + hn * n,
-			e01 = r0 - he01 * e0,
-			e02 = r0 + he02 * e0,
-			e11 = r0 - he11 * e1,
-			e12 = r0 + he12 * e1;
-
-		InterpCoefs coefsN = mul(2. / (hn * hn), interpCoefs(n0, dummy, nNodeIdx));
-
-		InterpCoefs coefsE0 = mul(1. / he01, interpCoefs(e01, dummy, nNodeIdx));
-		add(coefsE0, mul(1. / he02, interpCoefs(e02, dummy, nNodeIdx)));
-		mul(1. / (he01 + he02), coefsE0);
-
-		InterpCoefs coefsE1 = mul(1. / he11, interpCoefs(e11, dummy, nNodeIdx));
-		add(coefsE1, mul(1. / he12, interpCoefs(e12, dummy, nNodeIdx)));
-		mul(1. / (he11 + he12), coefsE1);
-
-		mul(1. / (
-			2. / (hn * hn)
-			+ (1. / he01 + 1. / he02) / (he01 + he02)
-			+ (1. / he11 + 1. / he12) / (he11 + he12)),
-			add(coefsN, add(coefsE0, coefsE1)));
-		res = std::move(coefsN);
-	}
-
+		n = boundaryMesh()->normal(nNodeIdx);
+	res = std::move(add(
+		mul(n.x, gradX(nNodeIdx)),
+		add(mul(n.y, gradY(nNodeIdx)),
+			mul(n.z, gradZ(nNodeIdx)))));
+	double fSum = res[nNodeIdx];
+	res.erase(nNodeIdx);
+	mul(-1. / fSum, res);
 	return res;
 }
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3D & dir)
 {
 	ScalarFieldOperator result;
-	lazyGraphCreation();
 
 	std::string strJobName = std::string("Derivative in direction {"
 		+ std::to_string(dir.x) + ", " + std::to_string(dir.y) + ", " + std::to_string(dir.z)
@@ -605,16 +431,12 @@ CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallS
 	m_fSmallStepFactor(fSmallStepFactor)
 {
 	s_fEpsilon = 100 * std::numeric_limits<double>::epsilon();
+	createGraph();
 }
 
 CMeshAdapter::ProgressBar * CMeshAdapter::progressBar() const
 {
 	return m_pProgressBar.get();
-}
-
-void CMeshAdapter::releaseGraph()
-{
-	m_lazyGraph.reset();
 }
 
 double CMeshAdapter::smallStepFactor() const
@@ -657,7 +479,7 @@ double CMeshAdapter::minElemSize(Label l) const
 
 double CMeshAdapter::minEdgeLength(Label l) const
 {
-	const CMeshConnectivity::NodeConnections& vNeighborLabels = m_lazyGraph->neighbor(l);
+	const CMeshConnectivity::NodeConnections& vNeighborLabels = m_meshGraph.neighbor(l);
 	return (m_nodes[*std::min_element(vNeighborLabels.begin(), vNeighborLabels.end(),
 		[=](Label l1, Label l2)->bool
 	{
@@ -670,7 +492,7 @@ double CMeshAdapter::minEdgeLength(Label l) const
 
 double CMeshAdapter::maxEdgeLength(Label l) const
 {
-	const CMeshConnectivity::NodeConnections& vNeighborLabels = m_lazyGraph->neighbor(l);
+	const CMeshConnectivity::NodeConnections& vNeighborLabels = m_meshGraph.neighbor(l);
 	return (m_nodes[*std::max_element(vNeighborLabels.begin(), vNeighborLabels.end(),
 		[=](Label l1, Label l2)->bool
 	{
@@ -747,7 +569,8 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(
 	return InterpCoefs();
 }
 
-CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type)
+CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type, 
+	const BaseOperatorParams* params)
 {
 	switch (type)
 	{
@@ -855,4 +678,20 @@ void CMeshConnectivity::addElem(const Elem * e)
 const CMeshConnectivity::NodeConnections& CMeshConnectivity::neighbor(Label i) const
 {
 	return m_graph.at(i);
+}
+
+CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
+{
+	if (m_matrix.size() != f.size())
+		throw std::runtime_error("CFieldOperator::applyToField:"
+			" Matrix and field sizes are different!");
+	Field result(f.size(), 0.0);
+
+	ThreadPool::getInstance().splitInPar(f.size(), [&](size_t n)
+	{
+		for (const MatrixCoef& c : m_matrix[n])
+			result[n] += f[c.first] * c.second;
+	});
+
+	return result;
 }

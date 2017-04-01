@@ -5,204 +5,16 @@
 #include <set>
 #include <map>
 #include <string>
-#include <vector>
-#include <memory>
-#include <numeric>
 #include <cassert>
-#include <algorithm>
 
-#include <linearAlgebra\matrixTemplate.h>
-#include "ParallelFor.h"
+#include <linearAlgebra/matrixTemplate.h>
+
+#include "BoundaryMesh.h"
+
+#include "../track3d/CObject.h"
 #include "../track3d/Elements.h"
 #include "../track3d/vector3d.hpp"
-#include "../track3d/CObject.h" // [MS] 10-02-2017 progress bar support.
-#include "MemoryPool.h"
-
-//Boundary conditions for the mesh
-class BoundaryMesh
-{
-	using StrRef = std::reference_wrapper<const std::string>;
-
-	//Declare reference wrappers less operator
-	class StrRefLess : public std::binary_function<const StrRef&, const StrRef&, bool>
-	{
-	public: bool operator()(const StrRef& s1, const StrRef& s2) const{ return s1.get() < s2.get(); }
-	};
-
-	template<typename FieldType> using BoundaryValsEntry = std::map<uint32_t, FieldType>;
-	template<typename FieldType> using BoundaryValsTab = std::map<std::string, BoundaryValsEntry<FieldType>>;
-
-	class BoundaryValsBase
-	{
-	public: 
-		virtual void removeBoundary(const std::string&) = 0;
-		virtual const std::type_info& fieldType() const = 0;
-	};
-	//Keeps boundary values of field
-	template<typename FieldType>
-	class BoundaryVals : public BoundaryValsBase
-	{
-		BoundaryValsTab<FieldType> m_boundariesVal;
-	public:
-		void addBoundaryVals(const std::string& strName, const BoundaryValsEntry<FieldType>& mpEntry)
-		{
-			m_boundariesVal[strName] = mpEntry;
-		}
-
-		void removeBoundary(const std::string& strName) { m_boundariesVal.erase(strName); }
-
-		FieldType& getVal(const std::string& strName, uint32_t nLabel)
-		{ 
-			return m_boundariesVal.at(strName).at(nLabel);
-		}
-
-		const FieldType& getVal(const std::string& strName, uint32_t nLabel) const
-		{
-			return m_boundariesVal.at(strName).at(nLabel);
-		}
-
-		const std::type_info& fieldType() const { return typeid(FieldType); }
-	};
-
-public:
-	enum BoundaryType { ZERO_GRAD, FIXED_VAL };
-
-	using Vector3D = EvaporatingParticle::Vector3<double>;
-	using SetLabels = std::set<uint32_t>;
-	using BoundaryDescription = std::pair<BoundaryType, SetLabels>;
-	using BoundariesMap = std::map<std::string, BoundaryDescription>;
-	using NamesList = std::set<StrRef, StrRefLess>;
-	using ReversedBoundariesMap = std::map<uint32_t, std::pair<Vector3D, NamesList>>;
-	using BoundaryNormals = std::map<uint32_t, Vector3D>;
-	using PBoundaryVals = std::unique_ptr<BoundaryValsBase>;
-
-	using iterator = ReversedBoundariesMap::iterator;
-	using const_iterator = ReversedBoundariesMap::const_iterator;
-
-private:
-	BoundariesMap m_mapBoundariesList;
-	ReversedBoundariesMap m_mapReversedBoundariesList;
-	PBoundaryVals m_pBoundaryVals;
-
-public:
-	//Checks if boundary is empty
-	bool empty() const; 
-	//Returns biggest number of boundary
-	uint32_t maxLabel() const;
-
-	//Adds new boundary patch
-	void addBoundary(
-		const std::string& strName,
-		const std::vector<uint32_t>& vLabels,
-		const std::vector<Vector3D>& vNormals,
-		BoundaryType type = FIXED_VAL);
-
-	//Removes existing boundary patch
-	void removeBoundary(const std::string& strName);
-
-	//Sets type of a boundary with a name strName
-	void boundaryType(const std::string& strName, BoundaryType type);
-
-	//Returns type of a boundary with a name strName
-	BoundaryType boundaryType(const std::string& strName) const;
-
-	//Returns a set of boundaries connected to a given label
-	const NamesList& boundaryNames(uint32_t l) const;
-
-	//Returns numbers of nodes which are belong to a given boundary
-	const SetLabels& boundaryLabels(const std::string& strName) const;
-
-	//Get iterators for boundary
-	const_iterator begin() const;
-	iterator begin();
-	const_iterator end() const;
-	iterator end();
-
-	//Checks if the name is in the boundaries list
-	bool isBoundary(const std::string& sName) const;
-	//Checks if the label belongs to the boundary
-	bool isBoundary(uint32_t l) const;
-	
-	//Checks if it is a first-type (Dirichlet) boundary condition
-	bool isFirstType(const std::string& sName) const;	
-	bool isFirstType(uint32_t l) const;
-
-	//Gets the normal for given node label
-	const Vector3D& normal(uint32_t l) const;
-
-	//Returns size of a patch strName
-	size_t patchSize(const std::string& strName) const;
-
-	//Sets boundary vals
-	template<typename FieldType>
-	void boundaryVals(const std::string& strName, const std::vector<FieldType>& vVals)
-	{
-		if (!isBoundary(strName)) 
-			throw std::runtime_error(std::string("BoundaryMesh::addBoundaryVals<")
-				+ typeid(FieldType).name() + ">"
-				+ ": " + strName + " boundary was not found.");
-		const SetLabels& vBoundaryLabels = m_mapBoundariesList[strName].second;
-		if (vVals.size() != vBoundaryLabels.size())
-			throw std::runtime_error(std::string("BoundaryMesh::addBoundaryVals<")
-				+ typeid(FieldType).name() + ">"
-				+ ": Input vector of values and vector of boundary labels have different sizes.");
-		BoundaryValsEntry<FieldType> vals;
-		SetLabels::const_iterator itLabels = vBoundaryLabels.begin();
-		for (size_t i = 0; i < vVals.size(); ++i)
-			vals[*(itLabels++)] = vVals[i];
-		if (!m_pBoundaryVals) m_pBoundaryVals.reset(new BoundaryVals<FieldType>);
-		else
-		{
-			if (typeid(FieldType) != m_pBoundaryVals->fieldType())
-				throw std::runtime_error(std::string("BoundaryMesh::addBoundaryVals<")
-					+ typeid(FieldType).name() + ">: Try to call the function with pointer to"
-					" BoundaryVals<" + m_pBoundaryVals->fieldType().name() + "> object.");
-		}
-		dynamic_cast<BoundaryVals<FieldType>*>(m_pBoundaryVals.get())->addBoundaryVals(strName, vals);
-	}
-
-	//Applies boundary values to a field
-	template<typename FieldType>
-	void applyBoundaryVals(std::vector<FieldType>& f) const
-	{
-		if (!m_pBoundaryVals) return;
-		if (m_pBoundaryVals->fieldType() != typeid(FieldType))
-			throw std::runtime_error(std::string("BoundaryMesh::applyBoundaryVals: ")
-				+ "Try to apply boundary vals of type " + m_pBoundaryVals->fieldType().name()
-				+ " to field of type" + typeid(FieldType).name());
-		if (maxLabel() >= f.size())
-			throw std::runtime_error("BoundaryMesh::applyBoundaryVals: "
-				"Field size is too small.");
-
-		for (const auto& boundaryPatch : *this)
-		{
-			int primaryCondition = 0;
-			FieldType primaryCondAcc(0.0);
-			const NamesList& listNames = boundaryPatch.second.second;
-			for (const auto& name : listNames)
-			{
-				switch (boundaryType(name))
-				{
-				case BoundaryMesh::ZERO_GRAD:
-					break;
-				case BoundaryMesh::FIXED_VAL:
-					primaryCondAcc += 
-						dynamic_cast<const BoundaryVals<FieldType>*>(m_pBoundaryVals.get())
-						->getVal(name, boundaryPatch.first);
-					primaryCondition++;
-					break;
-				default:
-					throw std::runtime_error(std::string("BoundaryMesh::applyBoundaryVals<")
-						+ typeid(FieldType).name() + ">: Unexpected boundary condition type.");
-				}
-			}
-			if (primaryCondition != 0)
-				f[boundaryPatch.first] = primaryCondAcc / primaryCondition;
-			else
-				f[boundaryPatch.first] = 0;
-		}
-	}
-};
+#include "../utilities/ParallelFor.h"
 
 //Mesh edges structure
 class CMeshConnectivity
@@ -239,60 +51,21 @@ public:
 	const NodeConnections& neighbor(Label i) const;
 };
 
-//Field implementation
-template<typename FieldType>
-class CField
+//Linear field transformation interface
+class COperator
 {
 public:
-	using FieldData = std::vector<FieldType>;
-private:
-	FieldData m_vFieldVals;
-public:
-	FieldData& fieldVals() { return m_vFieldVals; }
-	const FieldData& fieldVals() const { return m_vFieldVals; }
+	using Field = std::vector<double>;
 
-	//Returns standart square deviation of two fields
-	static double std(const FieldData& f1, const FieldData& f2)
-	{
-		assert(f1.size() == f2.size());
-		return std::inner_product(f1.begin(), f1.end(), f2.begin, 0.0, std::plus<double>(),
-			[](const FieldType& fv1, const FieldType& fv2)->double
-		{
-			FieldType df = fv2 - fv1;
-			return df*df;
-		});
-	}
-	static double std(const CField& f1, const CField& f2) 
-	{ 
-		return std(f1.fieldVals(), f2.fieldVals()); 
-	}
-	//Returns maximum square difference of two fields
-	static double maxSquareDiff(const FieldData& f1, const FieldData& f2)
-	{
-		assert(f1.size() == f2.size());
-		return std::inner_product(f1.begin(), f1.end(), f2.begin(), 0.0, 
-			[](const double& d1, const double& d2)->double { return max(d1, d2); },
-			[](const FieldType& fv1, const FieldType& fv2)->double
-		{
-			FieldType df = fv2 - fv1;
-			return df*df;
-		});
-	}
-	static double maxSquareDiff(const CField& f1, const CField& f2) 
-	{ 
-		return maxSquareDiff(f1.fieldVals(), f2.fieldVals()); 
-	}
+	virtual Field applyToField(const Field& f) const = 0;
 };
 
-//Linear field transformation
-template<typename FieldType>
-class CFieldOperator
+class CFieldOperator : public COperator
 {
 public:
 	using MatrixCoef = std::pair<uint32_t, double>;
 	using MatrixRow = std::map<uint32_t, double, std::less<uint32_t>, Allocator<MatrixCoef>>;
 	using Matrix = std::vector<MatrixRow>;
-	using Field = std::vector<FieldType>;
 
 	friend class CMeshAdapter;
 
@@ -302,21 +75,7 @@ private:
 public:
 
 	//Applies operator to a field
-	Field applyToField(const Field& f)
-	{
-		if (m_matrix.size() != f.size())
-			throw std::runtime_error("CFieldOperator::applyToField:"
-				" Matrix and field sizes are different!");
-		Field result(f.size(), 0.0);
-
-		ThreadPool::getInstance().splitInPar(f.size(), [&](size_t n)
-		{
-			for (const MatrixCoef& c : m_matrix[n])
-				result[n] += f[c.first] * c.second;
-		});
-
-		return result;
-	}
+	Field applyToField(const Field& f) const;
 };
 
 // Addapts mesh to an external usage
@@ -329,7 +88,7 @@ public:
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double, 
 		std::less<uint32_t>, Allocator<InterpCoef>>;
-	using Label = UINT;
+	using Label = uint32_t;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
 	using Vector3DOp = std::array<InterpCoefs, 3>;
@@ -337,12 +96,14 @@ public:
 	using Matrix2D = math::matrix_c<double, 2, 2>;
 	using Node = EvaporatingParticle::CNode3D;
 	using Element = EvaporatingParticle::CElem3D;
-	using ScalarFieldOperator = CFieldOperator<double>;
-	using PScalFieldOp = std::unique_ptr<ScalarFieldOperator>;
+	using ScalarFieldOperator = CFieldOperator;
+	using PScalFieldOp = std::unique_ptr<COperator>;
 	using ProgressBar = EvaporatingParticle::CObject;
 	using PProgressBar = std::unique_ptr<ProgressBar>;
 	using Graph = CMeshConnectivity;
-	using PGraph = std::unique_ptr<Graph>;
+
+	//Keeps base set of parameters for operator instantiation
+	struct BaseOperatorParams{};
 
 private:
 	const Elements& m_elems;
@@ -350,7 +111,7 @@ private:
 	PBoundary m_pBoundary;
 
 	//Lazy because it will be created only once by demand
-	PGraph m_lazyGraph;
+	Graph m_meshGraph;
 
 	//Progress bar interface
 	PProgressBar m_pProgressBar;
@@ -378,7 +139,7 @@ private:
 	InterpCoefs gradZ(Label l) const;
 
 	//Creates mesh graph connections
-	void lazyGraphCreation();
+	void createGraph();
 
 	//Node type
 	enum NodeType : uint8_t
@@ -390,6 +151,8 @@ private:
 	using NodeTypes = std::vector<NodeType>;
 	//Returns array of node types
 	NodeTypes nodeTypes() const;
+	//Returns true if this node and its neighbour boundary nodes lie in an one plane
+	bool isFlatBoundary(Label nNodeIdx, const Vector3D& norm, const NodeTypes& types) const;
 
 	//Create rough and fast LaplacianField solver DU = 0 for a zero approximation
 	ScalarFieldOperator laplacianSolver0();
@@ -410,9 +173,6 @@ public:
 
 	//Access to a progress bar interface
 	ProgressBar* progressBar() const;
-
-	//Release mesh graph and free memory
-	void releaseGraph();
 
 	//Gets and sets small step factor value
 	double smallStepFactor() const;
@@ -448,7 +208,8 @@ public:
 		GradY,
 		GradZ
 	};
-	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver1);
+	PScalFieldOp createOperator(ScalarOperatorType type = LaplacianSolver1, 
+		const BaseOperatorParams* params = nullptr);
 
 	//Returns operators calculating gradient components
 	ScalarFieldOperator gradX();

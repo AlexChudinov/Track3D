@@ -259,6 +259,24 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CSaveFieldButton.
+//---------------------------------------------------------------------------------------
+class CSaveFieldButton : public CProprtyListButton
+{
+  DECLARE_DYNAMIC(CSaveFieldButton)
+
+public:
+  CSaveFieldButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CProprtyListButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+};
+
+//---------------------------------------------------------------------------------------
 // CCheckBoxButton - a base class for processing boolean variables. Use this class if no
 // immediate response is expected. However, if some specific actions are required just 
 // after changing the flag (redrawing, etc), you have to use the descendants with the 

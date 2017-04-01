@@ -11,7 +11,7 @@
 
 //[AC 24/03/2017]
 //Memory manager
-#include "../field_solver/MemoryPool.h"
+#include "../utilities/MemoryPool.h"
 //[/AC]
 
 namespace EvaporatingParticle
@@ -72,6 +72,7 @@ struct CNode3D : public BlockAllocator<CNode3D>
   Vector3D  pos,
             vel,
             field,  // DC field.
+            clmb,   // Coulomb field.
             rf;     // RF field.
 
   float     dens,   // density.
@@ -85,7 +86,7 @@ struct CNode3D : public BlockAllocator<CNode3D>
 // END DEBUG
 
   void      set_data(float fPress, float fDens, float fTemp, float fVisc, float fCond, float fCp,
-              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField);
+              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField, const Vector3D& vClmb = Vector3D(0, 0, 0));
 
 // Neighbors:
   CIndexVector        vNbrElems;
@@ -600,7 +601,7 @@ inline bool CPlane::inside(const Vector3D& p) const
 // CNode3D: inline implementation.
 //-------------------------------------------------------------------------------------------------
 inline void CNode3D::set_data(float fPress, float fDens, float fTemp, float fVisc, float fCond, float fCp,
-              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField)
+              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField, const Vector3D& vClmbField)
 {
   press = fPress;
   dens = fDens;
@@ -611,6 +612,7 @@ inline void CNode3D::set_data(float fPress, float fDens, float fTemp, float fVis
 
   vel = vVel;
   field = vDCField;
+  clmb = vClmbField;
   rf = vRFField;
 }
 
