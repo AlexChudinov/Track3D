@@ -68,7 +68,8 @@ public:
 	using Matrix = std::vector<MatrixRow>;
 
 	friend class CMeshAdapter;
-
+	friend CFieldOperator operator+(const CFieldOperator& op1, const CFieldOperator& op2);
+	friend CFieldOperator operator*(const CFieldOperator& op1, const CFieldOperator& op2);
 private:
 	Matrix m_matrix;
 
@@ -123,12 +124,14 @@ private:
 	//Looks for an element containing point with coordinates v
 	const Element* element(const Vector3D& v, Label& nCurNode, const Label& nPrevNode = Label(0)) const;
 
+public:
 	//Math operations with interpolation coeffs
 	static InterpCoefs& add(InterpCoefs& ic1, const InterpCoefs& ic2);
 	static InterpCoefs& mul(double h, InterpCoefs& ic);
 	//Removes zero elements making memory consumption by InterpCoefs smaller
 	static InterpCoefs& removeZeros(InterpCoefs& ic);
 
+private:
 	//Creates covariance matrix for dirrections around label 
 	Matrix3D covarianceOfDirections(Label l) const;
 	//Returns vector of finite difference total projections on a directions x,y,z
