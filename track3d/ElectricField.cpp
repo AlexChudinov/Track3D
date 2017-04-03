@@ -281,7 +281,7 @@ bool CElectricFieldData::calc_field(bool bTest)
 
 // Laplacian Solver:
     mesh.boundaryMesh()->applyBoundaryVals(field);
-    CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver1);
+    CMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::LaplacianSolver2);
     if(pOp == NULL)
       return false;
 

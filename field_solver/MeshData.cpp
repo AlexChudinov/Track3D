@@ -164,7 +164,7 @@ void CMeshAdapter::createGraph()
 	}
 }
 
-CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX() const
 {
 	m_pProgressBar->set_job_name("Creating gradient x-component operator...");
 	m_pProgressBar->set_progress(0);
@@ -179,7 +179,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX()
 	return result;
 }
 
-CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY() const
 {
 	m_pProgressBar->set_job_name("Creating gradient y-component operator...");
 	m_pProgressBar->set_progress(0);
@@ -194,7 +194,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY()
 	return result;
 }
 
-CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ()
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ() const
 {
 	m_pProgressBar->set_job_name("Creating gradient z-component operator...");
 	m_pProgressBar->set_progress(0);
@@ -238,7 +238,7 @@ bool CMeshAdapter::isFlatBoundary(Label nNodeIdx,
 	return true;
 }
 
-CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0() const
 {
 	ScalarFieldOperator result;
 
@@ -288,7 +288,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0()
 	return result;
 }
 
-CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 {
 	ScalarFieldOperator result;
 
@@ -365,100 +365,60 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1()
 	return result;
 }
 
-CMeshAdapter::InterpCoefs CMeshAdapter::zeroGradientBoundaryForLaplacianSolver(Label nNodeIdx, const NodeTypes& vNodeTypes) const
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 {
-	InterpCoefs res;
-	const Vector3D& 
-		n = boundaryMesh()->normal(nNodeIdx);
+	ScalarFieldOperator solver = laplacian();
 
-	if (isFlatBoundary(nNodeIdx, n, vNodeTypes))
-	{ //This is flat boundary
-		const Vector3D& r0 = m_nodes[nNodeIdx]->pos;
-		Vector3D x0, x1, y0, y1, z0, z1;
-		//Use the vector or its reflection depending on its projection on normal
-		if (n.z >= 0)
+	progressBar()->set_job_name("Creating laplacianSolver #2...");
+	progressBar()->set_progress(0);
+
+	//Create boundaries
+	NodeTypes vNodeTypes = nodeTypes();
+
+	ThreadPool::getInstance().splitInPar(solver.m_matrix.size(),
+		[&](size_t nInd)
+	{
+		switch (vNodeTypes[nInd])
 		{
-			z1 = { 0.0, 0.0, 1.0 };
-			z0 = Vector3D{ 0.0, 0.0, -1.0 } -2.0 * (Vector3D{ 0.0, 0.0, -1.0 } &n) * n;
-		}
-		else
+		case FirstTypeBoundaryNode:
+			solver.m_matrix[nInd][nInd] = 1.0;
+			break;
+		case SecondTypeBoundaryNode:
 		{
-			z1 = Vector3D{ 0.0, 0.0, 1.0 } -2.0 * (Vector3D{ 0.0, 0.0, 1.0 } &n) * n;
-			z0 = { 0.0, 0.0, -1.0 };
+			const Vector3D& n = boundaryMesh()->normal(nInd);
+			if (isFlatBoundary(nInd, n, vNodeTypes))
+			{
+				add(solver.m_matrix[nInd],
+					add(mul(n.x, gradX(nInd)),
+						add(mul(n.y, gradY(nInd)),
+							mul(n.z, gradZ(nInd)))));
+				double fSum = solver.m_matrix[nInd][nInd];
+				solver.m_matrix[nInd].erase(nInd);
+				mul(-1. / fSum, solver.m_matrix[nInd]);
+			}
 		}
-
-		if (n.y >= 0)
+		default:
 		{
-			y1 = { 0.0, 1.0, 0.0 };
-			y0 = Vector3D{ 0.0, -1.0, 0.0 } -2.0 * (Vector3D{ 0.0, -1.0, 0.0 } &n) * n;
+			double fSum = solver.m_matrix[nInd][nInd];
+			solver.m_matrix[nInd].erase(nInd);
+			mul(-1. / fSum, solver.m_matrix[nInd]);
 		}
-		else
-		{
-			y1 = Vector3D{ 0.0, 1.0, 0.0 } -2.0 * (Vector3D{ 0.0, 1.0, 0.0 } &n) * n;
-			y0 = { 0.0, -1.0, 0.0 };
 		}
+	}, progressBar());
 
-		if (n.x >= 0)
-		{
-			x1 = { 1.0, 0.0, 0.0 };
-			x0 = Vector3D{ -1.0, 0.0, 0.0 } -2.0 * (Vector3D{ -1.0, 0.0, 0.0 } &n) * n;
-		}
-		else
-		{
-			x1 = Vector3D{ 1.0, 0.0, 0.0 } -2.0 * (Vector3D{ 1.0, 0.0, 0.0 } &n) * n;
-			x0 = { -1.0, 0.0, 0.0 };
-		}
+	return solver;
+}
 
-		double hx0, hx1, hy0, hy1, hz0, hz1;
-		double fMinStep = minEdgeLength(nNodeIdx), dh = 1e-6 * fMinStep;
-		while (
-			(hx0 = optimalStep(x0, nNodeIdx)) < fMinStep ||
-			(hx1 = optimalStep(x1, nNodeIdx)) < fMinStep ||
-			(hy0 = optimalStep(y0, nNodeIdx)) < fMinStep ||
-			(hy1 = optimalStep(y1, nNodeIdx)) < fMinStep ||
-			(hz0 = optimalStep(z0, nNodeIdx)) < fMinStep ||
-			(hz1 = optimalStep(z1, nNodeIdx)) < fMinStep)
-		{
-
-			x0 += dh*n; x1 += dh*n; y0 += dh*n; y1 += dh*n; z0 = -z0; z1 = -z1;
-		}
-
-		x0 = r0 + hx0 * x0; x1 = r0 + hx1 * x1;
-		y0 = r0 + hy0 * y0; y1 = r0 + hy1 * y1;
-		z0 = r0 + hz0 * z0; z1 = r0 + hz1 * z1;
-
-		Label nNextNodeIdx;
-
-		InterpCoefs coefsX = mul(1. / hx0, interpCoefs(x0, nNextNodeIdx, nNodeIdx));
-		add(coefsX, mul(1. / hx1, interpCoefs(x1, nNextNodeIdx, nNodeIdx)));
-		mul(1. / (hx1 + hx0), coefsX);
-
-		InterpCoefs coefsY = mul(1. / hy0, interpCoefs(y0, nNextNodeIdx, nNodeIdx));
-		add(coefsY, mul(1. / hy1, interpCoefs(y1, nNextNodeIdx, nNodeIdx)));
-		mul(1. / (hy1 + hy0), coefsY);
-
-		InterpCoefs coefsZ = mul(1. / hz0, interpCoefs(z0, nNextNodeIdx, nNodeIdx));
-		add(coefsZ, mul(1. / hz1, interpCoefs(z1, nNextNodeIdx, nNodeIdx)));
-		mul(1. / (hz1 + hz0), coefsZ);
-
-		mul(1. / (
-			(1. / hx1 + 1. / hx0) / (hx1 + hx0)
-			+ (1. / hy1 + 1. / hy0) / (hy1 + hy0)
-			+ (1. / hz1 + 1. / hz0) / (hz1 + hz0)),
-			add(coefsX, add(coefsY, coefsZ)));
-		res = std::move(coefsX);
-	}
-	else
-	{ //This is not a flat boundary
-		res = std::move(add(
-			mul(n.x, gradX(nNodeIdx)),
-			add(mul(n.y, gradY(nNodeIdx)),
-				mul(n.z, gradZ(nNodeIdx)))));
-		double fSum = res[nNodeIdx];
-		res.erase(nNodeIdx);
-		mul(-1. / fSum, res);
-	}
-	return res;
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
+{
+	ScalarFieldOperator opGradComp1 = gradX(), opGradComp2 = opGradComp1, opLaplace;
+	opLaplace.m_matrix.resize(opGradComp1.m_matrix.size());
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradY(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradZ(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
+	return opLaplace;
 }
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3D & dir)
@@ -667,6 +627,8 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type,
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver0()));
 	case CMeshAdapter::LaplacianSolver1:
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
+	case CMeshAdapter::LaplacianSolver2:
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver2()));
 	case CMeshAdapter::GradX:
 		return PScalFieldOp(new ScalarFieldOperator(gradX()));
 	case CMeshAdapter::GradY:
@@ -785,37 +747,36 @@ CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
 	return result;
 }
 
-CFieldOperator operator+(const CFieldOperator & op1, const CFieldOperator & op2)
+CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)
 {
 	if (op1.m_matrix.size() != op2.m_matrix.size())
-		throw std::runtime_error("operator+(const CFieldOperator&, const CFieldOperator&):"
+		throw std::runtime_error("operator+=(CFieldOperator&, const CFieldOperator&):"
 			" Operator sizes mismatch!");
-	CFieldOperator res; res.m_matrix.resize(op1.m_matrix.size());
 
-	ThreadPool::getInstance().splitInPar(res.m_matrix.size(), [&](size_t nInd)
+	ThreadPool::getInstance().splitInPar(op1.m_matrix.size(), [&](size_t nInd)
 	{
-		res.m_matrix[nInd] = op1.m_matrix[nInd];
-		CMeshAdapter::add(res.m_matrix[nInd], op1.m_matrix[nInd]);
+		CMeshAdapter::add(op1.m_matrix[nInd], op2.m_matrix[nInd]);
 	});
 
-	return res;
+	return op1;
 }
 
-CFieldOperator operator*(const CFieldOperator & op1, const CFieldOperator & op2)
+CFieldOperator& operator*=(CFieldOperator & op1, const CFieldOperator & op2)
 {
 	if (op1.m_matrix.size() != op2.m_matrix.size())
-		throw std::runtime_error("operator+(const CFieldOperator&, const CFieldOperator&):"
+		throw std::runtime_error("operator*=(CFieldOperator&, const CFieldOperator&):"
 			" Operator sizes mismatch!");
-	CFieldOperator res; res.m_matrix.resize(op1.m_matrix.size());
 
-	ThreadPool::getInstance().splitInPar(res.m_matrix.size(), [&](size_t nInd)
+	ThreadPool::getInstance().splitInPar(op1.m_matrix.size(), [&](size_t nInd)
 	{
+		CFieldOperator::MatrixRow row1;
 		for (const auto& c : op1.m_matrix[nInd])
 		{
-			CFieldOperator::MatrixRow row = op2.m_matrix[c.first];
-			CMeshAdapter::add(res.m_matrix[nInd], CMeshAdapter::mul(c.second, row));
+			CFieldOperator::MatrixRow row2 = op2.m_matrix[c.first];
+			CMeshAdapter::add(row1, CMeshAdapter::mul(c.second, row2));
 		}
+		op1.m_matrix[nInd] = row1;
 	});
 
-	return res;
+	return op1;
 }

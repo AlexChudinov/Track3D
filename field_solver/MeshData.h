@@ -64,12 +64,13 @@ class CFieldOperator : public COperator
 {
 public:
 	using MatrixCoef = std::pair<uint32_t, double>;
-	using MatrixRow = std::map<uint32_t, double, std::less<uint32_t>, Allocator<MatrixCoef>>;
+	using MatrixRow = std::map<uint32_t, double,
+		std::less<uint32_t>, Allocator<std::pair<uint32_t, double>>>;
 	using Matrix = std::vector<MatrixRow>;
 
 	friend class CMeshAdapter;
-	friend CFieldOperator operator+(const CFieldOperator& op1, const CFieldOperator& op2);
-	friend CFieldOperator operator*(const CFieldOperator& op1, const CFieldOperator& op2);
+	friend CFieldOperator& operator+=(CFieldOperator& op1, const CFieldOperator& op2);
+	friend CFieldOperator& operator*=(CFieldOperator& op1, const CFieldOperator& op2);
 private:
 	Matrix m_matrix;
 
@@ -87,8 +88,8 @@ public:
 	using Nodes = EvaporatingParticle::CNodesCollection;
 	using PBoundary = std::unique_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
-	using InterpCoefs = std::map<uint32_t, double, 
-		std::less<uint32_t>, Allocator<InterpCoef>>;
+	using InterpCoefs = std::map<uint32_t, double,
+		std::less<uint32_t>, Allocator<std::pair<uint32_t, double>>>;
 	using Label = uint32_t;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
@@ -158,11 +159,13 @@ private:
 	bool isFlatBoundary(Label nNodeIdx, const Vector3D& norm, const NodeTypes& types) const;
 
 	//Create rough and fast LaplacianField solver DU = 0 for a zero approximation
-	ScalarFieldOperator laplacianSolver0();
+	ScalarFieldOperator laplacianSolver0() const;
 	//Simple Laplacian solver with step myltiplication by a factor
-	ScalarFieldOperator laplacianSolver1();
-	//Calculates zero gradient condition for laplacianSolver1
-	InterpCoefs zeroGradientBoundaryForLaplacianSolver(Label nNodeIdx, const NodeTypes& vNodeTypes) const;
+	ScalarFieldOperator laplacianSolver1() const;
+	//Creates solver which uses graph and operators arithmetics
+	ScalarFieldOperator laplacianSolver2() const;
+	//Calculates laplacian operator
+	ScalarFieldOperator laplacian() const;
 	//Directed derivative calculation
 	ScalarFieldOperator directedDerivative(const Vector3D& dir);
 
@@ -207,6 +210,7 @@ public:
 	{
 		LaplacianSolver0,
 		LaplacianSolver1,
+		LaplacianSolver2,
 		GradX,
 		GradY,
 		GradZ
@@ -215,9 +219,9 @@ public:
 		const BaseOperatorParams* params = nullptr);
 
 	//Returns operators calculating gradient components
-	ScalarFieldOperator gradX();
-	ScalarFieldOperator gradY();
-	ScalarFieldOperator gradZ();
+	ScalarFieldOperator gradX() const;
+	ScalarFieldOperator gradY() const;
+	ScalarFieldOperator gradZ() const;
 };
 
 #endif // !_MESH_DATA_
