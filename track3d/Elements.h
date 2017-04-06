@@ -11,7 +11,7 @@
 
 //[AC 24/03/2017]
 //Memory manager
-#include "../field_solver/MemoryPool.h"
+#include <../utilities/MemoryPool.h>
 //[/AC]
 
 namespace EvaporatingParticle
