@@ -393,6 +393,22 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CPlaneYZCalcCheckBox
+//---------------------------------------------------------------------------------------
+class CPlaneYZCalcCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CPlaneYZCalcCheckBox)
+
+public:
+  CPlaneYZCalcCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // Inline implementation.
 //---------------------------------------------------------------------------------------
 inline BOOL CSelectRegionButton::HasButton() const

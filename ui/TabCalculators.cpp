@@ -26,10 +26,10 @@ void CPropertiesWnd::add_calc_ctrls()
         CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section X, mm"), COleVariant(10 * pPlaneYZCalc->get_plane_x()), _T("Set x-coordinate of the vertical cross-section plane."), pPlaneYZCalc->get_plane_x_ptr());
         pXPlaneCalcGroup->AddSubItem(pXPlanePos);
 
-        CCalcResponseProperty* pMeshStep = new CCalcResponseProperty(this, _T("Cross-Section Mesh Step, mm"), COleVariant(10 * pPlaneYZCalc->get_mesh_step()), _T("Set size of the mesh in the vertical cross-section plane."), pPlaneYZCalc->get_mesh_step_ptr());
-        pXPlaneCalcGroup->AddSubItem(pMeshStep);
+//        CCalcResponseProperty* pMeshStep = new CCalcResponseProperty(this, _T("Cross-Section Mesh Step, mm"), COleVariant(10 * pPlaneYZCalc->get_mesh_step()), _T("Set size of the mesh in the vertical cross-section plane."), pPlaneYZCalc->get_mesh_step_ptr());
+//        pXPlaneCalcGroup->AddSubItem(pMeshStep);
 
-        CCalcResponseProperty* pEnableCrossSectDrawing = new CCalcResponseProperty(this, _T("Enable Cross-Section Drawing"), (_variant_t)pPlaneYZCalc->get_enable(), _T("Turns ON/OFF the cross-section drawing."), pPlaneYZCalc->get_enable_ptr());
+        CPlaneYZCalcCheckBox* pEnableCrossSectDrawing = new CPlaneYZCalcCheckBox(this, _T("Enable Cross-Section Drawing"), (_variant_t)pPlaneYZCalc->get_enable(), _T("Turns ON/OFF the cross-section drawing."), pPlaneYZCalc->get_enable_ptr());
         pXPlaneCalcGroup->AddSubItem(pEnableCrossSectDrawing);
 
         COleVariant var(pPlaneYZCalc->get_var_name(pPlaneYZCalc->get_clc_var_type()));
@@ -484,9 +484,9 @@ void CPropertiesWnd::update_calc_ctrls()
         if(pProp != NULL)
           pProp->Enable(bReady);
 
-        pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_mesh_step_ptr());
-        if(pProp != NULL)
-          pProp->Enable(bReady);
+//        pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_mesh_step_ptr());
+//        if(pProp != NULL)
+//          pProp->Enable(bReady);
 
         pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_clc_var_type_ptr());
         if(pProp != NULL)

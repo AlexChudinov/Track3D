@@ -4,6 +4,7 @@
 #include "CObject.h"
 #include "Elements.h"
 #include "ColorContour.h"
+#include "DomainCrossSection.h"
 
 #include <vector>
 #include <string>
@@ -138,85 +139,57 @@ public:
   CPlaneYZCalculator();
   virtual ~CPlaneYZCalculator();
 
-  virtual void      run();
-  virtual void      do_calculate();
-  virtual void      update();
-  virtual void      clear();
+  virtual void          run();
+  virtual void          do_calculate();
+  virtual void          update();
+  virtual void          clear();
 
-  virtual int       type() const { return ctPlaneYZ; }
+  virtual int           type() const { return ctPlaneYZ; }
 
-  double            get_plane_x() const;
-  DWORD_PTR         get_plane_x_ptr() const;
-  void              set_plane_x(double fX);
-
-  double            get_mesh_step() const;
-  DWORD_PTR         get_mesh_step_ptr() const;
-  void              set_mesh_step(double fStep);
+  double                get_plane_x() const;
+  DWORD_PTR             get_plane_x_ptr() const;
+  void                  set_plane_x(double fX);
 
 // Sequential calculations support. 
-  double            get_start_pos() const;
-  DWORD_PTR         get_start_pos_ptr() const;
-  void              set_start_pos(double fX);
+  double                get_start_pos() const;
+  DWORD_PTR             get_start_pos_ptr() const;
+  void                  set_start_pos(double fX);
 
-  double            get_end_pos() const;
-  DWORD_PTR         get_end_pos_ptr() const;
-  void              set_end_pos(double fX);
+  double                get_end_pos() const;
+  DWORD_PTR             get_end_pos_ptr() const;
+  void                  set_end_pos(double fX);
 
-  UINT              get_seq_calc_count() const;
-  DWORD_PTR         get_seq_calc_count_ptr() const;
-  void              set_seq_calc_count(UINT nCount);
+  UINT                  get_seq_calc_count() const;
+  DWORD_PTR             get_seq_calc_count_ptr() const;
+  void                  set_seq_calc_count(UINT nCount);
 
-  const char*       get_filename() const;
-  DWORD_PTR         get_filename_ptr() const;
-  void              set_filename(const char* pName);
+  const char*           get_filename() const;
+  DWORD_PTR             get_filename_ptr() const;
+  void                  set_filename(const char* pName);
 
-  void              do_sequence_calc();
+  void                  do_sequence_calc();
 
 //-------------------------------------------------------------------------------------------------
 // Streaming:
 //-------------------------------------------------------------------------------------------------
-  virtual void      save(CArchive& ar);
-  virtual void      load(CArchive& ar);
+  virtual void          save(CArchive& ar);
+  virtual void          load(CArchive& ar);
 
 protected:
-  void              set_default();
+  void                  set_default();
 
-  bool              build_cs_mesh();
-
-  void              triangulate(UINT nY, UINT nZ, double fdY, double fdZ, double fY0, double fZ0, CNode3D** pNodePtrs);
-
-  void              process_quad(const Vector3D& v0,
-                                 const Vector3D& v1,
-                                 const Vector3D& v2,
-                                 const Vector3D& v3,
-                                 CNode3D*&       p0, 
-                                 CNode3D*&       p1,
-                                 CNode3D*&       p2,
-                                 CNode3D*&       p3);
-
-  void              process_triangle(const Vector3D& v0,
-                                     const Vector3D& v1,
-                                     const Vector3D& v2,
-                                     CNode3D*&       p0, 
-                                     CNode3D*&       p1, 
-                                     CNode3D*&       p2);
-
-  bool              move_node(const Vector3D& vOrig, Vector3D& vDest) const;
+  bool                  build_cs_mesh();
 
 private:
-  double            m_fPosX,        // x-coordinate of the cross-section plane.
-                    m_fMeshSize;
-
-  CNodesCollection  m_vNodes;
-  CFacesCollection  m_vFaces;
+  CDomainCrossSection   m_CrossSect;
 
 // Sequential calculations support:
-  double            m_fStartX,
-                    m_fEndX;
+  double                m_fStartX,
+                        m_fEndX;
 
-  UINT              m_nSeqCalcCount;
+  UINT                  m_nSeqCalcCount;
 
-  std::string       m_sOutputFile;
+  std::string           m_sOutputFile;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -540,38 +513,19 @@ inline int CCalculator::calc_vars_count() const
 //-------------------------------------------------------------------------------------------------
 inline double CPlaneYZCalculator::get_plane_x() const
 {
-  return m_fPosX;
+  return m_CrossSect.get_plane_origin().x;
 }
 
 inline DWORD_PTR CPlaneYZCalculator::get_plane_x_ptr() const
 {
-  return (DWORD_PTR)&m_fPosX;
+  return (DWORD_PTR)&m_CrossSect;
 }
 
 inline void CPlaneYZCalculator::set_plane_x(double fX)
 {
-  if(m_fPosX != fX)
+  if(m_CrossSect.get_plane_origin().x != fX)
   {
-    m_fPosX = fX;
-    m_bReady = false;
-  }
-}
-
-inline double CPlaneYZCalculator::get_mesh_step() const
-{
-  return m_fMeshSize;
-}
-
-inline DWORD_PTR CPlaneYZCalculator::get_mesh_step_ptr() const
-{
-  return (DWORD_PTR)&m_fMeshSize;
-}
-
-inline void CPlaneYZCalculator::set_mesh_step(double fStep)
-{
-  if(m_fMeshSize != fStep)
-  {
-    m_fMeshSize = fStep;
+    m_CrossSect.set_plane_origin(Vector3D(fX, 0, 0));
     m_bReady = false;
   }
 }

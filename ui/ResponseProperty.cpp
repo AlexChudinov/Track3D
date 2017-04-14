@@ -277,6 +277,13 @@ BOOL CCalcResponseProperty::OnUpdateValue()
           pCalc->set_clc_var_type(j);
           if(pCalc->get_update_flag())
             pCalc->do_calculate();
+
+          if(pCalc->type() == EvaporatingParticle::CCalculator::ctPlaneYZ)
+          {
+            EvaporatingParticle::CPlaneYZCalculator* pPlaneYZCalc = (EvaporatingParticle::CPlaneYZCalculator*)pCalc;
+            pPlaneYZCalc->update();
+            pDrawObj->draw();
+          }
         }
       }
     }
@@ -290,13 +297,6 @@ BOOL CCalcResponseProperty::OnUpdateValue()
         if(pPlaneYZCalc->get_plane_x_ptr() == pData)
         {
           pPlaneYZCalc->set_plane_x(0.1 * GetValue().dblVal);
-          pPlaneYZCalc->update();
-          pPlaneYZCalc->do_calculate();
-          pDrawObj->draw();
-        }
-        else if(pPlaneYZCalc->get_mesh_step_ptr() == pData)
-        {
-          pPlaneYZCalc->set_mesh_step(0.1 * GetValue().dblVal);
           pPlaneYZCalc->update();
           pPlaneYZCalc->do_calculate();
           pDrawObj->draw();

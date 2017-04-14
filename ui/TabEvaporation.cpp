@@ -4,6 +4,7 @@
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "EvaporationModel.h"
+#include "Button.h"
 
 //---------------------------------------------------------------------------------------
 // Evaporation
@@ -44,8 +45,8 @@ void CPropertiesWnd::add_evapor_ctrls()
   pEvaporGroup->AddSubItem(pHumidGroup);
 
   CMFCPropertyGridProperty* pTensGroup = new CMFCPropertyGridProperty(_T("Surface Tension"));
-  pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pMod->get_enable_surf_tens(), _T("Turns ON/OFF effect of additional pressure over a curved droplet's surface."), pMod->get_enable_surf_tens_ptr());
-  pTensGroup->AddSubItem(pProp);
+  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pMod->get_enable_surf_tens(), _T("Turns ON/OFF effect of additional pressure over a curved droplet's surface."), pMod->get_enable_surf_tens_ptr());
+  pTensGroup->AddSubItem(pCheckBox);
   pEvaporGroup->AddSubItem(pTensGroup);
 
   switch(pMod->get_mass_trans_model())
@@ -92,10 +93,6 @@ void CPropertiesWnd::set_evapor_data()
   pProp = m_wndPropList.FindItemByData(pMdl->get_env_humidity_ptr());
   if(pProp != NULL)
     pMdl->set_env_humidity(0.01 * pProp->GetValue().dblVal);
-
-  pProp = m_wndPropList.FindItemByData(pMdl->get_enable_surf_tens_ptr());
-  if(pProp != NULL)
-    pMdl->set_enable_surf_tens(pProp->GetValue().boolVal);
 
   pProp = m_wndPropList.FindItemByData(pMdl->get_mass_trans_model_ptr());
   if(pProp != NULL)

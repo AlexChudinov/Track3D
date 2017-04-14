@@ -1690,16 +1690,19 @@ void CTracker::bounding_box()
 
 double CTracker::get_full_current_at(UINT nIter)
 {
-  const UINT nMaxCurrentIterCount = 5;
+  const UINT nMaxCurrentIterCount = 10;
   const UINT nVarIterCount = m_nIterCount > nMaxCurrentIterCount ? m_nIterCount - nMaxCurrentIterCount : 0;
   if(nVarIterCount == 0)
     return m_fFullCurrent;
 
+// An attempt to introduce a correction coefficient.
+  double fCoeff = 2.0 * m_nIterCount / (m_nIterCount + nMaxCurrentIterCount); // must be > 1.
+
   if(nIter > nVarIterCount)
-    return m_fFullCurrent;
+    return fCoeff * m_fFullCurrent;
 
   double fKsi = double(nIter) / nVarIterCount;
-  return m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
+  return fCoeff * m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
 }
 
 //-------------------------------------------------------------------------------------------------

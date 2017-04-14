@@ -111,6 +111,10 @@ public:
   DWORD_PTR           get_space_charge_step_ptr() const;
   void                set_space_charge_step(double fStep);
 
+  double              get_charge_time_step() const;
+  DWORD_PTR           get_charge_time_step_ptr() const;
+  void                set_charge_time_step(double fTimeStep);
+
   Vector3D            radial_coulomb(const Vector3D& vPos, double fAxialVel) const;
 
   static const char*  get_distrib_type_name(int nDistType);
@@ -146,7 +150,8 @@ private:
   int                 m_nDistribType;
   UINT                m_nPlanesCount; // count of x = const planes subdividing the domain into elliptical volumes.
 
-  double              m_fMeshStep;    // the pseudo-charges are placed into the nodes of a constant cubical mesh.
+  double              m_fMeshStep,    // the pseudo-charges are placed into the nodes of a constant cubical mesh.
+                      m_fTimeStep;    // the pseudo-charges are placed along the trajectories separated by a constant time step.
 
   double              m_fMinX,
                       m_fMaxX,
@@ -232,6 +237,21 @@ inline DWORD_PTR CSpaceChargeDistrib::get_space_charge_step_ptr() const
 inline void CSpaceChargeDistrib::set_space_charge_step(double fStep)
 {
   m_fMeshStep = fStep;
+}
+
+inline double CSpaceChargeDistrib::get_charge_time_step() const
+{
+  return m_fTimeStep;
+}
+
+inline DWORD_PTR CSpaceChargeDistrib::get_charge_time_step_ptr() const
+{
+  return (DWORD_PTR)&m_fTimeStep;
+}
+
+inline void CSpaceChargeDistrib::set_charge_time_step(double fTimeStep)
+{
+  m_fTimeStep = fTimeStep;
 }
 
 inline void CSpaceChargeDistrib::set_run_time_data(double fMinX, double fMaxX, double fCurrPerTrack)

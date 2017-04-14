@@ -52,12 +52,6 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Iterations Count"), COleVariant((long)pObj->get_iter_count()), _T("Iterations count in the flux-tube iterational method of Coulomb repulsion calculation"), pObj->get_iter_count_ptr());
   pCoulombGroup->AddSubItem(pProp);
 
-  EvaporatingParticle::CSpaceChargeDistrib& distrib = pObj->get_space_charge_dist();
-  pProp = new CMFCPropertyGridProperty(_T("Subdivisions Count"), COleVariant((long)distrib.get_planes_count()), _T("Count of model volumes for the space charge distribution."), distrib.get_planes_count_ptr());
-  pCoulombGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * distrib.get_space_charge_step()), _T("Distance between pseudo-charges placed into nodes of a constant cubical mesh."), distrib.get_space_charge_step_ptr());
-  pCoulombGroup->AddSubItem(pProp);
-
   pCheckBox = new CCheckBoxButton(this, _T("Use Radial Coulomb"), (_variant_t)pObj->get_use_radial_coulomb(), _T("If this is true the radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_use_radial_coulomb_ptr());
   pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Radial Coulomb Transition X, mm"), COleVariant(10 * pObj->get_radial_coulomb_trans()), _T("The radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_radial_coulomb_trans_ptr());
@@ -90,16 +84,29 @@ void CPropertiesWnd::add_ion_ctrls()
   pCheckBox = new CCheckBoxButton(this, _T("Enable Quad Terms"), (_variant_t)pObj->get_enable_quad_terms(), _T("If this is set to 'true' the quadripole terms are taken into account when Coulomb force is calculated."), pObj->get_enable_quad_terms_ptr());
   pBHGroup->AddSubItem(pCheckBox);
 
-// Pseudo-ions distribution type in the Barnes-Hut object:
+  pCoulombGroup->AddSubItem(pBHGroup);
+
+// Distribution of pseudo-charges:
+  EvaporatingParticle::CSpaceChargeDistrib& distrib = pObj->get_space_charge_dist();
+  CMFCPropertyGridProperty* pDistribGroup = new CMFCPropertyGridProperty(_T("Pseudo-Ions Distribution"));
+
   COleVariant var(EvaporatingParticle::CSpaceChargeDistrib::get_distrib_type_name(distrib.get_ion_distrib_type()));
   pProp = new CMFCPropertyGridProperty(_T("Pseudo-Ions Distrib. Type"), var, _T("The pseudo-ions for the space charge simulation can be distributed either along the trajectories or in the nodes of a constant cubical mesh."), distrib.get_ion_distrib_type_ptr());
   for(UINT i = 0; i < EvaporatingParticle::CSpaceChargeDistrib::distCount; i++)
     pProp->AddOption(EvaporatingParticle::CSpaceChargeDistrib::get_distrib_type_name(i));
 
   pProp->AllowEdit(FALSE);
-  pBHGroup->AddSubItem(pProp);
+  pDistribGroup->AddSubItem(pProp);
 
-  pCoulombGroup->AddSubItem(pBHGroup);
+  pProp = new CMFCPropertyGridProperty(_T("Subdivisions Count"), COleVariant((long)distrib.get_planes_count()), _T("Count of model volumes for the space charge distribution."), distrib.get_planes_count_ptr());
+  pDistribGroup->AddSubItem(pProp);
+  pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * distrib.get_space_charge_step()), _T("Distance between pseudo-charges placed into nodes of a constant cubical mesh."), distrib.get_space_charge_step_ptr());
+  pDistribGroup->AddSubItem(pProp);
+
+  pProp = new CMFCPropertyGridProperty(_T("Space Charge Time Step, mcs"), COleVariant(1e+6 * distrib.get_charge_time_step()), _T("Distance between pseudo-charges placed along the trajectories."), distrib.get_charge_time_step_ptr());
+  pDistribGroup->AddSubItem(pProp);
+
+  pCoulombGroup->AddSubItem(pDistribGroup);
 
   m_wndPropList.AddProperty(pCoulombGroup);
 }
@@ -157,6 +164,10 @@ void CPropertiesWnd::set_ion_data()
   pProp = m_wndPropList.FindItemByData(distrib.get_space_charge_step_ptr());
   if(pProp != NULL)
     distrib.set_space_charge_step(0.1 * pProp->GetValue().dblVal);
+
+  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
+  if(pProp != NULL)
+    distrib.set_charge_time_step(1e-6 * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_use_radial_coulomb_ptr());
   if(pProp != NULL)
@@ -283,7 +294,11 @@ void CPropertiesWnd::update_ion_ctrls()
 
   pProp = m_wndPropList.FindItemByData(distrib.get_space_charge_step_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject);
+
+  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_BH_dist_par_ptr());
   if(pProp != NULL)

@@ -24,11 +24,11 @@ void CPropertiesWnd::add_ptb_ctrls()
         CChargedRingPerturbation* pChargedRing = (CChargedRingPerturbation*)pPtb;
         CMFCPropertyGridProperty* pChargedRingGroup = new CMFCPropertyGridProperty(pChargedRing->name());
 // Enable:
-        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pChargedRing->get_enable(), _T("Turns ON/OFF the field perturbation."), pChargedRing->get_enable_ptr());
-        pChargedRingGroup->AddSubItem(pProp);
+        CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pChargedRing->get_enable(), _T("Turns ON/OFF the field perturbation."), pChargedRing->get_enable_ptr());
+        pChargedRingGroup->AddSubItem(pCheckBox);
 // Ring center position:
         CMFCPropertyGridProperty* pPosGroup = new CMFCPropertyGridProperty(_T("Position, mm"), pChargedRing->get_ring_pos_ptr());
-        pProp = new CMFCPropertyGridProperty(_T("X"), COleVariant(10 * pChargedRing->get_ring_pos().x), _T("X coordinate of the charged ring center."));
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("X"), COleVariant(10 * pChargedRing->get_ring_pos().x), _T("X coordinate of the charged ring center."));
         pPosGroup->AddSubItem(pProp);
         pProp = new CMFCPropertyGridProperty(_T("Y"), COleVariant(10 * pChargedRing->get_ring_pos().y), _T("Y coordinate of the charged ring center."));
         pPosGroup->AddSubItem(pProp);
@@ -55,10 +55,10 @@ void CPropertiesWnd::add_ptb_ctrls()
         CStackRingPerturbation* pStackPtb = (CStackRingPerturbation*)pPtb;
         CMFCPropertyGridProperty* pStackRingGroup = new CMFCPropertyGridProperty(pStackPtb->name());
 // Enable:
-        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pStackPtb->get_enable(), _T("Turns ON/OFF the field perturbation."), pStackPtb->get_enable_ptr());
-        pStackRingGroup->AddSubItem(pProp);
+        CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pStackPtb->get_enable(), _T("Turns ON/OFF the field perturbation."), pStackPtb->get_enable_ptr());
+        pStackRingGroup->AddSubItem(pCheckBox);
 // Count of rings, ring radius and the sum charge:
-        pProp = new CMFCPropertyGridProperty(_T("Rings Count"), COleVariant((long)pStackPtb->get_rings_count()), _T("Set the count of rings in the stack."), pStackPtb->get_rings_count_ptr());
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Rings Count"), COleVariant((long)pStackPtb->get_rings_count()), _T("Set the count of rings in the stack."), pStackPtb->get_rings_count_ptr());
         pStackRingGroup->AddSubItem(pProp);
         pProp = new CMFCPropertyGridProperty(_T("Ring Radius, mm"), COleVariant(10 * pStackPtb->get_ring_radius()), _T("Set the radius of each ring in the stack."), pStackPtb->get_ring_radius_ptr());
         pStackRingGroup->AddSubItem(pProp);
@@ -104,10 +104,10 @@ void CPropertiesWnd::add_ptb_ctrls()
         CUniformAddField* pAddField = (CUniformAddField*)pPtb;
         CMFCPropertyGridProperty* pAddFieldGroup = new CMFCPropertyGridProperty(pAddField->name());
 // Enable:
-        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Enable"), (_variant_t)pAddField->get_enable(), _T("Turns ON/OFF the field perturbation."), pAddField->get_enable_ptr());
-        pAddFieldGroup->AddSubItem(pProp);
+        CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pAddField->get_enable(), _T("Turns ON/OFF the field perturbation."), pAddField->get_enable_ptr());
+        pAddFieldGroup->AddSubItem(pCheckBox);
 // Additional Ex parameters:
-        pProp = new CMFCPropertyGridProperty(_T("Additional Ex, V/cm"), COleVariant(pAddField->get_add_Edc() / SI_to_CGS_Voltage), _T("X-component of the additional electric field."), pAddField->get_add_Edc_ptr());
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Additional Ex, V/cm"), COleVariant(pAddField->get_add_Edc() / SI_to_CGS_Voltage), _T("X-component of the additional electric field."), pAddField->get_add_Edc_ptr());
         pAddFieldGroup->AddSubItem(pProp);
         pProp = new CMFCPropertyGridProperty(_T("X min, mm"), COleVariant(10 * pAddField->get_add_Edc_beg_x()), _T("The additional electric field is applied in the range from Xmin to Xmax."), pAddField->get_add_Edc_beg_x_ptr());
         pAddFieldGroup->AddSubItem(pProp);
@@ -141,12 +141,8 @@ void CPropertiesWnd::set_ptb_data()
       {
         CChargedRingPerturbation* pChargedRing = (CChargedRingPerturbation*)pPtb;
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pChargedRing->get_enable_ptr());
-        if(pProp != NULL)
-          pChargedRing->set_enable(pProp->GetValue().boolVal);
-
         Vector3D vPos;
-        pProp = m_wndPropList.FindItemByData(pChargedRing->get_ring_pos_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pChargedRing->get_ring_pos_ptr());
         if(pProp != NULL)
         {
           vPos.x = 0.1 * pProp->GetSubItem(0)->GetValue().dblVal;
@@ -169,11 +165,7 @@ void CPropertiesWnd::set_ptb_data()
       {
         CStackRingPerturbation* pStackPtb = (CStackRingPerturbation*)pPtb;
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pStackPtb->get_enable_ptr());
-        if(pProp != NULL)
-          pStackPtb->set_enable(pProp->GetValue().boolVal);
-
-        pProp = m_wndPropList.FindItemByData(pStackPtb->get_rings_count_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pStackPtb->get_rings_count_ptr());
         if(pProp != NULL)
           pStackPtb->set_rings_count(pProp->GetValue().lVal);
 

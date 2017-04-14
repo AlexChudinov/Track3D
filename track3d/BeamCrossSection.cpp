@@ -229,7 +229,9 @@ void CSpaceChargeDistrib::set_default()
 {
   m_nDistribType = distInCubicMesh;
   m_nPlanesCount = 100;
+
   m_fMeshStep = 0.01;   // cm.
+  m_fTimeStep = 3e-7;   // s, 0.3 mcs.
 }
 
 bool CSpaceChargeDistrib::set_BH_object(CBarnesHut* pObj)
@@ -242,6 +244,8 @@ bool CSpaceChargeDistrib::set_BH_object(CBarnesHut* pObj)
   {
     case distAlongTraject:
     {
+      if(!set_charges_from_tracks())
+        return false;
       break;
     }
     case distInCubicMesh:
@@ -478,6 +482,61 @@ int CSpaceChargeDistrib::get_volume_index(const Vector3D& vPos) const
     return -1;
 
   return nInd;
+}
+
+// Setting charges along the trajectories kitchen.
+bool CSpaceChargeDistrib::set_charges_from_tracks()
+{
+  set_job_name("Setting pseudo-charges along the trajectories...");
+  set_progress(0);
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CTrackVector& vTracks = pObj->get_tracks();
+  size_t nTracksCount = vTracks.size();
+
+// Attention! In the current version we use vTracks = pObj->get_tracks() to set ions along the trajectories. Note that
+// vTracks contain items that are separated by N * pObj->get_time_step(), where N = nCoeff:
+  int nCoeff = pObj->get_output_engine().get_output_time_step() > pObj->get_time_step() ? int(pObj->get_output_engine().get_output_time_step() / pObj->get_time_step()) : 1;
+
+// The value of charge to set to the Barnes-Hut object, the current per track will be conserved.
+  double fCharge = m_fCurrPerTrack * nCoeff * pObj->get_time_step();
+
+// Correction for symmetry:
+  bool bCorrZ = false, bCorrY = false;
+  int nSymType = m_pBHObject->get_sym_type();
+  switch(nSymType)
+  {
+    case CBarnesHut::symXYonly: fCharge /= 2; bCorrZ = true; break;
+    case CBarnesHut::symXZonly: fCharge /= 2; bCorrY = true; break;
+    case CBarnesHut::symBoth:   fCharge /= 4; bCorrZ = true; bCorrY = true; break;
+  }
+
+  Vector3D vPos;
+  for(size_t i = 0; i < nTracksCount; i++)
+  {
+    if(pObj->get_terminate_flag())
+      return false;
+
+    set_progress(int(0.5 + 100. * (i + 1) / nTracksCount));
+
+    const CTrack& track = vTracks.at(i);
+    size_t nItemsCount = track.size();
+    for(size_t j = 0; j < nItemsCount; j++)
+    {
+      CBaseTrackItem* pItem = track.at(j);
+
+      vPos = pItem->pos;
+// Correction for symmetry:
+      if((vPos.z < 0) && bCorrZ)
+        vPos.z = -vPos.z;
+      if((vPos.y < 0) && bCorrY)
+        vPos.y = -vPos.y;
+
+      m_pBHObject->add_particle(vPos, fCharge);
+    }
+  }
+
+  return true;
 }
 
 void CSpaceChargeDistrib::save(CArchive& ar)

@@ -100,8 +100,8 @@ void CPropertiesWnd::add_draw_ctrls()
   CColorResponseProperty* pBkgColorBtn = new CColorResponseProperty(_T("Background Color"), clr, NULL, _T(""), pObj->get_bkgr_color_ptr());
   pGeneralGroup->AddSubItem(pBkgColorBtn);
 
-  pRespProp = new CResponseProperty(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
-  pGeneralGroup->AddSubItem(pRespProp);
+  CCheckBoxButton* pGenericCheckBox = new CCheckBoxButton(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
+  pGeneralGroup->AddSubItem(pGenericCheckBox);
 
   pCheckBox = new CRedrawCheckBox(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
   pGeneralGroup->AddSubItem(pCheckBox);

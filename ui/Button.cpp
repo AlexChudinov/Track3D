@@ -779,3 +779,33 @@ void CInvalidateFieldCheckBox::OnClickButton(CPoint point)
   if(pData != NULL)
     pData->invalidate();
 }
+
+//---------------------------------------------------------------------------------------
+// CPlaneYZCalcCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CPlaneYZCalcCheckBox, CCheckBoxButton)
+
+void CPlaneYZCalcCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CCalcCollection* pCalcColl = CParticleTrackingApp::Get()->GetCalcs();
+  EvaporatingParticle::CPlaneYZCalculator* pPlaneYZCalc = NULL;
+  size_t nCalcCount = pCalcColl->size();
+  for(size_t i = 0; i < nCalcCount; i++)
+  {
+    if(pCalcColl->at(i)->get_enable_ptr() == m_dwData)
+    {
+      pPlaneYZCalc = (EvaporatingParticle::CPlaneYZCalculator*)(pCalcColl->at(i));
+      break;
+    }
+  }
+
+  if(pPlaneYZCalc != NULL)
+  {
+    pPlaneYZCalc->update();
+    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->invalidate_hidden();
+    pDrawObj->draw();
+  }
+}

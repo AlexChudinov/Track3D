@@ -373,9 +373,12 @@ void CPlaneYZCalculator::set_default()
   m_sCalcName = calc_name(ctPlaneYZ);
 
 // All positions and lengths are in cm.
-  m_fPosX = 1.0;
+  m_CrossSect.set_plane_type(CDomainCrossSection::ptPlaneYZ);
+  m_CrossSect.set_plane_origin(Vector3D(0.1, 0.0, 0.0));
+
   m_bReady = false; // force to build the plane mesh.
-  m_fMeshSize = 0.05;
+//  m_fMeshSize = 0.05;
+//  m_fPosX = 0.1;
 
 // Sequential calculations support:
   m_fStartX = 0.;
@@ -388,6 +391,7 @@ void CPlaneYZCalculator::clear()
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->set_cross_sections_array(NULL);
 
+/*
   size_t nNodeCount = m_vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
     delete m_vNodes.at(i);
@@ -398,6 +402,7 @@ void CPlaneYZCalculator::clear()
 
   m_vNodes.clear();
   m_vFaces.clear();
+*/
 }
 
 void CPlaneYZCalculator::do_calculate()
@@ -406,12 +411,12 @@ void CPlaneYZCalculator::do_calculate()
   if(!m_bReady && !build_cs_mesh())
     return;
 
-  Vector3D e1, e2, vVel, vNorm(1, 0, 0);
+  CRegion* pReg = m_CrossSect.get_region();
   double fS, fSumS = 0, fRes, fSumRes = 0;
-  size_t nFaceCount = m_vFaces.size();
+  size_t nFaceCount = pReg->vFaces.size();
   for(size_t i = 0; i < nFaceCount; i++)
   {
-    CFace* pFace = m_vFaces.at(i);
+    CFace* pFace = pReg->vFaces.at(i);
     if(!process_face(pFace, fS, fRes))
       continue;   // the face square is less than Const_Almost_Zero.
 
@@ -421,6 +426,13 @@ void CPlaneYZCalculator::do_calculate()
 
   normalize_result(fSumS, fSumRes);
   convert_result();
+
+  if(m_bEnable)
+  {
+    CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->set_cross_sections_array(&(pReg->vFaces));
+    pDrawObj->draw();
+  }
 }
 
 void CPlaneYZCalculator::update()
@@ -428,9 +440,10 @@ void CPlaneYZCalculator::update()
   if(!m_bReady && !build_cs_mesh())
     return;
 
+  CRegion* pReg = m_CrossSect.get_region();
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   if(m_bEnable)
-    pDrawObj->set_cross_sections_array(&m_vFaces);
+    pDrawObj->set_cross_sections_array(&(pReg->vFaces));
   else
     pDrawObj->set_cross_sections_array(NULL);
 }
@@ -441,204 +454,16 @@ bool CPlaneYZCalculator::build_cs_mesh()
   if(!get_tracker_ptr())
     return false;
 
-  CBox& box = m_pObj->get_box();
-
-  double fEps = 0.25 * m_fMeshSize;
-  double fYMin = box.vMin.y - fEps, fYMax = box.vMax.y + fEps, fZMin = box.vMin.z - fEps, fZMax = box.vMax.z + fEps;
-
-  double fLenZ = fZMax - fZMin;
-  UINT nCountIntervZ = UINT(fLenZ / m_fMeshSize);
-  double fStepZ = nCountIntervZ > 0 ? fLenZ / nCountIntervZ : m_fMeshSize;
-  UINT nNz = nCountIntervZ + 1;
-
-  double fLenY = fYMax - fYMin;
-  UINT nCountIntervY = UINT(fLenY / m_fMeshSize);
-  double fStepY = nCountIntervY > 0 ? fLenY / nCountIntervY : m_fMeshSize;
-  UINT nNy = nCountIntervY + 1;
-
-// Allocate memory for pointers:
-  UINT nPtrsCount = nNy * nNz;
-  CNode3D** pNodePtrs = new CNode3D*[nPtrsCount];
-  for(UINT k = 0; k < nPtrsCount; k++)
-    pNodePtrs[k] = NULL;  // all pointers in the array are initially NULL.
-
-  Vector3D vOrig(m_fPosX, fYMin, 0), vDir(0, 1, 0), vPos;
-  for(UINT j = 0; j < nNz; j++)
-  {
-    vOrig.z = fZMin + j * fStepZ;
-    CIntersectColl coll;
-    CRay ray(vOrig, vDir);
-    if(!intersect(ray, coll) || coll.size() % 2 != 0)   // there must be an even number of intersections.
-      continue;
-
-    UINT i0 = UINT((coll.at(0).pos.y - fYMin) / fStepY);  // index of the first, nearest to the ray origin, point of intersection.
-    UINT i1 = UINT((coll.at(coll.size() - 1).pos.y - fYMin) / fStepY);  // index of the last, farthest from the ray origin, point of intersection.
-
-    CNode3D node; // this is just a container for interpolated data.
-    CElem3D* pElem = NULL;
-    for(UINT i = i0; i <= i1; i++)
-    {
-      vPos = Vector3D(m_fPosX, fYMin + i * fStepY, vOrig.z);
-      if(!m_pObj->interpolate(vPos, 0, 0, node, pElem))
-        continue;
-
-// Allocate a node inside the 3D mesh:
-      UINT k = i + j * nNy;
-      pNodePtrs[k] = new CNode3D(node.pos, node.vel, node.field, node.rf, node.dens, node.press, node.temp, node.visc, node.cond, node.cp);
-// This index > 0 will be used in process_triangle() to distinguish inner and outer points. The points, which have been initially outer,
-// cannot be used as centers of attraction of the other outer points as they are located too close to the boundary.
-      pNodePtrs[k]->nInd = k + 1;
-    }
-  }
-
-  triangulate(nNy, nNz, fStepY, fStepZ, fYMin, fZMin, pNodePtrs);
-
-  for(UINT k = 0; k < nPtrsCount; k++)
-  {
-    CNode3D* pNode = pNodePtrs[k];
-    if(pNode != NULL)
-      m_vNodes.push_back(pNode);
-  }
-
-  delete[] pNodePtrs; // free only memory allocated for array of pointers, do not delete the pointers themselves.
-  m_bReady = true;
-  return true;
-}
-
-void CPlaneYZCalculator::triangulate(UINT nY, UINT nZ, double fdY, double fdZ, double fY0, double fZ0, CNode3D** pNodePtrs)
-{
-  UINT k0, k1, k2, k3;
-  Vector3D v0(m_fPosX, 0, 0), v1(m_fPosX, 0, 0), v2(m_fPosX, 0, 0), v3(m_fPosX, 0, 0);
-
-  for(UINT j = 0; j < nZ - 1; j++)
-  {
-    v0.z = fZ0 + j * fdZ;
-    v1.z = v0.z;
-    v2.z = v0.z + fdZ;
-    v3.z = v2.z;
-
-    for(UINT i = 0; i < nY - 1; i++)
-    {
-      v0.y = fY0 + i * fdY;
-      v1.y = v0.y + fdY;
-      v2.y = v1.y;
-      v3.y = v0.y;
-
-      k0 = i + j * nY;
-      k1 = k0 + 1;
-      k2 = k1 + nY;
-      k3 = k0 + nY;
-
-      process_quad(v0, v1, v2, v3, pNodePtrs[k0], pNodePtrs[k1], pNodePtrs[k2], pNodePtrs[k3]);
-    }
-  }
-}
-
-void CPlaneYZCalculator::process_quad(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3,
-  CNode3D*& p0, CNode3D*& p1, CNode3D*& p2, CNode3D*& p3)
-{
-  CNode3D* pNodes[4] = { p0, p1, p2, p3 };
-
-  int nGoodNode = -1, nGoodNodesCount = 0;
-  for(UINT i = 0; i < 4; i++)
-  {
-    if((pNodes[i] != NULL))
-    {
-      nGoodNode = i;
-      nGoodNodesCount++;
-    }
-  }
-
-  if(nGoodNodesCount == 0)
-  {
-    return;
-  }
-  else if(nGoodNodesCount == 1)
-  {
-    switch(nGoodNode) // make sure that there is no triangle, all 3 points of which lie out of the mesh.
-    {
-      case 0:
-      case 2:
-      {
-        process_triangle(v0, v1, v2, p0, p1, p2);
-        process_triangle(v0, v2, v3, p0, p2, p3);
-        break;
-      }
-      case 1:
-      case 3:
-      {
-        process_triangle(v0, v1, v3, p0, p1, p3);
-        process_triangle(v1, v2, v3, p1, p2, p3);
-        break;
-      }
-    }
-  }
-  else
-  {
-    process_triangle(v0, v1, v3, p0, p1, p3);
-    process_triangle(v1, v2, v3, p1, p2, p3);
-  }
-}
-
-void CPlaneYZCalculator::process_triangle(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, CNode3D*& p0, CNode3D*& p1, CNode3D*& p2)
-{
-  Vector3D vVert[3] = { v0, v1, v2 };
-  CNode3D* pNodes[3] = { p0, p1, p2 };
-  
-  UINT i;
-  int nGoodNode = -1;
-  for(i = 0; i < 3; i++)
-  {
-    if((pNodes[i] != NULL) && (pNodes[i]->nInd > 0))
-    {
-      nGoodNode = i;
-      break;
-    }
-  } 
-
-  if(nGoodNode < 0)
-    return;   // nothing to do, because all the nodes are out of the mesh.
-
-  CNode3D node; // this is just a container for interpolated data.
-  CElem3D* pElem = NULL;
-  for(i = 0; i < 3; i++)
-  {
-    if(pNodes[i] == NULL)
-    {
-      Vector3D vDest = vVert[i];
-      if(!move_node(pNodes[nGoodNode]->pos, vDest))
-        return;   // unable to find intersection with the boundary, this triangle cannot be built.
-
-      if(!m_pObj->interpolate(vDest, 0, 0, node, pElem))
-        return;   // unable to interpolate data to the new position, this triangle cannot be built.
-
-      CNode3D* pNode = new CNode3D(node.pos, node.vel, node.field, node.rf, node.dens, node.press, node.temp, node.visc, node.cond, node.cp);
-      pNode->nInd = 0;   // prohibit this node ever be a center of attraction for other outer nodes.
-      switch(i)
-      {
-        case 0: p0 = pNode; break;
-        case 1: p1 = pNode; break;
-        case 2: p2 = pNode; break;
-      }
-    }
-  }
-
-  CFace* pFace = new CFace(p0, p1, p2);
-  pFace->norm = Vector3D(1, 0, 0);
-  m_vFaces.push_back(pFace);
-}
-
-bool CPlaneYZCalculator::move_node(const Vector3D& vOrig, Vector3D& vDest) const
-{
-  Vector3D vDir = (vDest - vOrig).normalized();
-  CIntersectColl coll;
-  CRay ray(vOrig, vDir);
-  if(!intersect(ray, coll))
+  m_CrossSect.invalidate();
+  CRegion* pReg = m_CrossSect.get_region();  // here CDomainCrossSection::build_mesh() is called.
+  if(pReg == NULL)
     return false;
 
-  const CIntersectPoint& point = coll.at(0);
-  vDest = vOrig + vDir * (0.99 * point.dist);  // locate the destination a little bit out of the boundary, inside the 3D mesh.
+  size_t nFacesCount = pReg->vFaces.size();
+  for(size_t i = 0; i < nFacesCount; i++)
+    pReg->vFaces.at(i)->norm = m_CrossSect.get_plane_norm();
 
+  m_bReady = true;
   return true;
 }
 
@@ -664,9 +489,7 @@ void CPlaneYZCalculator::do_sequence_calc()
   fputs(sHeader.c_str(), pStream);
   fputs("\n\n", pStream);
 
-  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-
-  double fCurrPos = m_fPosX;
+  double fCurrX = get_plane_x();
   double fStepX = (m_fEndX - m_fStartX) / m_nSeqCalcCount;
 
   for(UINT i = 0; i < m_nSeqCalcCount; i++)
@@ -675,16 +498,11 @@ void CPlaneYZCalculator::do_sequence_calc()
     if(m_bTerminate)
       break;
 
-    set_plane_x(m_fStartX + i * fStepX);
+    fCurrX = m_fStartX + i * fStepX;
+    set_plane_x(fCurrX);
     do_calculate();
 
-    fprintf(pStream, "%f,  %f\n", 10 * m_fPosX, m_fResult);
-
-    if(m_bEnable)
-    {
-      pDrawObj->set_cross_sections_array(&m_vFaces);
-      pDrawObj->draw();
-    }
+    fprintf(pStream, "%f,  %f\n", 10 * fCurrX, m_fResult);
   }
 
   fclose(pStream);
@@ -692,7 +510,7 @@ void CPlaneYZCalculator::do_sequence_calc()
     return;
 
   set_progress(100);
-  set_plane_x(fCurrPos);
+  set_plane_x(fCurrX);
   do_calculate();
 }
 
@@ -701,13 +519,13 @@ void CPlaneYZCalculator::do_sequence_calc()
 //---------------------------------------------------------------------------------------
 void CPlaneYZCalculator::save(CArchive& ar)
 {
-  UINT nVersion = 1;
+  UINT nVersion = 2;
   ar << nVersion;
 
   CCalculator::save(ar);
 
-  ar << m_fPosX;
-  ar << m_fMeshSize;
+  double fCurrX = get_plane_x();
+  ar << fCurrX;
 
   ar << m_fStartX;
   ar << m_fEndX;
@@ -724,8 +542,14 @@ void CPlaneYZCalculator::load(CArchive& ar)
 
   CCalculator::load(ar);
 
-  ar >> m_fPosX;
-  ar >> m_fMeshSize;
+  double fCurrX;
+  ar >> fCurrX;
+  set_plane_x(fCurrX);
+  if(nVersion < 2)
+  {
+    double fMeshSize;
+    ar >> fMeshSize;
+  }
 
   if(nVersion >= 1)
   {
@@ -738,7 +562,6 @@ void CPlaneYZCalculator::load(CArchive& ar)
     set_filename((const char*)cFileName);
   }
 }
-
 
 //-------------------------------------------------------------------------------------------------
 // CSelectedRegionCalculator.
