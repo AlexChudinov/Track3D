@@ -74,6 +74,7 @@ public:
   CString             get_drawn_reg_names() const;
   DWORD_PTR           get_drawn_reg_names_ptr() const;
 
+  void                clear_reg_names();
   void                invalidate();
 
   virtual void        save(CArchive& archive);
@@ -214,6 +215,15 @@ inline CString CColorImage::get_drawn_reg_names() const
 inline DWORD_PTR CColorImage::get_drawn_reg_names_ptr() const
 {
   return (DWORD_PTR)&m_vRegNames;
+}
+
+inline void CColorImage::clear_reg_names()
+{
+  if(m_vRegNames.size() != 0)
+  {
+    m_vRegNames.clear();
+    m_bReady = false;
+  }
 }
 
 inline void CColorImage::invalidate()

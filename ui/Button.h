@@ -120,6 +120,23 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CClearLocationsButton.
+//---------------------------------------------------------------------------------------
+class CClearLocationsButton : public CRemovePropertyButton
+{
+  DECLARE_DYNAMIC(CClearLocationsButton)
+
+public:
+  CClearLocationsButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CRemovePropertyButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // CRemoveCalcButton.
 //---------------------------------------------------------------------------------------
 class CRemoveCalcButton : public CRemovePropertyButton

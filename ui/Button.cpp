@@ -251,6 +251,20 @@ void CRemoveContourButton::OnClickButton(CPoint point)
 }
 
 //---------------------------------------------------------------------------------------
+// CClearLocationsButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CClearLocationsButton, CRemovePropertyButton)
+
+void CClearLocationsButton::OnClickButton(CPoint point)
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  EvaporatingParticle::CColorContour* pCont = (EvaporatingParticle::CColorContour*)m_dwData;
+  pCont->clear_reg_names();
+  m_pWndProp->set_update_all();
+  pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
 // CRemoveCalcButton.
 //---------------------------------------------------------------------------------------
 IMPLEMENT_DYNAMIC(CRemoveCalcButton, CRemovePropertyButton)

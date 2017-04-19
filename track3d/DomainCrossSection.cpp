@@ -476,6 +476,7 @@ CNode3D* CDomainCrossSection::interpolate(const Vector3D& vPos, CNode3D* p0, CNo
 // Vectors:
   pNode->vel   = p0->vel + ksi * (p1->vel - p0->vel);
   pNode->field = p0->field + ksi * (p1->field - p0->field);
+  pNode->clmb = p0->clmb + ksi * (p1->clmb - p0->clmb);
   pNode->rf    = p0->rf + ksi * (p1->rf - p0->rf);
 
   m_vNodes.push_back(pNode);

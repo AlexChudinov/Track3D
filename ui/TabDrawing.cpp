@@ -207,6 +207,10 @@ void CPropertiesWnd::add_contour_ctrls()
     CSelectRegionButton* pSelectRegButton = new CSelectRegionButton(this, _T("Locations"), cRegNames, _T("Click to select 2D region(s) at which this contour will be plotted."), pObj->get_drawn_reg_names_ptr());
     pContourProp->AddSubItem(pSelectRegButton);
 
+// Clear all locations:
+    CClearLocationsButton* pClearLocBtn = new CClearLocationsButton(this, _T("Clear Locations"), _T(""), _T("Click to clear all locations from this contour."), (DWORD_PTR)pObj);
+    pContourProp->AddSubItem(pClearLocBtn);
+
 // Variable to be plotted:
     COleVariant var1(pObj->get_var_name(pObj->get_var_index()));
     CResponseProperty* pVarSelectProp = new CResponseProperty(this, _T("Variable"), var1, _T("Specify a variable to be contoured."), pObj->get_var_index_ptr());

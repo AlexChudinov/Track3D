@@ -18,17 +18,21 @@ public:
 
   enum  // index of the variable to be plotted.
   {
-    varPress  = 0,
-    varDens   = 1,
-    varTemp   = 2,
-    varAbsVel = 3,
-    varVelX   = 4,
-    varVelY   = 5,
-    varVelZ   = 6,
+    varPress    = 0,
+    varDens     = 1,
+    varTemp     = 2,
+    varAbsVel   = 3,
+    varVelX     = 4,
+    varVelY     = 5,
+    varVelZ     = 6,
+    varAbsClmb  = 7,
+    varClmbX    = 8,
+    varClmbY    = 9,
+    varClmbZ    = 10,
 // DEBUG
-    varPhi    = 7,  // home-computed electric potential.
+    varPhi      = 11,  // home-computed electric potential (or absolute field, see ElectricField.cpp, CElectricFieldData::calc_field()).
 // END DEBUG
-    varCount  = 8
+    varCount    = 12
   };
 
   int                 get_var_index() const;

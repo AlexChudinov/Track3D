@@ -378,6 +378,30 @@ void CColorContour::get_face_values_array(CFace* pFace, double* pVal) const
         pVal[i] = pNodes[i]->vel.z; 
       break;
     }
+    case varAbsClmb:
+    {
+      for(UINT i = 0; i < 3; i++)
+        pVal[i] = pNodes[i]->clmb.length(); 
+      break;
+    }
+    case varClmbX:
+    {
+      for(UINT i = 0; i < 3; i++)
+        pVal[i] = pNodes[i]->clmb.x; 
+      break;
+    }
+    case varClmbY:
+    {
+      for(UINT i = 0; i < 3; i++)
+        pVal[i] = pNodes[i]->clmb.y; 
+      break;
+    }
+    case varClmbZ:
+    {
+      for(UINT i = 0; i < 3; i++)
+        pVal[i] = pNodes[i]->clmb.z; 
+      break;
+    }
 // DEBUG
     case varPhi:
     {
@@ -499,6 +523,13 @@ double CColorContour::get_multiplier(bool bSI_to_CGS) const
     {
       return bSI_to_CGS ? SI_to_CGS_Vel : CGS_to_SI_Vel;
     }
+    case varAbsClmb:
+    case varClmbX:
+    case varClmbY:
+    case varClmbZ:
+    {
+      return bSI_to_CGS ? SI_to_CGS_Voltage : CGS_to_SI_Voltage;
+    }
   }
 
   return 1.0;
@@ -508,14 +539,18 @@ const char* CColorContour::get_var_name(int nVar) const
 {
   switch(nVar)
   {
-    case varPress:  return _T("Pressure");
-    case varDens:   return _T("Density");
-    case varTemp:   return _T("Temperature");
-    case varAbsVel: return _T("Absolute Velocity");
-    case varVelX:   return _T("Velocity X");
-    case varVelY:   return _T("Velocity Y");
-    case varVelZ:   return _T("Velocity Z");
-    case varPhi:    return _T("Electric Potential");
+    case varPress:    return _T("Pressure");
+    case varDens:     return _T("Density");
+    case varTemp:     return _T("Temperature");
+    case varAbsVel:   return _T("Absolute Velocity");
+    case varVelX:     return _T("Velocity X");
+    case varVelY:     return _T("Velocity Y");
+    case varVelZ:     return _T("Velocity Z");
+    case varAbsClmb:  return _T("Absolute Coulomb Field");
+    case varClmbX:    return _T("Coulomb Field X");
+    case varClmbY:    return _T("Coulomb Field Y");
+    case varClmbZ:    return _T("Coulomb Field Z");
+    case varPhi:      return _T("Electric Potential");
   }
 
   return _T("");

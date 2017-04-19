@@ -499,6 +499,7 @@ bool CTracker::capture_save_image(UINT nIter)
 {
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->invalidate_tracks();
+  pDrawObj->invalidate_contours();
 
   CMainFrame* pMainFrame = (CMainFrame*)(CParticleTrackingApp::Get()->GetMainWnd());
   CView* pView = pMainFrame->GetActiveView();
