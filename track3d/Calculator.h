@@ -121,6 +121,7 @@ class CCalcCollection : public std::vector<CCalculator*>
 public:
   virtual ~CCalcCollection();
 
+  void              invalidate_calcs();
   void              clear_calcs();
   void              calculate();
 
@@ -297,6 +298,7 @@ private:
                       m_vLineEnd;
 };
 
+struct CIonTrackItem;
 //-------------------------------------------------------------------------------------------------
 // CTrackCalculator - a class for calculating averaged ion parameters by track data.
 //-------------------------------------------------------------------------------------------------
@@ -310,8 +312,9 @@ public:
   {
     clcIonTemp    = 0,
     clcCurrent    = 1,
-    clcTime       = 2,
-    clcTrackCount = 3
+    clcFragment   = 2,
+    clcTime       = 3,
+    clcTrackCount = 4
   };
 
   virtual void        run();
@@ -364,6 +367,10 @@ protected:
   bool                collect_elements(); // collect all the elements, which bounding boxes intersect with x = m_fPosCS plane.
 
   void                find_reached_last_cs();
+
+// Fragmentation in the post-process:
+  bool                calc_fragmentation();
+  bool                get_fragm_probability(CIonTrackItem* pItem, double& fFragmProb); // probability to be fragmented in a unit time.
 
 private:
   std::string         m_sOutputFile;
@@ -434,6 +441,12 @@ private:
 //-------------------------------------------------------------------------------------------------
 // Inline implementation
 //-------------------------------------------------------------------------------------------------
+inline void CCalcCollection::invalidate_calcs()
+{
+  for(size_t i = 0; i < size(); i++)
+    at(i)->invalidate();
+}
+
 inline void CCalculator::invalidate()
 {
   m_bReady = false;

@@ -6,6 +6,7 @@
 
 #include "Tracker.hpp"
 #include "ParticleTracking.h"
+#include "mathematics.h"
 
 #include <algorithm>
 
@@ -377,8 +378,6 @@ void CPlaneYZCalculator::set_default()
   m_CrossSect.set_plane_origin(Vector3D(0.1, 0.0, 0.0));
 
   m_bReady = false; // force to build the plane mesh.
-//  m_fMeshSize = 0.05;
-//  m_fPosX = 0.1;
 
 // Sequential calculations support:
   m_fStartX = 0.;
@@ -390,19 +389,6 @@ void CPlaneYZCalculator::clear()
 {
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->set_cross_sections_array(NULL);
-
-/*
-  size_t nNodeCount = m_vNodes.size();
-  for(size_t i = 0; i < nNodeCount; i++)
-    delete m_vNodes.at(i);
-
-  size_t nFaceCount = m_vFaces.size();
-  for(size_t j = 0; j < nFaceCount; j++)
-    delete m_vFaces.at(j);
-
-  m_vNodes.clear();
-  m_vFaces.clear();
-*/
 }
 
 void CPlaneYZCalculator::do_calculate()
@@ -920,6 +906,7 @@ void CTrackCalculator::run()
 
 void CTrackCalculator::set_default()
 {
+  m_bReady = false; // post-process fragmentation computation support.
   m_nClcVar = clcIonTemp;
   m_nCrossSectCount = 50;
   m_fPosCS = 0;
@@ -936,6 +923,8 @@ void CTrackCalculator::do_calculate()
   bool bOldIntegr = m_pObj->get_use_old_integrator();
   if(m_nClcVar == clcIonTemp)
     collect_elements();
+  if((m_nClcVar == clcFragment) && !calc_fragmentation())
+    return;
 
   m_fResult = m_fIonTempEq = m_fGasTemp = 0;
 
@@ -987,6 +976,12 @@ void CTrackCalculator::do_calculate()
             m_fResult += fCurrIncr;
             break;
           }
+          case clcFragment:
+          {
+            m_fResult += prev.unfragm + fKsi * (curr.unfragm - prev.unfragm);
+            nIntersectCount++;
+            break;
+          }
           case clcTime:
           {
 // If this function is called from do_sequence_calc() the vector m_vReachedLastCS contains "true" for those
@@ -1013,6 +1008,9 @@ void CTrackCalculator::do_calculate()
   {
     double fNormCoeff = 1. / nIntersectCount;
     m_fResult *= fNormCoeff;
+    if(m_nClcVar == clcFragment)
+      m_fResult = 100 * (1.- m_fResult);
+
     m_fIonTempEq *= fNormCoeff;
     m_fGasTemp *= fNormCoeff;
   }
@@ -1035,9 +1033,10 @@ void CTrackCalculator::do_sequence_calc()
   std::string sHeader;
   switch(m_nClcVar)
   {
-    case clcIonTemp: sHeader = _T("  x(mm),      TI(K),      TIeq(K),    Tgas(K)"); break;
-    case clcCurrent: sHeader = _T("  x(mm),   current(nA),   trans(percent)"); break;
-    case clcTime:    sHeader = _T("  x(mm),   time(ms)"); break;
+    case clcIonTemp:  sHeader = _T("  x(mm),      TI(K),      TIeq(K),    Tgas(K)"); break;
+    case clcCurrent:  sHeader = _T("  x(mm),   current(nA),   trans(percent)"); break;
+    case clcFragment: sHeader = _T("  x(mm),   fragmented(percent)"); break;
+    case clcTime:     sHeader = _T("  x(mm),   time(ms)"); break;
   }
 
   fputs(sHeader.c_str(), pStream);
@@ -1060,9 +1059,10 @@ void CTrackCalculator::do_sequence_calc()
 
     switch(m_nClcVar)
     {
-      case clcIonTemp: fprintf(pStream, "%f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fIonTempEq, m_fGasTemp); break;
-      case clcCurrent: fprintf(pStream, "%f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, 100 * m_fResult / fFullCurr); break;
-      case clcTime:    fprintf(pStream, "%f,  %f\n", 10 * m_fPosCS, m_fResult); break;
+      case clcIonTemp:  fprintf(pStream, "%f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fIonTempEq, m_fGasTemp); break;
+      case clcCurrent:  fprintf(pStream, "%f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, 100 * m_fResult / fFullCurr); break;
+      case clcFragment: fprintf(pStream, "%f,  %f\n", 10 * m_fPosCS, m_fResult); break;
+      case clcTime:     fprintf(pStream, "%f,  %f\n", 10 * m_fPosCS, m_fResult); break;
     }
   }
 
@@ -1122,6 +1122,7 @@ const char* CTrackCalculator::units() const
   {
     case clcIonTemp:  return _T("Average Ion Temperature,  K");
     case clcCurrent:  return _T("Ion Current,  nA");
+    case clcFragment: return _T("Part of fragmented Ions, %");
     case clcTime:     return _T("Moving Time, ms");
   }
 
@@ -1134,6 +1135,7 @@ const char* CTrackCalculator::get_var_name(int nVar) const
   {
     case clcIonTemp:  return _T("Average Ion Temperature");
     case clcCurrent:  return _T("Ion Current");
+    case clcFragment: return _T("Part of fragmented Ions");
     case clcTime:     return _T("Moving Time");
   }
 
@@ -1220,6 +1222,90 @@ bool CTrackCalculator::calc_gas_temp(const Vector3D& vIonPos, double& fGasTemp) 
   }
 
   return false;
+}
+
+// Fragmentation in the post-process:
+bool CTrackCalculator::calc_fragmentation()
+{
+  if(m_bReady)
+    return true;
+
+  if(m_pObj->get_particle_type() != CTrack::ptIon)
+    return false;
+
+  CIonTrackItem* pItem = NULL;
+  double fPrevTime, fPrevProb, fCurrProb;
+  CTrackVector& vTracks = m_pObj->get_tracks();
+  size_t nTrackCount = vTracks.size();
+  for(size_t i = 0; i < nTrackCount; i++)
+  {
+    CTrack& track = vTracks.at(i);
+    size_t nItemCount = track.size();
+    if(nItemCount < 2 || track.get_type() != CTrack::ptIon)
+      continue;
+
+    double fInt = 0;
+    pItem = (CIonTrackItem*)track.at(0);
+    fPrevTime = pItem->time;
+    if(!get_fragm_probability(pItem, fPrevProb))
+      continue;
+
+    for(size_t j = 1; j < nItemCount; j++)
+    {
+      pItem = (CIonTrackItem*)track.at(j);
+      if(!get_fragm_probability(pItem, fCurrProb))
+        continue;
+
+      fInt += 0.5 * (fPrevProb + fCurrProb) * (pItem->time - fPrevTime);
+      pItem->unfragm = exp(-fInt);
+
+      fPrevTime = pItem->time;
+      fPrevProb = fCurrProb;
+    }
+  }
+
+  m_bReady = true;
+  return true;
+}
+
+bool CTrackCalculator::get_fragm_probability(CIonTrackItem* pItem, double& fFragmProb)
+{
+  CElem3D* pElem = pItem->nElemId >= 0 ? m_pObj->get_elems().at(pItem->nElemId) : NULL;
+  if(pElem == NULL)
+    return false;
+
+  Vector3D vIonPos = pItem->pos, vIonVel = pItem->vel, vAccel;
+  m_pObj->sym_corr(vIonPos, vIonVel, vAccel);
+
+  double pWeight[6];
+  if(!pElem->coeff(vIonPos, pWeight))
+    return false;
+
+// Environment gas parameters:
+  CNode3D* pNode = NULL;
+  Vector3D vGasVel(0, 0, 0);
+  double w, fPress = 0, fTemp = 0;
+  const CNodesCollection& vNodes = m_pObj->get_nodes();
+  size_t nNodeCount = pElem->get_node_count();
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = vNodes.at(pElem->get_node_index(i));
+    w = pWeight[i];
+
+    vGasVel += w * pNode->vel;
+    fPress += w * pNode->press;
+    fTemp += w * pNode->temp;
+  }
+
+  double fNumDens = fPress * scfTempCoeff / fTemp;
+  double fIonNeutrFreq = fNumDens * (vIonVel - vGasVel).length() * m_pObj->get_ion_cross_section();
+
+  double fActEnergy = m_pObj->get_act_energy() / Const_Erg_to_EV; // activation energy in CGS.
+  double fProbInt = CMath::energy_probability_integral(fActEnergy * scfTempCoeff / pItem->temp);
+
+  fFragmProb = fIonNeutrFreq * fProbInt;
+
+  return true;
 }
 
 void CTrackCalculator::save(CArchive& ar)

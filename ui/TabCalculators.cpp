@@ -26,9 +26,6 @@ void CPropertiesWnd::add_calc_ctrls()
         CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section X, mm"), COleVariant(10 * pPlaneYZCalc->get_plane_x()), _T("Set x-coordinate of the vertical cross-section plane."), pPlaneYZCalc->get_plane_x_ptr());
         pXPlaneCalcGroup->AddSubItem(pXPlanePos);
 
-//        CCalcResponseProperty* pMeshStep = new CCalcResponseProperty(this, _T("Cross-Section Mesh Step, mm"), COleVariant(10 * pPlaneYZCalc->get_mesh_step()), _T("Set size of the mesh in the vertical cross-section plane."), pPlaneYZCalc->get_mesh_step_ptr());
-//        pXPlaneCalcGroup->AddSubItem(pMeshStep);
-
         CPlaneYZCalcCheckBox* pEnableCrossSectDrawing = new CPlaneYZCalcCheckBox(this, _T("Enable Cross-Section Drawing"), (_variant_t)pPlaneYZCalc->get_enable(), _T("Turns ON/OFF the cross-section drawing."), pPlaneYZCalc->get_enable_ptr());
         pXPlaneCalcGroup->AddSubItem(pEnableCrossSectDrawing);
 
@@ -196,7 +193,7 @@ void CPropertiesWnd::add_calc_ctrls()
 
         COleVariant var(pTrackCalc->get_var_name(pTrackCalc->get_clc_var_type()));
         CCalcResponseProperty* pVarSelectProp = new CCalcResponseProperty(this, _T("Variable to be Calculated"), var, _T("Specify a variable to be calculated at the selected cross-section."), pTrackCalc->get_clc_var_type_ptr());
-        for(int j = 0; j < EvaporatingParticle::CTrackCalculator::clcCount; j++)
+        for(int j = 0; j < EvaporatingParticle::CTrackCalculator::clcTrackCount; j++)
           pVarSelectProp->AddOption(pTrackCalc->get_var_name(j));
 
         pVarSelectProp->AllowEdit(FALSE);

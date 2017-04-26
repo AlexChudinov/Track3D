@@ -220,6 +220,7 @@ void CPropertiesWnd::OnDoTracking()
 
   if(pObj->get_result_flag())
   {
+    CParticleTrackingApp::Get()->GetCalcs()->invalidate_calcs();
     EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->invalidate_tracks();
     pDrawObj->draw();
