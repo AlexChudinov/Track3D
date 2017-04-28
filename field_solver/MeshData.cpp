@@ -79,7 +79,7 @@ CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
 	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
-		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
+		double fSqLength = v.sqlength();
 		result(0, 0) += (v.x*v.x) / fSqLength;
 		result(1, 1) += (v.y*v.y) / fSqLength;
 		result(2, 2) += (v.z*v.z) / fSqLength;
@@ -96,7 +96,7 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
-		double fSqLength = v.sqlength(); fSqLength *= fSqLength;
+		double fSqLength = v.sqlength();
 		add(result[0], mul(v.x / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
 		add(result[1], mul(v.y / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
 		add(result[2], mul(v.z / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
@@ -409,6 +409,77 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 	return solver;
 }
 
+CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
+{
+	ScalarFieldOperator result;
+
+	m_pProgressBar->set_job_name("Laplacian solver #3 creation...");
+	m_pProgressBar->set_progress(0);
+
+	result.m_matrix.resize(m_nodes.size());
+
+	std::vector<NodeType> vNodeTypes(nodeTypes());
+
+	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx)
+	{
+		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
+		const Node* n = m_nodes[nCurNodeIdx];
+		switch (vNodeTypes[nCurNodeIdx])
+		{
+		case FirstTypeBoundaryNode: //Fixed value BC
+			result.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
+			break;
+		case SecondTypeBoundaryNode: //Zero gradient
+		{
+			const Vector3D& n = boundaryMesh()->normal(nCurNodeIdx);
+			InterpCoefs coefs = std::move(add(
+				mul(n.x, gradX(nCurNodeIdx)),
+				add(mul(n.y, gradY(nCurNodeIdx)),
+					mul(n.z, gradZ(nCurNodeIdx)))));
+			double fSum = coefs[nCurNodeIdx];
+			coefs.erase(nCurNodeIdx);
+			mul(-1. / fSum, coefs);
+			result.m_matrix[nCurNodeIdx] = std::move(coefs);
+			break;
+		}
+		default: //It is inner point
+		{
+			double
+				hx1 = optimalStep({ -1.0, 0.0, 0.0 }, nCurNodeIdx),
+				hx2 = optimalStep({ 1.0, 0.0, 0.0 }, nCurNodeIdx),
+				hy1 = optimalStep({ 0.0, -1.0, 0.0 }, nCurNodeIdx),
+				hy2 = optimalStep({ 0.0, 1.0, 0.0 }, nCurNodeIdx),
+				hz1 = optimalStep({ 0.0, 0.0, -1.0 }, nCurNodeIdx),
+				hz2 = optimalStep({ 0.0, 0.0, 1.0 }, nCurNodeIdx);
+
+			double h = min(hx1, min(hx2, min(hy1, min(hy2, min(hz1, hz2)))));
+			Vector3D
+				x0{ n->pos.x - h, n->pos.y, n->pos.z },
+				x1{ n->pos.x + h, n->pos.y, n->pos.z },
+				y0{ n->pos.x, n->pos.y - h, n->pos.z },
+				y1{ n->pos.x, n->pos.y + h, n->pos.z },
+				z0{ n->pos.x, n->pos.y, n->pos.z - h },
+				z1{ n->pos.x, n->pos.y, n->pos.z + h };
+
+			InterpCoefs coefsX = add(interpCoefs(x0, nNextNodeIdx, nCurNodeIdx), 
+				interpCoefs(x1, nNextNodeIdx, nCurNodeIdx));
+
+			InterpCoefs coefsY = add(interpCoefs(y0, nNextNodeIdx, nCurNodeIdx),
+				interpCoefs(y1, nNextNodeIdx, nCurNodeIdx));
+
+			InterpCoefs coefsZ = add(interpCoefs(y0, nNextNodeIdx, nCurNodeIdx),
+				interpCoefs(y1, nNextNodeIdx, nCurNodeIdx));
+
+			mul(1. / 6., add(coefsX, add(coefsY, coefsZ)));
+			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
+		}
+		}
+	}, progressBar());
+
+	return result;
+}
+
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 {
 	ScalarFieldOperator opGradComp1 = gradX(), opGradComp2 = opGradComp1, opLaplace;
@@ -629,6 +700,8 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type,
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
 	case CMeshAdapter::LaplacianSolver2:
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver2()));
+	case CMeshAdapter::LaplacianSolver3:
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver3()));
 	case CMeshAdapter::GradX:
 		return PScalFieldOp(new ScalarFieldOperator(gradX()));
 	case CMeshAdapter::GradY:

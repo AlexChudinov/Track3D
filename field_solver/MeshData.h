@@ -164,6 +164,8 @@ private:
 	ScalarFieldOperator laplacianSolver1() const;
 	//Creates solver which uses graph and operators arithmetics
 	ScalarFieldOperator laplacianSolver2() const;
+	//Creates solver which uses equal steps
+	ScalarFieldOperator laplacianSolver3() const;
 	//Calculates laplacian operator
 	ScalarFieldOperator laplacian() const;
 	//Directed derivative calculation
@@ -211,6 +213,7 @@ public:
 		LaplacianSolver0,
 		LaplacianSolver1,
 		LaplacianSolver2,
+		LaplacianSolver3,
 		GradX,
 		GradY,
 		GradZ
