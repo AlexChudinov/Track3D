@@ -335,6 +335,9 @@
     <ClCompile Include="field_solver\BoundaryMesh.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="utilities\MemoryPool.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="ui\res\MoveRotateToolbar.bmp">

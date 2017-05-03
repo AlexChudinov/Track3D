@@ -3,49 +3,69 @@
 #define _MEMORY_POOL_
 
 #include <mutex>
+#include <forward_list>
+#include <algorithm>
+#include <vector>
 
-//Points from one memory block to another
-class MemoryBlocksList
-{
-	struct BlocksList
-	{
-		BlocksList * pNext;
-	};
-	template<size_t nBlockSize> friend class BlockSizePool;
-	template<typename T> friend class BlockPool;
+//Interface to an every instance of template of BlockSizePool
+class BlockPoolInterface {
+	//Pointers to all created instances
+	static std::vector<BlockPoolInterface*> s_blockPools;
+
+public:
+
+	//Every instance can be cleaned up
+	virtual void cleanUp() = 0;
+
+	//Inserts new one BlockAllocator into container
+	static void insert(BlockPoolInterface * p);
+
+	//Cleans up all created template instances
+	static void cleanUpEveryPool();
 };
 
 //Keeps memory blocks of a certain size
 template<size_t nBlockSize>
-class BlockSizePool
+class BlockSizePool : public BlockPoolInterface
 {
-	using BlocksList = MemoryBlocksList::BlocksList;
 public:
 	using Mutex = std::mutex;
 	using Locker = std::unique_lock<Mutex>;
+	using BlocksList = std::forward_list<char*>;
+	using BlocksLayout = BlocksList;
+
 private:
+	//Cleans all blocks from the pool
+	void cleanUpEverything() {
+		for (char* p : m_blocks) {
+			VirtualFree((void*)p, NULL, MEM_RELEASE);
+		}
+	}
+
+	//Expands poolsize whenever it is needed
 	void expandPoolSize()
 	{
 		const size_t nSize = nBlockSize * m_nPageSize;
-		m_head = (BlocksList*)VirtualAlloc(NULL, nSize, MEM_COMMIT, PAGE_READWRITE);
-		BlocksList* head = m_head;
+		m_blocks.push_front((char*)VirtualAlloc(NULL, nSize, MEM_COMMIT, PAGE_READWRITE));
+		m_layout.push_front(m_blocks.front());
+
 		char
-			*pFirst = (char*)head,
+			*pFirst = m_layout.front(),
 			*pLast = pFirst + (nSize - nBlockSize);
-		for (; pFirst < pLast; head = head->pNext)
-			head->pNext = (BlocksList*)(pFirst += nBlockSize);
-		head->pNext = nullptr;
+
+		for (pFirst += nBlockSize; pFirst < pLast; pFirst += nBlockSize)
+			m_layout.push_front(pFirst);
 	}
 
 	//Use it as a singletone
 	BlockSizePool()
 		:
-		m_head(nullptr),
 		m_nPageSize(0)
 	{
 		SYSTEM_INFO sysInfo;
 		GetSystemInfo(&sysInfo);
 		*const_cast<size_t*>(&m_nPageSize) = sysInfo.dwPageSize;
+		BlockPoolInterface::insert(this);
 	}
 
 	BlockSizePool(const BlockSizePool&) = delete;
@@ -63,9 +83,9 @@ public:
 	void * allocBlock()
 	{
 		Locker lock(m_mtxDataAccess);
-		if (!m_head) expandPoolSize();
-		void* res = (void*)m_head;
-		m_head = m_head->pNext;
+		if (m_layout.empty()) expandPoolSize();
+		void* res = (void*)m_layout.front();
+		m_layout.pop_front();
 		return res;
 	}
 
@@ -73,11 +93,44 @@ public:
 	void freeBlock(void * pT)
 	{
 		Locker lock(m_mtxDataAccess);
-		((BlocksList*)pT)->pNext = m_head;
-		m_head = (BlocksList*)pT;
+		m_layout.push_front((char*)pT);
 	}
+
+	//Cleans up unused blocks
+	void cleanUp()
+	{
+		m_layout.sort();
+		auto it = m_blocks.begin();
+		while (it != m_blocks.end()) {
+			BlocksList::iterator first = std::lower_bound(m_layout.begin(),
+				m_layout.end(), *it);
+			if (*first == *it) {
+				BlocksList::iterator cur = first, next = first;
+				++next;
+				size_t nCnt = 0;
+				for (; nCnt < m_nPageSize - 1; ++nCnt) {
+					//Checks if subsequent blocks were put together
+					if (next == m_layout.end() || *next++ - *cur++ != nBlockSize) break;
+				}
+				if (nCnt == m_nPageSize - 1) {
+					//Free all blocks on the page
+					m_layout.erase_after(first, next);
+					VirtualFree((void*)*it, NULL, MEM_RELEASE);
+					first = it;
+					it = m_blocks.erase_after(first, ++it);
+				}
+				else ++it;
+			}
+			else ++it;
+		}
+	}
+
+	//Releses all blocks from memory
+	~BlockSizePool() { /*cleanUpEverything();*/ }
+
 private:
-	BlocksList * m_head;
+	BlocksList m_blocks;
+	BlocksLayout m_layout;
 	const size_t m_nPageSize;
 	Mutex m_mtxDataAccess;
 };
@@ -86,8 +139,7 @@ private:
 template<typename T>
 class BlockPool
 {
-	using BlocksList = MemoryBlocksList::BlocksList;
-	using UsedBlockSizePool = BlockSizePool<max(sizeof(T), sizeof(BlocksList))>;
+	using UsedBlockSizePool = BlockSizePool<sizeof(T)>;
 
 	//Use it as a singletone
 	BlockPool()
@@ -118,6 +170,12 @@ public:
 	{
 		m_bspGlobalRef.freeBlock((void*)pT);
 	}
+
+	//Cleans up the global pool of blocks
+	void cleanUp() {
+		m_bspGlobalRef.cleanUp();
+	}
+
 private:
 	UsedBlockSizePool& m_bspGlobalRef;
 };
