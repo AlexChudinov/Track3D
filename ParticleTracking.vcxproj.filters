@@ -336,7 +336,7 @@
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="utilities\MemoryPool.cpp">
-      <Filter>ui\Source Files</Filter>
+      <Filter>utilities\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

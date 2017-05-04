@@ -51,7 +51,7 @@ private:
 
 		char
 			*pFirst = m_layout.front(),
-			*pLast = pFirst + (nSize - nBlockSize);
+			*pLast = pFirst + nSize;
 
 		for (pFirst += nBlockSize; pFirst < pLast; pFirst += nBlockSize)
 			m_layout.push_front(pFirst);
@@ -99,20 +99,18 @@ public:
 	//Cleans up unused blocks
 	void cleanUp()
 	{
+		Locker lock(m_mtxDataAccess);
 		m_layout.sort();
 		auto it = m_blocks.begin();
 		while (it != m_blocks.end()) {
 			BlocksList::iterator first = std::lower_bound(m_layout.begin(),
 				m_layout.end(), *it);
 			if (*first == *it) {
-				BlocksList::iterator cur = first, next = first;
-				++next;
-				size_t nCnt = 0;
-				for (; nCnt < m_nPageSize - 1; ++nCnt) {
-					//Checks if subsequent blocks were put together
-					if (next == m_layout.end() || *next++ - *cur++ != nBlockSize) break;
-				}
-				if (nCnt == m_nPageSize - 1) {
+				BlocksList::iterator next = first;
+				char * pFirst = *first + (m_nPageSize - 1) * nBlockSize;
+				int count = 0;
+				while ( ++next != m_layout.end() && *next <= pFirst ) ++count;
+				if ( count == (m_nPageSize - 1)) {
 					//Free all blocks on the page
 					m_layout.erase_after(first, next);
 					VirtualFree((void*)*it, NULL, MEM_RELEASE);
