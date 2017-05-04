@@ -10,9 +10,12 @@ void BlockPoolInterface::insert(BlockPoolInterface * p){
 }
 
 void BlockPoolInterface::cleanUpEveryPool(){
-	ThreadPool::getInstance().addTask([&]() {
-		for (BlockPoolInterface* p : s_blockPools) {
-			p->cleanUp();
-		}
-	});
+	std::vector<ThreadPool::Future> futures;
+	for (BlockPoolInterface* p : s_blockPools) {
+		futures.push_back(
+			ThreadPool::getInstance().addTask([&]() { p->cleanUp(); })
+		);
+	}
+
+	for (auto& f : futures) f.get();
 }

@@ -2,10 +2,11 @@
 #ifndef _MEMORY_POOL_
 #define _MEMORY_POOL_
 
+#include <set>
 #include <mutex>
-#include <forward_list>
-#include <algorithm>
 #include <vector>
+#include <algorithm>
+#include <forward_list>
 
 //Interface to an every instance of template of BlockSizePool
 class BlockPoolInterface {
@@ -100,29 +101,33 @@ public:
 	void cleanUp()
 	{
 		Locker lock(m_mtxDataAccess);
-		m_layout.sort();
-		auto it = m_blocks.begin();
-		while (it != m_blocks.end()) {
-			BlocksList::iterator first = std::lower_bound(m_layout.begin(),
-				m_layout.end(), *it);
-			if (first != m_layout.end() && *first == *it) {
-				BlocksList::iterator last = first;
-				char * pLast = *first + m_nPageSize * nBlockSize;
-				while ( last != m_layout.end() && *last < pLast ) ++last;
+		std::set<char*> S(m_layout.begin(), m_layout.end());
+		BlocksList NewBlocks;
+		while (!m_blocks.empty()) {
+			auto first = S.find(*m_blocks.begin());
+			if (first != S.end()) {
+				auto last = S.find(*first + m_nPageSize * nBlockSize);
 				if ( std::distance(first, last) == m_nPageSize ) {
-					//Free all blocks on the page
-					m_layout.erase_after(first, last);
-					VirtualFree((void*)*it, NULL, MEM_RELEASE);
-					first = it;
-					it = m_blocks.erase_after(first, ++it);
+					//Free all blocks in the page
+					S.erase(first, last);
+					VirtualFree((void*)*m_blocks.begin(), NULL, MEM_RELEASE);
+					m_blocks.pop_front();
 				}
-				else ++it;
+				else {
+					NewBlocks.push_front(*m_blocks.begin());
+					m_blocks.pop_front();
+				}
 			}
-			else ++it;
+			else {
+				NewBlocks.push_front(*m_blocks.begin());
+				m_blocks.pop_front();
+			}
 		}
+		m_blocks = std::move(NewBlocks);
+		m_layout = BlocksLayout(S.begin(), S.end());
 	}
 
-	//Releses all blocks from memory
+	//Releases all blocks from memory
 	~BlockSizePool() { /*cleanUpEverything();*/ }
 
 private:
