@@ -112,7 +112,7 @@ void ThreadPool::threadEvtLoop()
 		while (!m_bStopFlag)
 		{
 			Locker lock(m_startMutex);
-			m_startCondition.wait(lock, [&]()->bool { return !m_tasks.empty() || m_bStopFlag; });
+			m_startCondition.wait(lock, [&]()->bool { return !empty() || m_bStopFlag; });
 
 			if (m_bStopFlag) break;
 			else
@@ -160,4 +160,10 @@ void ThreadPool::init()
 		m_bValid = true;
 		start();
 	}
+}
+
+bool ThreadPool::empty()
+{
+	Locker lock(m_globalLock);
+	return m_tasks.empty();
 }

@@ -105,14 +105,13 @@ public:
 		while (it != m_blocks.end()) {
 			BlocksList::iterator first = std::lower_bound(m_layout.begin(),
 				m_layout.end(), *it);
-			if (*first == *it) {
-				BlocksList::iterator next = first;
-				char * pFirst = *first + (m_nPageSize - 1) * nBlockSize;
-				int count = 0;
-				while ( ++next != m_layout.end() && *next <= pFirst ) ++count;
-				if ( count == (m_nPageSize - 1)) {
+			if (first != m_layout.end() && *first == *it) {
+				BlocksList::iterator last = first;
+				char * pLast = *first + m_nPageSize * nBlockSize;
+				while ( last != m_layout.end() && *last < pLast ) ++last;
+				if ( std::distance(first, last) == m_nPageSize ) {
 					//Free all blocks on the page
-					m_layout.erase_after(first, next);
+					m_layout.erase_after(first, last);
 					VirtualFree((void*)*it, NULL, MEM_RELEASE);
 					first = it;
 					it = m_blocks.erase_after(first, ++it);
