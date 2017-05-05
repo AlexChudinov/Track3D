@@ -43,6 +43,15 @@
     <Filter Include="utilities\Source Files">
       <UniqueIdentifier>{0355c1a6-0fd9-4836-ba7a-e392ac27dfb0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="RandomProcess">
+      <UniqueIdentifier>{8bf64921-d580-423d-bc5a-0d83eb598aa4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RandomProcess\Header Files">
+      <UniqueIdentifier>{8e5c8948-22d8-4bb8-9d80-2104b5e17133}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RandomProcess\Source Files">
+      <UniqueIdentifier>{ed0e8101-ff1d-4c4d-bacf-c2e5f69397f8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="track3d\BarnesHut.h">
@@ -182,6 +191,9 @@
     </ClInclude>
     <ClInclude Include="utilities\ParallelFor.h">
       <Filter>utilities\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RandomProcess\RandomProcess.h">
+      <Filter>RandomProcess\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -337,6 +349,9 @@
     </ClCompile>
     <ClCompile Include="utilities\MemoryPool.cpp">
       <Filter>utilities\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RandomProcess\RandomProcess.cpp">
+      <Filter>RandomProcess\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
