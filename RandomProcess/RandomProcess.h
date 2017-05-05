@@ -22,7 +22,8 @@ public:
 
 	//Random process type
 	enum RandomProcessType {
-		DIFFUSION,
+		DIFFUSION_VELOCITY_JUMP,
+		DIFFUSION_COORD_JUMP
 	};
 
 	//Creates custom random process
@@ -47,20 +48,34 @@ private:
 	Distribution m_distribution;
 };
 
-class Diffusion : public RandomProcess {
-public:
-	struct DiffusionParams : public RandomProcess::RandomProcessParams {
-		double ionMass;
-		double ionMobility;
-		double ionCharge;
-	};
+struct DiffusionParams : public RandomProcess::RandomProcessParams {
+	double ionMass;
+	double ionMobility;
+	double ionCharge;
+};
 
-	Diffusion(const DiffusionParams & params);
+//Diffusion jump in velocity
+class DiffusionVelocityJump : public RandomProcess {
+public:
+
+	DiffusionVelocityJump(const DiffusionParams & params);
 
 	virtual Item randomJump(const Item& i1, const Item& i2);
 
 private:
 	double m_fIonMass;
+	double m_fIonMobility;
+	double m_fIonCharge;
+};
+
+//Diffusion jump in coordinate
+class DiffusionCoordJump : public RandomProcess {
+public:
+	DiffusionCoordJump(const DiffusionParams & params);
+
+	//Without potential correction
+	virtual Item randomJump(const Item& i1, const Item& i2);
+private:
 	double m_fIonMobility;
 	double m_fIonCharge;
 };
