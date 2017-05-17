@@ -42,8 +42,13 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
 	//Small time step
 	double h = i2.time - i1.time;
 
+  // [MS] 16-05-2017
+  double b = .5*(i2.mob + i1.mob);  // ion mobility recalculated to current conditions, P and T.
+  double D = Const_Boltzmann * T * b / m_fIonCharge;  // ion diffusion coefficient, the Einstein relation.
+
 	//Average ion velocity
-	double v0 = sqrt(2. * m_fIonCharge * Const_Boltzmann * T * h / m_fIonMobility) / m_fIonMass;
+	double v0 = sqrt(2. * D / h);
+  // [/MS]
 
 	//Calculate vector randomly distributed on a sphere
 	double phi = 2. * Const_PI * rand();
@@ -73,8 +78,13 @@ DiffusionCoordJump::Item DiffusionCoordJump::randomJump(const Item & i1, const I
 	//Small time step
 	double h = i2.time - i1.time;
 
+  // [MS] 16-05-2017
+  double b = .5*(i2.mob + i1.mob);  // ion mobility recalculated to current conditions, P and T.
+  double D = Const_Boltzmann * T * b / m_fIonCharge;  // ion diffusion coefficient, the Einstein relation.
+
 	//Diffusion jump calculation
-	double dx = sqrt(2 * m_fIonMobility * Const_Boltzmann * T * h / m_fIonCharge);
+	double dx = sqrt(2 * D * h);
+  // [/MS]
 
 	//Calculate vector randomly distributed on a sphere
 	double phi = 2. * Const_PI * rand();

@@ -56,6 +56,7 @@ void CSource::get(UINT nPartIndex,
                   double&   fTime,
                   double&   fPhase,
                   double&   fTemp,
+                  double&   fMob,
                   UINT&     nEnsIndex,
                   size_t&   nElemId) const
 {
@@ -66,9 +67,12 @@ void CSource::get(UINT nPartIndex,
 
   vPos = point.pos;
   vVel = point.vel;
+
   fTime = point.time;
   fPhase = point.phase;
   fTemp = point.temp;
+  fMob = point.mob;
+
   nEnsIndex = point.ind;
   nElemId = point.elem;
 }
@@ -114,7 +118,7 @@ bool CSource::generate_initial_cond()
           return false;
 
         vVel = m_fAbsVel * m_vDir;
-        add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+        add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
         nEnsIndex++;
 
         double fPitch, fAzim;
@@ -132,7 +136,7 @@ bool CSource::generate_initial_cond()
             fAzim = j * fAzimIncr;
             mRotAzim = Matrix3D::rot(m_vDir, fAzim);
             vVel = m_fAbsVel * (mRotAzim * (mRotPitch * m_vDir));
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+            add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
             nEnsIndex++;
 // Progress bar support:
             pObj->set_progress(100 * (j + i * m_nAzimCount) / nMaxInd);
@@ -166,7 +170,7 @@ bool CSource::generate_initial_cond()
           if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
           {
             vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+            add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
             nEnsIndex++;
           }
 // Progress bar support:
@@ -183,7 +187,7 @@ bool CSource::generate_initial_cond()
         if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
         {
           vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-          add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+          add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
           nEnsIndex++;
         }
 
@@ -206,7 +210,7 @@ bool CSource::generate_initial_cond()
             if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
             {
               vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-              add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+              add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
               nEnsIndex++;
             }
 // Progress bar support:
@@ -243,7 +247,7 @@ bool CSource::generate_initial_cond()
           if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
           {
             vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+            add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
             nEnsIndex++;
           }
 // Progress bar support:
@@ -280,7 +284,7 @@ bool CSource::generate_initial_cond()
             if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
             {
               vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-              add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+              add_particle(vPos, vVel, node.temp, node.press, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
               nEnsIndex++;
             }
 // Progress bar support:
@@ -323,6 +327,7 @@ bool CSource::terminate()
 void CSource::add_particle(const Vector3D& vPos,
                            const Vector3D& vVel,
                            double          fGasTemp,
+                           double          fGasPress,
                            double          fPeriodRF,
                            size_t          nElemId,
                            UINT            nEnsSize,
@@ -332,11 +337,13 @@ void CSource::add_particle(const Vector3D& vPos,
   double fCoeff = nEnsSize > 0 ? 1. / nEnsSize : 1;
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
+  double fIonMob = pObj->get_ion_mob(fGasPress, fGasTemp);
+
   for(UINT i = 0; i < nEnsSize; i++)
   {
     fStartTime = double(i) * fCoeff * fPeriodRF;
     fPhase = Const_2PI * rand() * scfRandCoeff;
-    CPhasePoint pnt(vPos, vVel, fStartTime, fPhase, fGasTemp, nEnsIndex, nElemId);
+    CPhasePoint pnt(vPos, vVel, fStartTime, fPhase, fGasTemp, fIonMob, nEnsIndex, nElemId);
     m_vData.push_back(pnt);
   }
 }
@@ -351,7 +358,7 @@ void CSource::set_data_from_tracks()
   {
     const CTrack& track = vTracks.at(i);
     CBaseTrackItem* pItem = track.at(0);
-    CPhasePoint pnt(pItem->pos, pItem->vel, pItem->time, track.get_phase(), pItem->get_temp(), track.get_index(), pItem->nElemId);
+    CPhasePoint pnt(pItem->pos, pItem->vel, pItem->time, track.get_phase(), pItem->get_temp(), pItem->get_ion_mob(), track.get_index(), pItem->nElemId);
     m_vData.push_back(pnt);
   }
 
@@ -544,16 +551,16 @@ void CSource::populate_face(CFace* pFace, UINT nPntCount, bool bReflect)
     if(pObj->interpolate(vPos, 0, 0, node, pElem))
     {
       vVel = m_bUseInitialGasVel ? node.vel : m_fAbsVel * m_vDir;
-      add_particle(vPos, vVel, node.temp, 0., pElem->nInd, 1, 0);
+      add_particle(vPos, vVel, node.temp, node.press, 0., pElem->nInd, 1, 0);
       nSuccess++;
 
       if(bReflect)
-        reflect(vPos, vVel, node.temp, pElem->nInd);
+        reflect(vPos, vVel, node.temp, node.press, pElem->nInd);
     }
   }
 }
 
-void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, size_t nElemId)
+void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, double fPress, size_t nElemId)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   int nSymmPlane = pObj->get_sym_plane();
@@ -564,7 +571,7 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
   {
     vReflPos.z = -vPos.z;
     vReflVel.z = -vVel.z;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, fTemp, fPress, 0., nElemId, 1, 0);
   }
 
   vReflPos = vPos;
@@ -574,7 +581,7 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
   {
     vReflPos.y = -vPos.y;
     vReflVel.y = -vVel.y;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, fTemp, fPress, 0., nElemId, 1, 0);
   }
 
   vReflPos = vPos;
@@ -585,7 +592,7 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
     vReflPos.y = -vPos.y;
     vReflVel.z = -vVel.z;
     vReflVel.y = -vVel.y;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, fTemp, fPress, 0., nElemId, 1, 0);
   }
 }
 

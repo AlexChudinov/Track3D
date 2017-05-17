@@ -107,8 +107,16 @@ void CPropertiesWnd::add_ion_ctrls()
   pDistribGroup->AddSubItem(pProp);
 
   pCoulombGroup->AddSubItem(pDistribGroup);
-
   m_wndPropList.AddProperty(pCoulombGroup);
+
+// Random diffusion group:
+  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Diffusion"));
+  pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion velocities are disturbed by random variations at every time step."), pObj->get_enable_diffusion_ptr());
+  pDiffusionGroup->AddSubItem(pCheckBox);
+  pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
+  pDiffusionGroup->AddSubItem(pProp);
+
+  m_wndPropList.AddProperty(pDiffusionGroup);
 }
 
 void CPropertiesWnd::set_ion_data()
@@ -216,6 +224,10 @@ void CPropertiesWnd::set_ion_data()
       }
     }
   }
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
+  if(pProp != NULL)
+    pObj->set_random_seed(pProp->GetValue().lVal);
 }
 
 void CPropertiesWnd::update_ion_ctrls()

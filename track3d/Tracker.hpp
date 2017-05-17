@@ -12,6 +12,7 @@
 #include "math.h"
 
 class CExecutionDialog;
+class DiffusionVelocityJump;
 
 namespace EvaporatingParticle
 {
@@ -231,6 +232,14 @@ public:
   DWORD_PTR               get_pre_calc_clmb_file_ptr() const;
   void                    set_pre_calc_clmb_file(const char* pName);
 
+// Random diffusion (for ion type of particles only).
+  bool                    get_enable_diffusion() const;
+  DWORD_PTR               get_enable_diffusion_ptr() const;
+
+  long                    get_random_seed() const;
+  DWORD_PTR               get_random_seed_ptr() const;
+  void                    set_random_seed(long nSeed);
+
 // Different integrators:
   bool                    get_use_old_integrator() const;
   DWORD_PTR               get_use_old_integrator_ptr() const;
@@ -382,7 +391,8 @@ public:
                                         double          fTimeStep,
                                         double          fPhase,
                                         double          fCurr,
-                                        double&         fExpCoeff) const;
+                                        double&         fExpCoeff,
+                                        double&         fMob) const;  // 16-05-2017 mobility for diffusion velocity jumps support.
 
   double                  get_dTi(const CNode3D& node, const Vector3D& vVel, double fIonTemp, double fExpCoeff, double& fTinf) const;
 
@@ -395,6 +405,7 @@ protected:
                                             const Vector3D& vVel,
                                             double          fMass,
                                             double          fTemp,
+                                            double          fIonMob,  // random diffusion velocity jumps support.
                                             double          fTime) const;
 // Coulomb effects:
   void                    init_currents();  // before integration runs over all track items and initializes item.curr members.
@@ -545,6 +556,12 @@ protected:
 
 // DC Field perturbations:
   CFieldPtbCollection     m_vFieldPtbColl;
+
+// Random diffusion (for ion type of particles only).
+  bool                    m_bEnableDiffusion;
+  UINT                    m_nRandomSeed;
+
+  DiffusionVelocityJump*  create_random_jump(UINT nSeed) const;
 
 // Convertation to CGS:
   void                    conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float& fThermCond, float& fCp,
@@ -1381,6 +1398,32 @@ inline CTransform& CTracker::get_transform()
 inline CFieldPtbCollection& CTracker::get_field_ptb()
 {
   return m_vFieldPtbColl;
+}
+
+// Random diffusion (for ion type of particles only).
+inline bool CTracker::get_enable_diffusion() const
+{
+  return m_bEnableDiffusion;
+}
+
+inline DWORD_PTR CTracker::get_enable_diffusion_ptr() const
+{
+  return (DWORD_PTR)&m_bEnableDiffusion;
+}
+
+inline long CTracker::get_random_seed() const
+{
+  return m_nRandomSeed;
+}
+
+inline DWORD_PTR CTracker::get_random_seed_ptr() const
+{
+  return (DWORD_PTR)&m_nRandomSeed;
+}
+
+inline void CTracker::set_random_seed(long nSeed)
+{
+  m_nRandomSeed = UINT(std::abs(nSeed));
 }
 
 }; // namespace EvaporatingParticle

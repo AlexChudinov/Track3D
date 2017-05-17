@@ -17,8 +17,8 @@ namespace EvaporatingParticle
 
 struct CPhasePoint
 {
-  CPhasePoint(const Vector3D& p, const Vector3D& v, double t = 0, double phs = 0., double tmp = 300., UINT id = 0, size_t ide = 0)
-    : pos(p), vel(v), time(t), phase(phs), temp(tmp), ind(id), elem(ide)
+  CPhasePoint(const Vector3D& p, const Vector3D& v, double t = 0, double phs = 0., double tmp = 300., double b = 0., UINT id = 0, size_t ide = 0)
+    : pos(p), vel(v), time(t), phase(phs), temp(tmp), mob(b), ind(id), elem(ide)
   {
   }
 
@@ -27,7 +27,8 @@ struct CPhasePoint
 
   double   time,
            phase, // for RF phases randomization.
-           temp;  // gas temperature.
+           temp,  // gas temperature.
+           mob;   // ion mobility (random diffusion velocity jump support).
 
   UINT     ind;   // ensemble index.
   size_t   elem;  // index of the mesh element.
@@ -74,6 +75,7 @@ public:
                           double&   fTime,
                           double&   fPhase,
                           double&   fTemp,
+                          double&   fMob,
                           UINT&     nEnsIndex,
                           size_t&   nElemId) const;
 
@@ -160,6 +162,7 @@ protected:
   void                add_particle(const Vector3D& vPos, 
                                    const Vector3D& vVel,
                                    double          fGasTemp,
+                                   double          fGasPress,
                                    double          fPeriodRF,
                                    size_t          nElemInd,
                                    UINT            nEnsSize, 
@@ -181,7 +184,7 @@ protected:
   bool                calc_weights(double* pWeights) const;   // pWeights is an array of m_vFaces.size() length.
 
   void                populate_face(CFace* pFace, UINT nPntCount, bool bReflect = true);
-  void                reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, size_t nElemId);
+  void                reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, double fPress, size_t nElemId);
 
   UINT                choose_face(UINT nFirst, UINT nLast) const;   // randomly select a number from a variety of nCount numbers.
 
