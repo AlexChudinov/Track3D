@@ -46,8 +46,10 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
   double b = .5*(i2.mob + i1.mob);  // ion mobility recalculated to current conditions, P and T.
   double D = Const_Boltzmann * T * b / m_fIonCharge;  // ion diffusion coefficient, the Einstein relation.
 
+  double tau = m_fIonMass / m_fIonCharge * b; //relaxation time
+
 	//Average ion velocity
-	double v0 = sqrt(2. * D / h);
+  double v0 = sqrt(2. * D * h) / (tau*(1 - exp(-h / tau)));
   // [/MS]
 
 	//Calculate vector randomly distributed on a sphere
