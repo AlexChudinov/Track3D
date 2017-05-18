@@ -4,6 +4,7 @@
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "BeamCrossSection.h"
+#include "RandomProcess.h"    // random diffusion support.
 #include "Button.h"
 
 static const double scfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
@@ -107,8 +108,23 @@ void CPropertiesWnd::add_ion_ctrls()
   pDistribGroup->AddSubItem(pProp);
 
   pCoulombGroup->AddSubItem(pDistribGroup);
-
   m_wndPropList.AddProperty(pCoulombGroup);
+
+// Random diffusion group:
+  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Diffusion"));
+  pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion velocities are disturbed by random variations at every time step."), pObj->get_enable_diffusion_ptr());
+  pDiffusionGroup->AddSubItem(pCheckBox);
+  pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
+  pDiffusionGroup->AddSubItem(pProp);
+
+  COleVariant var1(RandomProcess::rndProcName(pObj->get_rand_diff_type()));
+  pProp = new CMFCPropertyGridProperty(_T("Random Diffusion Type"), var1, _T("Select the type of random diffusion model."), pObj->get_rand_diff_type_ptr());
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP));
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_COORD_JUMP));
+  pProp->AllowEdit(FALSE);
+  pDiffusionGroup->AddSubItem(pProp);
+
+  m_wndPropList.AddProperty(pDiffusionGroup);
 }
 
 void CPropertiesWnd::set_ion_data()
@@ -215,6 +231,21 @@ void CPropertiesWnd::set_ion_data()
         break;
       }
     }
+  }
+
+// Random diffusion group:
+  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
+  if(pProp != NULL)
+    pObj->set_random_seed(pProp->GetValue().lVal);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
+  if(pProp != NULL)
+  {
+    CString cTypeName = (CString)pProp->GetValue();
+    if(cTypeName == RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP))
+      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_VELOCITY_JUMP);
+    else
+      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_COORD_JUMP);
   }
 }
 

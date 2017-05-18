@@ -166,6 +166,11 @@ void CTracker::set_default()
   m_fAmplRF_Q0 = 350.;
   set_rf_flatapole_freq(3.0e+6);  // 3 MHz by default.
   m_fX_Q0 = 10000.; // Q0 region does not exists by default.
+
+// Random diffusion (for ion type of particles only).
+  m_bEnableDiffusion = false;
+  m_nRndDiffType = RandomProcess::DIFFUSION_VELOCITY_JUMP;
+  m_nRandomSeed = 15021991;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -227,8 +232,8 @@ void CTracker::GetTimeDeriv(const void* pData, const double* pItemState, double*
   pI->nElemId = pElem->nInd;
   if(pObj->get_particle_type() == CTrack::ptIon)
   {
-    double fExpCoeff;
-    vAccel = pObj->get_ion_accel(node, vVel, fTime, pObj->m_fTimeStep, pI->fPhase, pI->fCurr, fExpCoeff);
+    double fExpCoeff, fMob;
+    vAccel = pObj->get_ion_accel(node, vVel, fTime, pObj->m_fTimeStep, pI->fPhase, pI->fCurr, fExpCoeff, fMob);
 // vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration:
     if(bReflDone)
       pObj->sym_corr(vPos, vVel, vAccel, true);
@@ -236,6 +241,7 @@ void CTracker::GetTimeDeriv(const void* pData, const double* pItemState, double*
     double fTionInf;
     pTimeDeriv[6] = pObj->get_dTi(node, vVel, fIonTemp, fExpCoeff, fTionInf);
     pI->fTionInf = fTionInf;
+    pI->fIonMob = fMob;
 
     pTimeDeriv[7] = 0;
   }
@@ -276,6 +282,25 @@ void CTracker::get_output_freq(UINT& nOutFreq) const
   nOutFreq = UINT(m_OutputEngine.get_output_time_step() / m_fTimeStep);
   if(nOutFreq == 0)
     nOutFreq = 1;
+}
+
+RandomProcess* CTracker::create_random_jump(UINT nSeed) const
+{
+  if(m_nType == CTrack::ptDroplet || !m_bEnableDiffusion)
+    return NULL;
+
+  DiffusionParams param;
+  param.ionCharge = get_particle_charge();
+  param.ionMobility = get_ion_mobility();
+  param.ionMass = get_ion_mass();
+  param.seed = nSeed;
+
+  if(m_nRndDiffType == RandomProcess::DIFFUSION_VELOCITY_JUMP)
+    return new DiffusionVelocityJump(param);
+  else
+    return new DiffusionCoordJump(param);
+
+  return NULL;
 }
 
 void CTracker::single_thread_calculate()
@@ -341,6 +366,7 @@ void CTracker::do_track()
     }
     else
     {
+// General integration interface:
       double fMass, fTemp;
       CBaseTrackItem* pItem = track.at(0);
       double fTime = pItem->time;
@@ -348,27 +374,33 @@ void CTracker::do_track()
       pItem->state(pState);
       CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
       void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
+
+// Random diffusion support:
+      RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
+      CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob()), currItem = prevItem;
+
       while(true)
       {
         do_integrator_step(pI, pState, &fTime, &m_fTimeStep);
 
         if(!data.bOk)
         {
-          CBaseTrackItem* pCurrItem = CBaseTrackItem::create(m_nType, -1, fTime, pState);
-          track.push_back(pCurrItem);  // insert the last item anyway.
+          CBaseTrackItem* pLastItem = CBaseTrackItem::create(m_nType, -1, fTime, pState);
+          track.push_back(pLastItem);  // insert the last item anyway.
           break;  // the track went out of the mesh.
         }
 
         if(nStep % nOutFreq == 0)
         {
-          CBaseTrackItem* pCurrItem = CBaseTrackItem::create(m_nType, data.nElemId, fTime, pState);
+          CBaseTrackItem* pOutItem = CBaseTrackItem::create(m_nType, data.nElemId, fTime, pState);
           if(m_nType == CTrack::ptIon)
           {
-            CIonTrackItem* pIonItem = (CIonTrackItem*)pCurrItem;
+            CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
             pIonItem->tempinf = data.fTionInf;
+            pIonItem->mob = data.fIonMob;
           }
 
-          track.push_back(pCurrItem);
+          track.push_back(pOutItem);
         }
 
         fTemp = pState[6];
@@ -378,6 +410,15 @@ void CTracker::do_track()
 
         fTime += m_fTimeStep;
         nStep++;
+
+// Random diffusion support:
+        if(pDiffJump != NULL)
+        {
+          currItem.set_param(data.nElemId, fTime, pState);
+          prevItem = pDiffJump->randomJump(prevItem, currItem);
+// The initial velocity (or coordinate) is perturbed for the next time step:
+          prevItem.state(pState);
+        }
       }
 
       delete_integrator_interface(pI);
@@ -598,6 +639,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
     }
     else
     {
+// General integration interface:
       double fMass, fTemp;
       CBaseTrackItem* pItem = track.at(0);
       double fTime = pItem->time;
@@ -605,21 +647,33 @@ UINT CTracker::main_thread_func(LPVOID pData)
       pItem->state(pState);
       CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
       void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
+
+// Random diffusion support:
+      RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
+      CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob()), currItem = prevItem;
+
       while(true)
       {
         do_integrator_step(pI, pState, &fTime, &pObj->m_fTimeStep);
 
         if(!data.bOk)
         {
-          CBaseTrackItem* pCurrItem = CBaseTrackItem::create(pObj->m_nType, -1, fTime, pState);
-          track.push_back(pCurrItem);  // insert the last item anyway.
+          CBaseTrackItem* pLastItem = CBaseTrackItem::create(pObj->m_nType, -1, fTime, pState);
+          track.push_back(pLastItem);  // insert the last item anyway.
           break;  // the track went out of the mesh.
         }
 
         if(nStep % nOutFreq == 0)
         {
-          CBaseTrackItem* pCurrItem = CBaseTrackItem::create(pObj->m_nType, data.nElemId, fTime, pState);
-          track.push_back(pCurrItem);
+          CBaseTrackItem* pOutItem = CBaseTrackItem::create(pObj->m_nType, data.nElemId, fTime, pState);
+          if(pObj->m_nType == CTrack::ptIon)
+          {
+            CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
+            pIonItem->tempinf = data.fTionInf;
+            pIonItem->mob = data.fIonMob;
+          }
+
+          track.push_back(pOutItem);
         }
 
         fTemp = pState[6];
@@ -629,6 +683,15 @@ UINT CTracker::main_thread_func(LPVOID pData)
 
         fTime += pObj->m_fTimeStep;
         nStep++;
+
+// Random diffusion support:
+        if(pDiffJump != NULL)
+        {
+          currItem.set_param(data.nElemId, fTime, pState);
+          prevItem = pDiffJump->randomJump(prevItem, currItem);
+// The initial velocity (or coordinate) is perturbed for the next time step:
+          prevItem.state(pState);
+        }
       }
 
       delete_integrator_interface(pI);
@@ -890,8 +953,8 @@ bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double
     return false;
   }
 
-  double fExpCoeff;
-  vAccel = get_ion_accel(node, pItem->vel, pItem->time, m_fHalfTimeStep, fPhase, fCurr, fExpCoeff);
+  double fExpCoeff, fMob;
+  vAccel = get_ion_accel(node, pItem->vel, pItem->time, m_fHalfTimeStep, fPhase, fCurr, fExpCoeff, fMob);
 // vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration and do a half time step:
   if(bReflDone)
     sym_corr(pItem->pos, pItem->vel, vAccel, true);
@@ -911,7 +974,7 @@ bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double
   if(!interpolate(vPos05, fTime05, fPhase, node, pElem))
     return false;
 
-  vAccel = get_ion_accel(node, vVel05, fTime05, m_fTimeStep, fPhase, fCurr, fExpCoeff);
+  vAccel = get_ion_accel(node, vVel05, fTime05, m_fTimeStep, fPhase, fCurr, fExpCoeff, fMob);
 // vAccel is the reflected particle acceleration. Turn back the velocity and acceleration and do the full time step:
   if(bReflDone)
     sym_corr(vPos05, vVel05, vAccel, true); // vPos05 is a dummy parameter here.
@@ -922,6 +985,7 @@ bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double
   pItem->vel += vAccel * m_fTimeStep;
   pItem->temp += get_dTi(node, vVel05, fTi05, fExpCoeff, fTionInf) * m_fTimeStep;
   pItem->tempinf = fTionInf;
+  pItem->mob = fMob;
   pItem->time += m_fTimeStep;
   return true;
 }
@@ -932,10 +996,11 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
                                  double          fTimeStep,
                                  double          fPhase,
                                  double          fCurr,
-                                 double&         fExpCoeff) const
+                                 double&         fExpCoeff,
+                                 double&         fMob) const
 {
 // Entraining by the gas:
-  double fMob = get_ion_mob(node.press, node.temp);
+  fMob = get_ion_mob(node.press, node.temp);
   double fOneOvrTau = m_fChargeMassRatio / fMob;  // 1 / tau.
   double fPow = fTimeStep * fOneOvrTau;           // in fact, fPow = dt / tau.
   fExpCoeff = fPow < 0.01 ? fOneOvrTau : (1. - exp(-fPow)) / fTimeStep;
@@ -1083,23 +1148,26 @@ void CTracker::initial_conditions()
   clear_tracks(); // clear all items from the tracks, even the initial positions.
 
   Vector3D vPos, vVel;
-  double fTime, fPhase, fTemp;
+  double fTime, fPhase, fTemp, fIonMob;
   UINT nEnsIndex;
   size_t nElemId;
 
   if(!m_Src.generate_initial_cond())
     return;
 
+  srand(m_nRandomSeed);
   UINT nCount = m_Src.get_particles_count() * m_Src.get_ensemble_size();  // maximal expected count of particles.
   for(size_t i = 0; i < nCount; i++)
   {
-    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, nEnsIndex, nElemId);  // this function has a built-in index check.
+    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, fIonMob, nEnsIndex, nElemId);  // this function has a built-in index check.
     
     CTrack track(m_nType, nEnsIndex, fPhase);
     track.reserve(100);
 
-    CBaseTrackItem* pItem = create_track_item(nElemId, vPos, vVel, m_fInitMass, fTemp, fTime);
+    CBaseTrackItem* pItem = create_track_item(nElemId, vPos, vVel, m_fInitMass, fTemp, fIonMob, fTime);
     track.push_back(pItem);
+
+    track.set_rand_seed(rand());  // random diffusion support.
 
     m_Tracks.push_back(track);
   }
@@ -1110,11 +1178,12 @@ CBaseTrackItem* CTracker::create_track_item(size_t          nElemId,
                                             const Vector3D& vVel,
                                             double          fMass,
                                             double          fTemp,
+                                            double          fIonMob,
                                             double          fTime) const
 {
   if(m_nType == CTrack::ptIon)
   {
-    CIonTrackItem* pIonItem = new CIonTrackItem(nElemId, vPos, vVel, fTemp, 1., fTime);
+    CIonTrackItem* pIonItem = new CIonTrackItem(nElemId, vPos, vVel, fTemp, 1., fIonMob, fTime);
     return (CBaseTrackItem*)pIonItem;
   }
   else if(m_nType == CTrack::ptDroplet)
@@ -1730,7 +1799,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 24;  // 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 25;  // 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
 // General parameters:
@@ -1828,6 +1897,9 @@ void CTracker::save(CArchive& ar)
   ar << m_bAnsysFields;
 
   ar << m_bUsePreCalcCoulomb;
+
+  ar << m_bEnableDiffusion;
+  ar << m_nRandomSeed;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -2064,6 +2136,12 @@ void CTracker::load(CArchive& ar)
 
   if(nVersion >= 24)
     ar >> m_bUsePreCalcCoulomb;
+
+  if(nVersion >= 25)
+  {
+    ar >> m_bEnableDiffusion;
+    ar >> m_nRandomSeed;
+  }
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);
@@ -2073,13 +2151,14 @@ void CTracker::load(CArchive& ar)
 
 void CTracker::save_track_const(CArchive& ar, const CTrack& track)
 {
-  const UINT nVersion = 1;  // Two different types of track items - for ions and for droplets.
+  const UINT nVersion = 2;  // 2 - m_nRandSeed; 1 - Two different types of track items - for ions and for droplets.
   ar << nVersion;
 
   ar << track.get_type();
   ar << track.get_index();
   ar << track.get_phase();
   ar << track.get_current();
+  ar << track.get_rand_seed();
 }
 
 void CTracker::load_track_const(CArchive& ar, CTrack& track)
@@ -2108,6 +2187,13 @@ void CTracker::load_track_const(CArchive& ar, CTrack& track)
     ar >> nIndex;
     ar >> fPhase;
     ar >> fCurr; 
+  }
+
+  if(nVersion >= 2)
+  {
+    UINT nSeed;
+    ar >> nSeed;
+    track.set_rand_seed(nSeed);
   }
 
   track.set_type(nType);
