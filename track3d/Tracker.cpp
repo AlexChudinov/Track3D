@@ -11,7 +11,6 @@
 #include "Symmetry.hpp"
 
 #include "EvaporationModel.h"
-#include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "CalcThread.h"
 #include <algorithm>
 
@@ -170,6 +169,7 @@ void CTracker::set_default()
 
 // Random diffusion (for ion type of particles only).
   m_bEnableDiffusion = false;
+  m_nRndDiffType = RandomProcess::DIFFUSION_VELOCITY_JUMP;
   m_nRandomSeed = 15021991;
 }
 
@@ -284,7 +284,7 @@ void CTracker::get_output_freq(UINT& nOutFreq) const
     nOutFreq = 1;
 }
 
-DiffusionVelocityJump* CTracker::create_random_jump(UINT nSeed) const
+RandomProcess* CTracker::create_random_jump(UINT nSeed) const
 {
   if(m_nType == CTrack::ptDroplet || !m_bEnableDiffusion)
     return NULL;
@@ -295,7 +295,12 @@ DiffusionVelocityJump* CTracker::create_random_jump(UINT nSeed) const
   param.ionMass = get_ion_mass();
   param.seed = nSeed;
 
-  return new DiffusionVelocityJump(param);
+  if(m_nRndDiffType == RandomProcess::DIFFUSION_VELOCITY_JUMP)
+    return new DiffusionVelocityJump(param);
+  else
+    return new DiffusionCoordJump(param);
+
+  return NULL;
 }
 
 void CTracker::single_thread_calculate()
@@ -371,7 +376,7 @@ void CTracker::do_track()
       void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
 
 // Random diffusion support:
-      DiffusionVelocityJump* pDiffJump = create_random_jump(track.get_rand_seed());
+      RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
       CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob()), currItem = prevItem;
 
       while(true)
@@ -411,10 +416,8 @@ void CTracker::do_track()
         {
           currItem.set_param(data.nElemId, fTime, pState);
           prevItem = pDiffJump->randomJump(prevItem, currItem);
-// The initial velocity is perturbed for the next time step:
-          pState[3] = prevItem.vel.x;
-          pState[4] = prevItem.vel.y;
-          pState[5] = prevItem.vel.z;
+// The initial velocity (or coordinate) is perturbed for the next time step:
+          prevItem.state(pState);
         }
       }
 
@@ -646,7 +649,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
       void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
 
 // Random diffusion support:
-      DiffusionVelocityJump* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
+      RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
       CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob()), currItem = prevItem;
 
       while(true)
@@ -686,10 +689,8 @@ UINT CTracker::main_thread_func(LPVOID pData)
         {
           currItem.set_param(data.nElemId, fTime, pState);
           prevItem = pDiffJump->randomJump(prevItem, currItem);
-// The initial velocity is perturbed for the next time step:
-          pState[3] = prevItem.vel.x;
-          pState[4] = prevItem.vel.y;
-          pState[5] = prevItem.vel.z;
+// The initial velocity (or coordinate) is perturbed for the next time step:
+          prevItem.state(pState);
         }
       }
 

@@ -42,9 +42,6 @@ public:
 	//Returns uniformly distributed random value
 	double rand();
 
-	//Returns vector isotropically distributed on unite sphere
-	EP::Vector3D randOnSphere();
-
 	//
 	virtual ~RandomProcess(){}
 

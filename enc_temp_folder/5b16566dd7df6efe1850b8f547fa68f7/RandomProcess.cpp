@@ -36,13 +36,6 @@ double RandomProcess::rand()
 	return m_distribution(m_generator);
 }
 
-EP::Vector3D RandomProcess::randOnSphere()
-{
-	double phi = 2. * Const_PI * rand();
-	double thetta = acos(1 - 2 * rand());
-	return EP::Vector3D{ sin(phi)*sin(thetta), cos(phi)*sin(thetta), cos(thetta) };
-}
-
 DiffusionVelocityJump::DiffusionVelocityJump(const DiffusionParams & params)
 	:
 	RandomProcess(params.seed),
@@ -68,7 +61,10 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
 	double v0 = sqrt(6. * D / h);
   // [/MS]
 
-	EP::Vector3D v = v0 * randOnSphere();
+	//Calculate vector randomly distributed on a sphere
+	double phi = 2. * Const_PI * rand();
+	double thetta = acos(1 - 2 * rand());
+	EP::Vector3D v = v0 * EP::Vector3D{ sin(phi)*sin(thetta), cos(phi)*sin(thetta), cos(thetta) };
 
 	Item ret = i2;
 	ret.vel += v;
@@ -101,7 +97,10 @@ DiffusionCoordJump::Item DiffusionCoordJump::randomJump(const Item & i1, const I
 	double dx = sqrt(6. * D * h);
   // [/MS]
 
-	EP::Vector3D dr = dx * randOnSphere();
+	//Calculate vector randomly distributed on a sphere
+	double phi = 2. * Const_PI * rand();
+	double thetta = acos(1 - 2 * rand());
+	EP::Vector3D dr = dx * EP::Vector3D{ sin(phi)*sin(thetta), cos(phi)*sin(thetta), cos(thetta) };
 
 	ret.pos += dr;
 	return ret;
