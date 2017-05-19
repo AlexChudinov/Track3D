@@ -2,17 +2,17 @@
 #ifndef _RANDOM_PROCESS_
 #define _RANDOM_PROCESS_
 
-#include <random>
+#include <boost\random.hpp>
 #include "TrackItem.h"
 
 #define EP EvaporatingParticle
 
 class RandomProcess {
 public:
-	using RndGen = std::mt19937_64;
+	using RndGen = boost::random::mt19937_64;
 	using RndGenResult = RndGen::result_type;
 	using Item = EP::CIonTrackItem;
-	using Distribution = std::uniform_real_distribution<double>;
+	using Distribution = boost::random::uniform_real_distribution<double>;
 	using PProcess = std::unique_ptr<RandomProcess>;
 
 	//Base params for random process initialisation

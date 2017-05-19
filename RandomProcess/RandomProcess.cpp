@@ -49,7 +49,7 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
   double tau = m_fIonMass / m_fIonCharge * b; //relaxation time
 
 	//Average ion velocity
-  double v0 = sqrt(2. * D * h) / (tau*(1 - exp(-h / tau)));
+  double v0 = sqrt(2. * D * h) / tau;
   // [/MS]
 
 	//Calculate vector randomly distributed on a sphere

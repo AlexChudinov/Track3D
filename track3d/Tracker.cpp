@@ -11,7 +11,7 @@
 #include "Symmetry.hpp"
 
 #include "EvaporationModel.h"
-#include "RandomProcess.h"    // random diffusion support.
+#include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "CalcThread.h"
 #include <algorithm>
 
