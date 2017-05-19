@@ -45,7 +45,7 @@ public:
 	//Returns vector isotropically distributed on unite sphere
 	EP::Vector3D randOnSphere();
 
-	//
+	//!!!
 	virtual ~RandomProcess(){}
 
 private:
