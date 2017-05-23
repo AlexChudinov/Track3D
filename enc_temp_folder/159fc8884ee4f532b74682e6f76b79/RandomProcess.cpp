@@ -104,9 +104,9 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
 	return ret;
 }
 
-DiffusionVelocityJump::Item DiffusionVelocityJump::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
+DiffusionVelocityJump::Item DiffusionVelocityJump::gasDependedRndJmp(const ItemNode & i1, const ItemNode & i2)
 {
-	return randomJump(in1.first, in2.first);
+	return randomJump(i1.first, i2.first);
 }
 
 DiffusionCoordJump::DiffusionCoordJump(const DiffusionParams & params)
@@ -146,18 +146,18 @@ DiffusionCoordJump::Item DiffusionCoordJump::randomJump(const Item & i1, const I
 	return ret;
 }
 
-DiffusionCoordJump::Item DiffusionCoordJump::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
+DiffusionCoordJump::Item DiffusionCoordJump::gasDependedRndJmp(const ItemNode & i1, const ItemNode & i2)
 {
-	Item ret = in2.first;
+	Item ret = i2.first;
 
 	//Average ion temperature
-	double T = .5*(in2.first.temp + in1.first.temp);
+	double T = .5*(i2.first.temp + i1.first.temp);
 
 	//Average gas pressure
-	double P = .5*(in2.second.press + in1.second.press);
+	double P = .5*(i2.second.press + i1.second.press);
 
 	//Small time step
-	double h = in2.first.time - in1.first.time;
+	double h = i2.first.time - i1.first.time;
 
 	//Ion mobility
 	double kappa = m_fIonMobility * sqrt(T / Const_T0) * Const_One_Atm_CGS / P;
