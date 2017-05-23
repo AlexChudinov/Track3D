@@ -81,9 +81,6 @@ private:
 
 	//Initialises thread pool
 	void init();
-
-	//Returns interlocked queue empty
-	bool empty();
 };
 
 #endif // !_PAR_FOR_

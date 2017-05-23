@@ -128,20 +128,6 @@ void CIonTrackItem::state(double* pState) const
   pState[7] = unfragm;
 }
 
-void CIonTrackItem::set_param(int nId, double fTime, double* pState)
-{
-  nElemId = nId;
-  time = fTime;
-  pos.x = pState[0];
-  pos.y = pState[1];
-  pos.z = pState[2];
-  vel.x = pState[3];
-  vel.y = pState[4];
-  vel.z = pState[5];
-  temp = pState[6];
-  unfragm = pState[7];
-}
-
 CBaseTrackItem* CIonTrackItem::copy() const
 {
   CIonTrackItem* pItem = new CIonTrackItem(nElemId, pos, vel, temp, unfragm, time);
@@ -159,14 +145,9 @@ double CIonTrackItem::get_temp() const
   return temp;
 }
 
-double CIonTrackItem::get_ion_mob() const
-{
-  return mob;
-}
-
 void CIonTrackItem::save(CArchive& ar)
 {
-  UINT nVersion = 1;  // mobility is saved since version 1.
+  UINT nVersion = 0;
   ar << nVersion;
 
   CBaseTrackItem::save(ar);
@@ -174,7 +155,6 @@ void CIonTrackItem::save(CArchive& ar)
   ar << temp;
   ar << tempinf;
   ar << unfragm;
-  ar << mob;
 }
 
 void CIonTrackItem::load(CArchive& ar)
@@ -187,9 +167,6 @@ void CIonTrackItem::load(CArchive& ar)
   ar >> temp;
   ar >> tempinf;
   ar >> unfragm;
-
-  if(nVersion >= 1)
-    ar >> mob;
 }
 
 void CIonTrackItem::deleteObj()
@@ -212,20 +189,6 @@ void CDropletTrackItem::state(double* pState) const
   pState[7] = mass;
 }
 
-void CDropletTrackItem::set_param(int nId, double fTime, double* pState)
-{
-  nElemId = nId;
-  time = fTime;
-  pos.x = pState[0];
-  pos.y = pState[1];
-  pos.z = pState[2];
-  vel.x = pState[3];
-  vel.y = pState[4];
-  vel.z = pState[5];
-  temp = pState[6];
-  mass = pState[7];
-}
-
 CBaseTrackItem* CDropletTrackItem::copy() const
 {
   CDropletTrackItem* pItem = new CDropletTrackItem(nElemId, pos, vel, temp, mass, time);
@@ -240,11 +203,6 @@ double CDropletTrackItem::get_mass() const
 double CDropletTrackItem::get_temp() const
 {
   return temp;
-}
-
-double CDropletTrackItem::get_ion_mob() const
-{
-  return 0.;
 }
 
 void CDropletTrackItem::save(CArchive& ar)
@@ -294,7 +252,6 @@ void CTrack::get_track_item(size_t nInd, CTrackItem& item) const
       item.mass = pDropletItem->mass;
       item.tempinf = 0;
       item.unfragm = 1;
-      item.mob = 0;
     }
     case ptIon:
     {
@@ -303,7 +260,6 @@ void CTrack::get_track_item(size_t nInd, CTrackItem& item) const
       item.tempinf = pIonItem->tempinf;
       item.unfragm = pIonItem->unfragm;
       item.mass = 0;
-      item.mob = pIonItem->mob;
     }
   }
 }

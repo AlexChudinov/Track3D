@@ -77,11 +77,11 @@
     <IncludePath>C:\boost_1_61_0;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>C:\myLib;C:\Boost;$(IncludePath)</IncludePath>
+    <IncludePath>C:\myLib;C:\boost_1_61_0;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\myLib;C:\Boost;$(IncludePath)</IncludePath>
+    <IncludePath>C:\myLib;C:\boost_1_61_0;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

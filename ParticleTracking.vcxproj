@@ -83,7 +83,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)\</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)\output\$(Configuration)\exe\</OutDir>
@@ -95,7 +95,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost;</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Midl>
@@ -226,7 +226,6 @@
     <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="MathPhys\libIntegrators.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
-    <ClInclude Include="RandomProcess\RandomProcess.h" />
     <ClInclude Include="track3d\BarnesHut.h" />
     <ClInclude Include="track3d\BeamCrossSection.h" />
     <ClInclude Include="track3d\CalcThread.h" />
@@ -273,7 +272,6 @@
   <ItemGroup>
     <ClCompile Include="field_solver\BoundaryMesh.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
-    <ClCompile Include="RandomProcess\RandomProcess.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
     <ClCompile Include="track3d\BeamCrossSection.cpp" />
     <ClCompile Include="track3d\CalcThread.cpp" />

@@ -43,11 +43,9 @@ struct CBaseTrackItem
 
   virtual CBaseTrackItem* copy() const = 0;
   virtual void            state(double* pState) const = 0;
-  virtual void            set_param(int nId, double fTime, double* pState) = 0;
 
   virtual double          get_mass() const = 0;
   virtual double          get_temp() const = 0;
-  virtual double          get_ion_mob() const = 0;
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
@@ -67,31 +65,27 @@ struct CIonTrackItem : public CBaseTrackItem, public BlockAllocator<CIonTrackIte
 	using CBaseTrackItem::operator delete;
 	//[/AC]
   CIonTrackItem()
-    : CBaseTrackItem(), temp(0), tempinf(0), unfragm(1), mob(0)
+    : CBaseTrackItem(), temp(0), tempinf(0), unfragm(1)
   {
   }
 
-  CIonTrackItem(int nId, const Vector3D& p, const Vector3D& v, double tmp, double unfrgm, double b, double t = 0.)
+  CIonTrackItem(int nId, const Vector3D& p, const Vector3D& v, double tmp, double unfrgm, double t = 0.)
     : CBaseTrackItem(nId, p, v, t),
       temp(tmp),
       tempinf(tmp),
-      unfragm(unfrgm),
-      mob(b)
+      unfragm(unfrgm)
   {
   }
 
   double      temp,     // ion temperature.
               tempinf,  // steady-state (equilibrium) ion temperature.
-              unfragm,  // part of unfragmented ions.
-              mob;      // ion mobility, random diffusion velocity jumps support.
+              unfragm;  // part of unfragmented ions.
 
   virtual CBaseTrackItem* copy() const;
   virtual void            state(double* pState) const;
-  virtual void            set_param(int nId, double fTime, double* pState);
 
   virtual double          get_mass() const;
   virtual double          get_temp() const;
-  virtual double          get_ion_mob() const;
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
@@ -124,11 +118,9 @@ struct CDropletTrackItem : public CBaseTrackItem, public BlockAllocator<CDroplet
 
   virtual CBaseTrackItem* copy() const;
   virtual void            state(double* pState) const;
-  virtual void            set_param(int nId, double fTime, double* pState);
 
   virtual double          get_mass() const;
   virtual double          get_temp() const;
-  virtual double          get_ion_mob() const;
 
   virtual void            save(CArchive& ar);
   virtual void            load(CArchive& ar);
@@ -151,8 +143,7 @@ struct CIntegrInterface
 
   double      fPhase,   // the initial phase of a particle, either ion or droplet (track specific).
               fCurr,    // the current comprised inside the flux tube this ion belongs to (track specific).
-              fTionInf, // the equilibrium ion temperature, (output).
-              fIonMob;  // random diffusion velocity jumps support.
+              fTionInf; // the equilibrium ion temperature, (output).
 
   bool        bOk;      // a run-time flag intended to terminate a track (track-specific).
 };
@@ -172,8 +163,7 @@ struct CTrackItem
               temp,     // ion temperature or droplet temperature.
               tempinf,  // steady-state ion temperature.
               unfragm,  // unfragmented part of ions.
-              mass,     // variable droplet mass.
-              mob;      // ion mobility at recalculated for current T and P.
+              mass;     // variable droplet mass.
 };
 
 //---------------------------------------------------------------------------------------
@@ -183,7 +173,7 @@ class CTrack : public std::vector<CBaseTrackItem*>
 {
 public:
   CTrack(int nType = ptIon, UINT nInd = 0, double fPhase = 0., double fCurr = 0.)
-    : m_nType(nType), m_nIndex(nInd), m_fPhase(fPhase), m_fCurr(fCurr), m_nRandSeed(0)
+    : m_nType(nType), m_nIndex(nInd), m_fPhase(fPhase), m_fCurr(fCurr)
   {
   }
 
@@ -205,9 +195,6 @@ public:
   double      get_current() const;
   void        set_current(double fCurr);
 
-  UINT        get_rand_seed() const;
-  void        set_rand_seed(UINT nSeed);
-
   void        get_track_item(size_t nInd, CTrackItem& item) const;  // no range control inside!
 
 private:
@@ -216,8 +203,6 @@ private:
 
   double      m_fPhase,
               m_fCurr;
-
-  UINT        m_nRandSeed;  // random diffusion support.
 };
 
 typedef std::vector<CTrack> CTrackVector;
@@ -263,16 +248,6 @@ inline double CTrack::get_current() const
 inline void CTrack::set_current(double fCurr)
 {
   m_fCurr = fCurr;
-}
-
-inline UINT CTrack::get_rand_seed() const
-{
-  return m_nRandSeed;
-}
-
-inline void CTrack::set_rand_seed(UINT nSeed)
-{
-  m_nRandSeed = nSeed;
 }
 
 } //namespace EvaporatingParticle
