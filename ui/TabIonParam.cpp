@@ -4,7 +4,7 @@
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
 #include "BeamCrossSection.h"
-#include "RandomProcess.h"    // random diffusion support.
+#include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "Button.h"
 
 static const double scfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;

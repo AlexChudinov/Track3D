@@ -7,7 +7,7 @@
 #include "ParticleSource.h"
 #include "ImportOpenFOAM.h"
 #include "BeamCrossSection.h"
-#include "RandomProcess.h"    // random diffusion support.
+#include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "Perturbation.h"
 #include "matrix3d.hpp"
 #include "math.h"
