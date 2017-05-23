@@ -10,8 +10,7 @@ void BlockPoolInterface::insert(BlockPoolInterface * p){
 }
 
 void BlockPoolInterface::cleanUpEveryPool(){
-	ThreadPool::getInstance().splitInPar(
-		s_blockPools.size(),
-		[&](size_t n) { s_blockPools[n]->cleanUp(); 
-	});
+	for (BlockPoolInterface* p : s_blockPools) {
+		ThreadPool::getInstance().addTask([&]() { p->cleanUp(); });
+	}
 }

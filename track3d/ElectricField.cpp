@@ -331,9 +331,9 @@ bool CElectricFieldData::calc_field(bool bTest)
   bool bRes = get_result(bTest);
   notify_scene();
 
-  //[AC 05/05/2017 Cleans memory pool]
+  /*[AC 03.05.2017] Memory clean up */
   BlockPoolInterface::cleanUpEveryPool();
-  //[/AC]	
+  /*[/AC]*/
 
   return bRes;
 }

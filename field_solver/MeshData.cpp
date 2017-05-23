@@ -695,19 +695,19 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type,
 	switch (type)
 	{
 	case CMeshAdapter::LaplacianSolver0:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(laplacianSolver0())));
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver0()));
 	case CMeshAdapter::LaplacianSolver1:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(laplacianSolver1())));
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver1()));
 	case CMeshAdapter::LaplacianSolver2:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(laplacianSolver2())));
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver2()));
 	case CMeshAdapter::LaplacianSolver3:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(laplacianSolver3())));
+		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver3()));
 	case CMeshAdapter::GradX:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(gradX())));
+		return PScalFieldOp(new ScalarFieldOperator(gradX()));
 	case CMeshAdapter::GradY:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(gradY())));
+		return PScalFieldOp(new ScalarFieldOperator(gradY()));
 	case CMeshAdapter::GradZ:
-		return std::move(PScalFieldOp(new ScalarFieldOperator(gradZ())));
+		return PScalFieldOp(new ScalarFieldOperator(gradZ()));
 	default:
 		throw std::runtime_error("CMeshAdapter::createOperator: Unsupported operator type.");
 	}
@@ -818,10 +818,6 @@ CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
 	});
 
 	return result;
-}
-
-CFieldOperator::~CFieldOperator() { 
-	/*BlockPoolInterface::cleanUpEveryPool();*/
 }
 
 CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)

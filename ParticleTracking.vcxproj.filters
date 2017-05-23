@@ -44,13 +44,13 @@
       <UniqueIdentifier>{0355c1a6-0fd9-4836-ba7a-e392ac27dfb0}</UniqueIdentifier>
     </Filter>
     <Filter Include="RandomProcess">
-      <UniqueIdentifier>{8bf64921-d580-423d-bc5a-0d83eb598aa4}</UniqueIdentifier>
+      <UniqueIdentifier>{1163d1a3-5662-486f-9e57-02609e6f5217}</UniqueIdentifier>
     </Filter>
-    <Filter Include="RandomProcess\Header Files">
-      <UniqueIdentifier>{8e5c8948-22d8-4bb8-9d80-2104b5e17133}</UniqueIdentifier>
+    <Filter Include="RandomProcess\HeaderFiles">
+      <UniqueIdentifier>{d8c3ce96-4b71-4232-b598-22daa1ad0f9a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="RandomProcess\Source Files">
-      <UniqueIdentifier>{ed0e8101-ff1d-4c4d-bacf-c2e5f69397f8}</UniqueIdentifier>
+    <Filter Include="RandomProcess\SourceFiles">
+      <UniqueIdentifier>{d14ee42e-4fab-4031-93e1-70d8662f1c43}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -193,7 +193,7 @@
       <Filter>utilities\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RandomProcess\RandomProcess.h">
-      <Filter>RandomProcess\Header Files</Filter>
+      <Filter>RandomProcess\HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -351,7 +351,7 @@
       <Filter>utilities\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RandomProcess\RandomProcess.cpp">
-      <Filter>RandomProcess\Source Files</Filter>
+      <Filter>RandomProcess\SourceFiles</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

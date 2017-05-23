@@ -58,8 +58,6 @@ public:
 	using Field = std::vector<double>;
 
 	virtual Field applyToField(const Field& f) const = 0;
-
-	virtual ~COperator() {}
 };
 
 class CFieldOperator : public COperator
@@ -80,9 +78,6 @@ public:
 
 	//Applies operator to a field
 	Field applyToField(const Field& f) const;
-
-	//Clean up memory on destructor call
-	~CFieldOperator();
 };
 
 // Addapts mesh to an external usage

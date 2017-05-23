@@ -7,12 +7,15 @@
 #include "ParticleSource.h"
 #include "ImportOpenFOAM.h"
 #include "BeamCrossSection.h"
+#include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "Perturbation.h"
 #include "matrix3d.hpp"
 #include "math.h"
 
 class CExecutionDialog;
 class DiffusionVelocityJump;
+
+typedef RandomProcess::RandomProcessType CRandomDiffType;
 
 namespace EvaporatingParticle
 {
@@ -235,6 +238,10 @@ public:
 // Random diffusion (for ion type of particles only).
   bool                    get_enable_diffusion() const;
   DWORD_PTR               get_enable_diffusion_ptr() const;
+
+  CRandomDiffType         get_rand_diff_type() const;
+  DWORD_PTR               get_rand_diff_type_ptr() const;
+  void                    set_rand_diff_type(CRandomDiffType nType);
 
   long                    get_random_seed() const;
   DWORD_PTR               get_random_seed_ptr() const;
@@ -559,9 +566,10 @@ protected:
 
 // Random diffusion (for ion type of particles only).
   bool                    m_bEnableDiffusion;
+  CRandomDiffType         m_nRndDiffType;
   UINT                    m_nRandomSeed;
 
-  DiffusionVelocityJump*  create_random_jump(UINT nSeed) const;
+  RandomProcess*          create_random_jump(UINT nSeed) const;
 
 // Convertation to CGS:
   void                    conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float& fThermCond, float& fCp,
@@ -1424,6 +1432,21 @@ inline DWORD_PTR CTracker::get_random_seed_ptr() const
 inline void CTracker::set_random_seed(long nSeed)
 {
   m_nRandomSeed = UINT(std::abs(nSeed));
+}
+
+inline CRandomDiffType CTracker::get_rand_diff_type() const
+{
+  return m_nRndDiffType;
+}
+
+inline DWORD_PTR CTracker::get_rand_diff_type_ptr() const
+{
+  return (DWORD_PTR)&m_nRndDiffType;
+}
+
+inline void CTracker::set_rand_diff_type(CRandomDiffType nType)
+{
+  m_nRndDiffType = nType;
 }
 
 }; // namespace EvaporatingParticle
