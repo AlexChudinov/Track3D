@@ -26,8 +26,8 @@ INTEGRATORS_EXPORT void* create_integrator_interface
 (
 	unsigned long state_size,
 	STEPPER_TYPE_ID stepper_id,
-	const void* pObj,
-	void(__cdecl *diff_fun)(const void*, const double*, double*, const double*)
+	void* pObj,
+	void(__cdecl *diff_fun)(void*, const double*, double*, const double*)
 );
 
 INTEGRATORS_EXPORT void delete_integrator_interface(void* ptr_integrator_interface);

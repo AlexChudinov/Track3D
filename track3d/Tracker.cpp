@@ -22,7 +22,7 @@
 
 #include "ExecutionDialog.h"
 
-#include <libIntegrators.h>
+#include "../Integrators/libIntegrators.h"
 
 
 namespace EvaporatingParticle
@@ -195,7 +195,7 @@ static void SetZeroDeriv(double* pTimeDeriv, ULONG nSize)
     pTimeDeriv[i] = 0;
 }
 
-void CTracker::GetTimeDeriv(const void* pData, const double* pItemState, double* pTimeDeriv, const double* pTime)
+void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTimeDeriv, const double* pTime)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   ULONG nStateSize = pObj->get_particle_type() == CTrack::ptDroplet ? DROPLET_STATE_SIZE : ION_STATE_SIZE;
@@ -373,7 +373,7 @@ void CTracker::do_track()
       double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
       pItem->state(pState);
       CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
-      void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
+      void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
 
 // Random diffusion support:
       RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
@@ -646,7 +646,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
       double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
       pItem->state(pState);
       CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
-      void* pI = create_integrator_interface(nStateSize, nIntegrType, (const void*)&data, CTracker::GetTimeDeriv);
+      void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
 
 // Random diffusion support:
       RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());

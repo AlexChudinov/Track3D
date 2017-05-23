@@ -17,7 +17,7 @@ namespace math
     using namespace boost::numeric::odeint;
 
     //Differentiation function type
-    typedef void (__cdecl * DFUN) (const void*, const double*, double*, const double*);
+    typedef void (__cdecl * DFUN) (void*, const double*, double*, const double*);
 
     enum STEPPER_TYPE_ID
     {
@@ -137,7 +137,7 @@ namespace math
     base_integrator_interface* New
     (
         STEPPER_TYPE_ID stepper_id,
-        const void* pObj, //big object owner of a diff_fun
+        void* pObj, //big object owner of a diff_fun
         //differentiation function diff_fun(pObj, state[in], dxdt[out], t)
         DFUN diff_fun
     )
@@ -180,7 +180,7 @@ namespace math
         (
             size_t n,
             STEPPER_TYPE_ID stepper_id,
-            const void* pObj,
+            void* pObj,
             DFUN diff_fun
         ) const
         {
@@ -196,7 +196,7 @@ namespace math
         (
             size_t n,
             STEPPER_TYPE_ID stepper_id,
-            const void* pObj,
+            void* pObj,
             DFUN diff_fun
         ) const
         {

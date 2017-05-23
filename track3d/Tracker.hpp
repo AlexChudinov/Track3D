@@ -60,7 +60,7 @@ public:
 		intCount     = 4
 	};
 
-  static void             GetTimeDeriv(const void* pData, const double* pItemState, double* pTimeDeriv, const double* pTime);
+  static void             GetTimeDeriv(void* pData, const double* pItemState, double* pTimeDeriv, const double* pTime);
 
   int                     get_integr_type() const;
   DWORD_PTR               get_integr_type_ptr() const;

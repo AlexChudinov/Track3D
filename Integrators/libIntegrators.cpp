@@ -6,9 +6,9 @@ void* create_integrator_interface
 (
     unsigned long integrator_state_size,
     STEPPER_TYPE_ID stepper_id,
-    const void* pObj, //big object owner of diff_fun and obs_fun
+    void* pObj, //big object owner of diff_fun and obs_fun
     //differentiation function diff_fun(pObj, state[in], dxdt[out], t)
-    void (__cdecl *diff_fun)(const void*, const double*, double*, const double*)
+    void (__cdecl *diff_fun)(void*, const double*, double*, const double*)
 )
 {
     return integrator_state_size > MAX_STATE_SIZE ?
