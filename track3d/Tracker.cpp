@@ -416,6 +416,7 @@ void CTracker::do_track()
         {
           currItem.set_param(data.nElemId, fTime, pState);
           prevItem = pDiffJump->randomJump(prevItem, currItem);
+		  prevItem.mob = data.fIonMob;
 // The initial velocity (or coordinate) is perturbed for the next time step:
           prevItem.state(pState);
         }
@@ -689,6 +690,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
         {
           currItem.set_param(data.nElemId, fTime, pState);
           prevItem = pDiffJump->randomJump(prevItem, currItem);
+		  prevItem.mob = data.fIonMob;
 // The initial velocity (or coordinate) is perturbed for the next time step:
           prevItem.state(pState);
         }

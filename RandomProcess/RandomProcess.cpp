@@ -23,6 +23,7 @@ const char* RandomProcess::rndProcName(RandomProcessType nType)
 	{
 	case DIFFUSION_VELOCITY_JUMP: return _T("Velocity Jump");
 	case DIFFUSION_COORD_JUMP: return _T("Coordinates Jump");
+	case COLLISION: return _T("Collision");
 	}
 
 	return _T("None");
@@ -81,6 +82,11 @@ const char * DiffusionVelocityJump::rndProcName() const
 	return _T("Velocity Jump");
 }
 
+DiffusionVelocityJump::RandomProcessType DiffusionVelocityJump::rndProcType() const
+{
+	return DIFFUSION_VELOCITY_JUMP;
+}
+
 DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, const Item & i2)
 {
 	//Average ion temperature
@@ -89,13 +95,14 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
 	//Small time step
 	double h = i2.time - i1.time;
 
-	// [MS] 16-05-2017
-	double b = .5*(i2.mob + i1.mob);  // ion mobility recalculated to current conditions, P and T.
-	double D = Const_Boltzmann * T * b / m_fIonCharge;  // ion diffusion coefficient, the Einstein relation.
+	// ion mobility recalculated to current conditions, P and T.
+	double kappa = .5*(i2.mob + i1.mob);
 
-														//Average ion velocity
+	// ion diffusion coefficient, the Einstein relation.
+	double D = Const_Boltzmann * T * kappa / m_fIonCharge;
+
+	//Average ion velocity													
 	double v0 = sqrt(6. * D / h);
-	// [/MS]
 
 	Vector3D v = v0 * randOnSphere();
 
@@ -106,7 +113,34 @@ DiffusionVelocityJump::Item DiffusionVelocityJump::randomJump(const Item & i1, c
 
 DiffusionVelocityJump::Item DiffusionVelocityJump::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
 {
-	return randomJump(in1.first, in2.first);
+	Item ret = in2.first;
+
+	//Average ion temperature
+	double T = .5*(in2.first.temp + in1.first.temp);
+
+	//Average gas pressure
+	double P = .5*(in2.second.press + in1.second.press);
+
+	//Small time step
+	double h = in2.first.time - in1.first.time;
+
+	//Ion mobility
+	double kappa = m_fIonMobility * sqrt(T / Const_T0) * Const_One_Atm_CGS / P;
+
+	//Characteristic relaxation time
+	double tau = kappa * m_fIonMass / m_fIonCharge;
+
+	// Diffusion coefficient
+	double D = Const_Boltzmann * T * kappa / m_fIonCharge;
+
+	//Abdolute jump value
+	double dvAbs = sqrt(6. * D * h) / (tau * (1 - exp(-h / tau)));
+
+	Vector3D dv = dvAbs * randOnSphere();
+
+	ret.vel += dv;
+
+	return ret;
 }
 
 DiffusionCoordJump::DiffusionCoordJump(const DiffusionParams & params)
@@ -122,6 +156,11 @@ const char * DiffusionCoordJump::rndProcName() const
 	return _T("Coordinates Jump");
 }
 
+DiffusionCoordJump::RandomProcessType DiffusionCoordJump::rndProcType() const
+{
+	return DIFFUSION_COORD_JUMP;
+}
+
 DiffusionCoordJump::Item DiffusionCoordJump::randomJump(const Item & i1, const Item & i2)
 {
 	Item ret = i2;
@@ -132,13 +171,14 @@ DiffusionCoordJump::Item DiffusionCoordJump::randomJump(const Item & i1, const I
 	//Small time step
 	double h = i2.time - i1.time;
 
-	// [MS] 16-05-2017
-	double b = .5*(i2.mob + i1.mob);  // ion mobility recalculated to current conditions, P and T.
-	double D = Const_Boltzmann * T * b / m_fIonCharge;  // ion diffusion coefficient, the Einstein relation.
+	// ion mobility recalculated to current conditions, P and T.
+	double kappa = .5*(i2.mob + i1.mob);  
 
-														//Diffusion jump calculation
+	// ion diffusion coefficient, the Einstein relation.
+	double D = Const_Boltzmann * T * kappa / m_fIonCharge; 
+
+	//Diffusion jump calculation													
 	double dx = sqrt(6. * D * h);
-	// [/MS]
 
 	Vector3D dr = dx * randOnSphere();
 
@@ -189,6 +229,11 @@ const char * Collision::rndProcName() const
 	return _T("Collisions");
 }
 
+Collision::RandomProcessType Collision::rndProcType() const
+{
+	return COLLISION;
+}
+
 Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
 {
 	Item res = in2.first;
@@ -196,7 +241,9 @@ Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNod
 	double Tgas = (in1.second.temp + in2.second.temp) / 2.;
 	Vector3D velIonRel = ((in1.first.vel - in1.second.vel) + (in2.first.vel - in2.second.vel)) / 2.;
 
-	//if(meanRelativeSpeed(velIonRel, Tgas) * m_fIonCrossSection)
+	if (meanRelativeSpeed(velIonRel, Tgas) * m_fIonCrossSection * h > rand()) {
+
+	}
 
 	return res;
 }
@@ -208,4 +255,21 @@ double Collision::meanRelativeSpeed(const Vector3D & velIonRel, double Tgas) con
 		meanGasSpeed = 2 / sqrt(A * Const_PI),
 		s = velIonRel.length() * sqrt(A);
 	return meanGasSpeed*((s + 1. / (2.*s))*sqrt(Const_PI) / 2.*EP::CMath::erf(s) + 1. / 2. * exp(-s*s));
+}
+
+Collision::Vector3D Collision::collide(const Vector3D & v, double Tgas)
+{
+	//Molecular velocity
+	Vector3D vmol = rndMol(v, Tgas, m_fGasMass);
+
+	//Absolute ion-molecular velocity
+	double dvAbs = (v * vmol).length();
+
+	//Total mass of the system
+	double M = m_fIonMass + m_fGasMass;
+
+	//Center mass velocity
+	Vector3D vC = (m_fIonMass * v + m_fGasMass * vmol) / M;
+
+	return Vector3D();
 }

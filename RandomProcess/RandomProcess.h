@@ -41,6 +41,8 @@ public:
 
 	//Returns a name of a random process
 	virtual const char * rndProcName() const = 0;
+	//Returns a type of a random process
+	virtual RandomProcessType rndProcType() const = 0;
 
 	//Constructs with given seed
 	RandomProcess(RndGenResult seed);
@@ -86,6 +88,8 @@ public:
 
 	virtual const char * rndProcName() const;
 
+	virtual RandomProcessType rndProcType() const;
+
 	virtual Item randomJump(const Item& i1, const Item& i2);
 
 	virtual Item gasDependedRndJmp(const ItemNode& i1, const ItemNode& i2);
@@ -102,6 +106,8 @@ public:
 	DiffusionCoordJump(const DiffusionParams & params);
 
 	virtual const char * rndProcName() const;
+
+	virtual RandomProcessType rndProcType() const;
 
 	//Without potential correction
 	virtual Item randomJump(const Item& i1, const Item& i2);
@@ -128,6 +134,8 @@ public:
 
 	virtual const char * rndProcName() const;
 
+	virtual RandomProcessType rndProcType() const;
+
 	//Dummy function
 	virtual Item randomJump(const Item& i1, const Item& i2) {}
 
@@ -137,6 +145,10 @@ public:
 	//Calculates average relative ion molecular speed
 	//Look, for example, here: [http://simion.com/info/collision_model_hs1.html]
 	double meanRelativeSpeed(const Vector3D& velIonRel, double Tgas) const;
+
+	//Recalculate first particle velocity according to a hard sphere collision
+	//with a random molecule in the gas with temperature Tgas
+	Vector3D collide(const Vector3D& v, double Tgas);
 
 private:
 	double m_fIonCrossSection;
