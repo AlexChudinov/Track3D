@@ -242,7 +242,9 @@ Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNod
 	Vector3D velIonRel = ((in1.first.vel - in1.second.vel) + (in2.first.vel - in2.second.vel)) / 2.;
 
 	if (meanRelativeSpeed(velIonRel, Tgas) * m_fIonCrossSection * h > rand()) {
-
+		velIonRel = in2.first.vel - in2.second.vel;
+		velIonRel = collide(velIonRel, Tgas);
+		res.vel = velIonRel + in2.second.vel;
 	}
 
 	return res;
@@ -263,7 +265,7 @@ Collision::Vector3D Collision::collide(const Vector3D & v, double Tgas)
 	Vector3D vmol = rndMol(v, Tgas, m_fGasMass);
 
 	//Absolute ion-molecular velocity
-	double dvAbs = (v * vmol).length();
+	double dvAbs = (v - vmol).length();
 
 	//Total mass of the system
 	double M = m_fIonMass + m_fGasMass;
@@ -271,5 +273,5 @@ Collision::Vector3D Collision::collide(const Vector3D & v, double Tgas)
 	//Center mass velocity
 	Vector3D vC = (m_fIonMass * v + m_fGasMass * vmol) / M;
 
-	return Vector3D();
+	return vC + m_fGasMass / M * dvAbs * randOnSphere();
 }

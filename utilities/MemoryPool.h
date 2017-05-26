@@ -35,6 +35,9 @@ public:
 	using BlocksLayout = BlocksList;
 
 private:
+	//Global static instance
+	static BlockSizePool g_blockSizePool;
+
 	//Cleans all blocks from the pool
 	void cleanUpEverything() {
 		for (char* p : m_blocks) {
@@ -73,28 +76,24 @@ private:
 	BlockSizePool& operator=(const BlockSizePool&) = delete;
 	BlockSizePool& operator=(BlockSizePool&&) = delete;
 public:
-	static BlockSizePool& getInstance()
-	{
-		static BlockSizePool g_blockSizePool;
-		return g_blockSizePool;
-	}
-
 	//Allocates a one block of a memory
-	void * allocBlock()
+	static void * allocBlock()
 	{
-		Locker lock(m_mtxDataAccess);
-		if (m_layout.empty()) expandPoolSize();
-		void* res = (void*)m_layout.front();
-		m_layout.pop_front();
+		Locker lock(g_blockSizePool.m_mtxDataAccess);
+		if (g_blockSizePool.m_layout.empty()) g_blockSizePool.expandPoolSize();
+		void* res = (void*)g_blockSizePool.m_layout.front();
+		g_blockSizePool.m_layout.pop_front();
 		return res;
 	}
 
 	//Frees a one block of a memory
-	void freeBlock(void * pT)
+	static void freeBlock(void * pT)
 	{
-		Locker lock(m_mtxDataAccess);
-		m_layout.push_front((char*)pT);
+		Locker lock(g_blockSizePool.m_mtxDataAccess);
+		g_blockSizePool.m_layout.push_front((char*)pT);
 	}
+
+	static void globalClean() { g_blockSizePool.cleanUp(); }
 
 	//Cleans up unused blocks
 	void cleanUp()
@@ -103,13 +102,13 @@ public:
 		m_layout.sort();
 		auto it = m_blocks.begin();
 		while (it != m_blocks.end()) {
-			BlocksList::iterator first = std::lower_bound(m_layout.begin(),
-				m_layout.end(), *it);
-			if (*first == *it) {
+			//Note, that for linked list find will be faster then binary_search
+			BlocksList::iterator first = std::find(m_layout.begin(), m_layout.end(), *it);
+			if (first != m_layout.end()) {
 				BlocksList::iterator next = first;
-				char * pFirst = *first + (m_nPageSize - 1) * nBlockSize;
+				char * pFirst = *first + m_nPageSize * nBlockSize;
 				int count = 0;
-				while ( ++next != m_layout.end() && *next <= pFirst ) ++count;
+				while ( ++next != m_layout.end() && *next < pFirst ) ++count;
 				if ( count == (m_nPageSize - 1)) {
 					//Free all blocks on the page
 					m_layout.erase_after(first, next);
@@ -133,49 +132,39 @@ private:
 	Mutex m_mtxDataAccess;
 };
 
+template<size_t nBlockSize> BlockSizePool<nBlockSize> 
+	BlockSizePool<nBlockSize>::g_blockSizePool;
+
 //Keeps memory blocks of a certain type
 template<typename T>
 class BlockPool
 {
 	using UsedBlockSizePool = BlockSizePool<sizeof(T)>;
 
-	//Use it as a singletone
-	BlockPool()
-		:
-		m_bspGlobalRef(UsedBlockSizePool::getInstance())
-	{
-	}
+	static BlockPool g_blockPool;
 
 	BlockPool(const BlockPool&) = delete;
 	BlockPool(BlockPool&&) = delete;
 	BlockPool& operator=(const BlockPool&) = delete;
 	BlockPool& operator=(BlockPool&&) = delete;
 public:
-	static BlockPool& getInstance()
-	{
-		static BlockPool g_blockPool;
-		return g_blockPool;
-	}
 
 	//Allocates a one block of a memory
-	T* allocBlock()
+	static T* allocBlock()
 	{
-		return (T*)m_bspGlobalRef.allocBlock();
+		return (T*)BlockSizePool<sizeof(T)>::allocBlock();
 	}
 
 	//Frees a one block of a memory
-	void freeBlock(T* pT)
+	static void freeBlock(T* pT)
 	{
-		m_bspGlobalRef.freeBlock((void*)pT);
+		BlockSizePool<sizeof(T)>::freeBlock((void*)pT);
 	}
 
 	//Cleans up the global pool of blocks
-	void cleanUp() {
-		m_bspGlobalRef.cleanUp();
+	static void cleanUp() {
+		BlockSizePool<sizeof(T)>::globalClean();
 	}
-
-private:
-	UsedBlockSizePool& m_bspGlobalRef;
 };
 
 //Class for a one block allocation from pool
@@ -186,7 +175,7 @@ public:
 	static void* operator new(size_t n)
 	{
 		if (n != sizeof(T)) return ::operator new(n);
-		else return (void*)BlockPool<T>::getInstance().allocBlock();
+		else return (void*)BlockPool<T>::allocBlock();
 	}
 
 	static void* operator new(size_t, void* m) { return m; }
@@ -194,7 +183,7 @@ public:
 	static void operator delete(void* m, size_t n)
 	{
 		if (n != sizeof(T)) return ::operator delete(m, n);
-		else return BlockPool<T>::getInstance().freeBlock((T*)m);
+		else return BlockPool<T>::freeBlock((T*)m);
 	}
 
 	static void operator delete(void*, void*){}
@@ -300,7 +289,7 @@ inline T * Allocator<T>::allocate(size_type nCount)
 	switch (nCount)
 	{
 	case 0: return nullptr;
-	case 1: return BlockPool<T>::getInstance().allocBlock();
+	case 1: return BlockPool<T>::allocBlock();
 	default:
 	{
 		return m_stdAllocator.allocate(nCount);
@@ -314,7 +303,7 @@ inline void Allocator<T>::deallocate(pointer pT, size_type nCount)
 	switch (nCount)
 	{
 	case 0: break;
-	case 1: if (pT) BlockPool<T>::getInstance().freeBlock(pT); break;
+	case 1: if (pT) BlockPool<T>::freeBlock(pT); break;
 	default: m_stdAllocator.deallocate(pT, nCount);
 	}
 }

@@ -194,7 +194,7 @@ void CIonTrackItem::load(CArchive& ar)
 
 void CIonTrackItem::deleteObj()
 {
-	BlockPool<CIonTrackItem>::getInstance().freeBlock(this);
+	BlockPool<CIonTrackItem>::freeBlock(this);
 }
 
 //---------------------------------------------------------------------------------------
@@ -271,7 +271,7 @@ void CDropletTrackItem::load(CArchive& ar)
 
 void CDropletTrackItem::deleteObj()
 {
-	BlockPool<CDropletTrackItem>::getInstance().freeBlock(this);
+	BlockPool<CDropletTrackItem>::freeBlock(this);
 }
 
 //---------------------------------------------------------------------------------------
