@@ -43,32 +43,37 @@ private:
 	String m_sErrorDescription;
 
 	Mutex m_globalLock;
+	Mutex m_initLock;
 
 	ThreadPool();
 	ThreadPool(const ThreadPool&) = delete;
 	ThreadPool& operator=(const ThreadPool&) = delete;
 
+	//Returns thread pool global instance
+	static ThreadPool& getInstance();
 public:
 	~ThreadPool();
 
-	//Returns thread pool global instance
-	static ThreadPool& getInstance();
-
 	//Adds task to task queue
-	Future addTask(Fun&& task);
+	static Future addTask(Fun&& task);
 
 	//Gets next task from queue
-	Task getTask();
+	static Task getTask();
 
 	//Splits array into subarray and does parallel operation on it
-	void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
-	void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress* progress, size_t nThreads = 0);
+	static void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
+	static void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, 
+		Progress* progress, 
+		size_t nThreads = 0);
 
 	//Returns error string from a thread pool
-	String error();
+	static String error();
 
 private:
 	void threadEvtLoop();
+
+	//Returns a number of current threads
+	static size_t threadNumber();
 
 	//Starts thread event loops
 	void start();
