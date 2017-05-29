@@ -234,6 +234,11 @@ Collision::RandomProcessType Collision::rndProcType() const
 	return COLLISION;
 }
 
+Collision::Item Collision::randomJump(const Item & i1, const Item & i2)
+{
+	return i2;
+}
+
 Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
 {
 	Item res = in2.first;

@@ -137,7 +137,7 @@ public:
 	virtual RandomProcessType rndProcType() const;
 
 	//Dummy function
-	virtual Item randomJump(const Item& i1, const Item& i2) {}
+	virtual Item randomJump(const Item& i1, const Item& i2);
 
 	//Generates collision
 	virtual Item gasDependedRndJmp(const ItemNode& in1, const ItemNode& in2);
