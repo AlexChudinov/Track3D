@@ -172,7 +172,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX() const
 	ScalarFieldOperator result; 
 	result.m_matrix.resize(m_nodes.size());
 
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradX(nNodeIdx); },
 		m_pProgressBar.get());
 
@@ -187,7 +187,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY() const
 	ScalarFieldOperator result;
 	result.m_matrix.resize(m_nodes.size());
 
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradY(nNodeIdx); },
 		m_pProgressBar.get());
 
@@ -202,7 +202,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ() const
 	ScalarFieldOperator result;
 	result.m_matrix.resize(m_nodes.size());
 
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradZ(nNodeIdx); },
 		m_pProgressBar.get());
 
@@ -212,7 +212,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ() const
 CMeshAdapter::NodeTypes CMeshAdapter::nodeTypes() const
 {
 	NodeTypes res(m_nodes.size());
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx) 
 	{
 		res[nNodeIdx] = boundaryMesh()->isBoundary(nNodeIdx) ?
@@ -299,7 +299,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 
 	std::vector<NodeType> vNodeTypes(nodeTypes());
 
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx) 
 	{
 		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
@@ -375,7 +375,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 	//Create boundaries
 	NodeTypes vNodeTypes = nodeTypes();
 
-	ThreadPool::getInstance().splitInPar(solver.m_matrix.size(),
+	ThreadPool::splitInPar(solver.m_matrix.size(),
 		[&](size_t nInd)
 	{
 		switch (vNodeTypes[nInd])
@@ -420,7 +420,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 
 	std::vector<NodeType> vNodeTypes(nodeTypes());
 
-	ThreadPool::getInstance().splitInPar(m_nodes.size(),
+	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx)
 	{
 		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
@@ -811,7 +811,7 @@ CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
 			" Matrix and field sizes are different!");
 	Field result(f.size(), 0.0);
 
-	ThreadPool::getInstance().splitInPar(f.size(), [&](size_t n)
+	ThreadPool::splitInPar(f.size(), [&](size_t n)
 	{
 		for (const MatrixCoef& c : m_matrix[n])
 			result[n] += f[c.first] * c.second;
@@ -826,7 +826,7 @@ CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)
 		throw std::runtime_error("operator+=(CFieldOperator&, const CFieldOperator&):"
 			" Operator sizes mismatch!");
 
-	ThreadPool::getInstance().splitInPar(op1.m_matrix.size(), [&](size_t nInd)
+	ThreadPool::splitInPar(op1.m_matrix.size(), [&](size_t nInd)
 	{
 		CMeshAdapter::add(op1.m_matrix[nInd], op2.m_matrix[nInd]);
 	});
@@ -840,7 +840,7 @@ CFieldOperator& operator*=(CFieldOperator & op1, const CFieldOperator & op2)
 		throw std::runtime_error("operator*=(CFieldOperator&, const CFieldOperator&):"
 			" Operator sizes mismatch!");
 
-	ThreadPool::getInstance().splitInPar(op1.m_matrix.size(), [&](size_t nInd)
+	ThreadPool::splitInPar(op1.m_matrix.size(), [&](size_t nInd)
 	{
 		CFieldOperator::MatrixRow row1;
 		for (const auto& c : op1.m_matrix[nInd])

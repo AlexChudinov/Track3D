@@ -22,23 +22,23 @@ ThreadPool& ThreadPool::getInstance()
 
 ThreadPool::Future ThreadPool::addTask(Fun&& task)
 {
-	Locker lock(m_globalLock);
-	m_tasks.push(Task(task));
-	m_startCondition.notify_one();
-	return m_tasks.back().get_future();
+	Locker lock(getInstance().m_globalLock);
+	getInstance().m_tasks.push(Task(task));
+	getInstance().m_startCondition.notify_one();
+	return getInstance().m_tasks.back().get_future();
 }
 
 ThreadPool::Task ThreadPool::getTask()
 {
-	Locker lock(m_globalLock);
-	Task task(std::move(m_tasks.front()));
-	m_tasks.pop();
+	Locker lock(getInstance().m_globalLock);
+	Task task(std::move(getInstance().m_tasks.front()));
+	getInstance().m_tasks.pop();
 	return task;
 }
 
 void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicOp)
 {
-	size_t nn = n / m_nThreadNumber + 1;
+	size_t nn = n / threadNumber() + 1;
 	std::vector<Future> vFutures;
 	if (nn == 1)
 	{
@@ -62,7 +62,7 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 
 void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress, size_t nThreads)
 {
-	nThreads = nThreads == 0 ? m_nThreadNumber : nThreads;
+	nThreads = nThreads == 0 ? threadNumber() : nThreads;
 	size_t
 		nn = n / nThreads + 1,
 		nProgressStep = n / 90,
@@ -101,8 +101,8 @@ void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Pr
 
 std::string ThreadPool::error()
 {
-	Locker lock(m_globalLock);
-	return m_sErrorDescription;
+	Locker lock(getInstance().m_globalLock);
+	return getInstance().m_sErrorDescription;
 }
 
 void ThreadPool::threadEvtLoop()
@@ -130,6 +130,11 @@ void ThreadPool::threadEvtLoop()
 	}
 }
 
+size_t ThreadPool::threadNumber()
+{
+	return getInstance().m_nThreadNumber;
+}
+
 void ThreadPool::start()
 {
 	m_threads = Threads(m_nThreadNumber);
@@ -154,7 +159,7 @@ void ThreadPool::joinAll()
 
 void ThreadPool::init()
 {
-	Locker lock(m_globalLock);
+	Locker lock(m_initLock);
 	if (!m_bValid)
 	{
 		m_bValid = true;

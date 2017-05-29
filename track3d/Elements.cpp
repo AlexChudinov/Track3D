@@ -666,19 +666,19 @@ const UINT * CTetra::nodes() const
 //[AC 27/03/2017] memory manager
 void CTetra::deleteObj()
 {
-	BlockPool<CTetra>::getInstance().freeBlock(this);
+	BlockPool<CTetra>::freeBlock(this);
 }
 void CPyramid::deleteObj()
 {
-	BlockPool<CPyramid>::getInstance().freeBlock(this);
+	BlockPool<CPyramid>::freeBlock(this);
 }
 void CWedge::deleteObj()
 {
-	BlockPool<CWedge>::getInstance().freeBlock(this);
+	BlockPool<CWedge>::freeBlock(this);
 }
 void CHexa::deleteObj()
 {
-	BlockPool<CHexa>::getInstance().freeBlock(this);
+	BlockPool<CHexa>::freeBlock(this);
 }
 //[/AC]
 
