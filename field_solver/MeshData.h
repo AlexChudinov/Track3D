@@ -58,6 +58,9 @@ public:
 	using Field = std::vector<double>;
 
 	virtual Field applyToField(const Field& f) const = 0;
+
+	//It's important!!!
+	virtual ~COperator() {}
 };
 
 class CFieldOperator : public COperator
