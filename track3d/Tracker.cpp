@@ -415,14 +415,16 @@ void CTracker::do_track()
         if(pDiffJump != NULL)
         {
           currItem.set_param(data.nElemId, fTime, pState);
+          currItem.mob = data.fIonMob;
           prevItem = pDiffJump->randomJump(prevItem, currItem);
-		  prevItem.mob = data.fIonMob;
 // The initial velocity (or coordinate) is perturbed for the next time step:
           prevItem.state(pState);
         }
       }
 
       delete_integrator_interface(pI);
+      if(pDiffJump != NULL)
+        delete pDiffJump;
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nPartCount));
@@ -689,14 +691,16 @@ UINT CTracker::main_thread_func(LPVOID pData)
         if(pDiffJump != NULL)
         {
           currItem.set_param(data.nElemId, fTime, pState);
+          currItem.mob = data.fIonMob;
           prevItem = pDiffJump->randomJump(prevItem, currItem);
-		  prevItem.mob = data.fIonMob;
 // The initial velocity (or coordinate) is perturbed for the next time step:
           prevItem.state(pState);
         }
       }
 
       delete_integrator_interface(pI);
+      if(pDiffJump != NULL)
+        delete pDiffJump;
     }
 
     pThread->done_job();
@@ -1150,18 +1154,35 @@ void CTracker::initial_conditions()
   clear_tracks(); // clear all items from the tracks, even the initial positions.
 
   Vector3D vPos, vVel;
-  double fTime, fPhase, fTemp, fIonMob;
+  double fTime, fPhase, fTemp, fPress, fIonMob = 0;
   UINT nEnsIndex;
   size_t nElemId;
 
   if(!m_Src.generate_initial_cond())
     return;
 
+  double w[8];
   srand(m_nRandomSeed);
   UINT nCount = m_Src.get_particles_count() * m_Src.get_ensemble_size();  // maximal expected count of particles.
   for(size_t i = 0; i < nCount; i++)
   {
-    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, fIonMob, nEnsIndex, nElemId);  // this function has a built-in index check.
+    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, nEnsIndex, nElemId);  // this function has a built-in index check.
+
+// Mobility interpolation (random ion diffusion support):
+    size_t nElemCount = m_vElems.size();
+    if((m_nType == CTrack::ptIon) && (nElemId < nElemCount))
+    {
+      CElem3D* pElem = m_vElems.at(nElemId);
+      if(!pElem->coeff(vPos, w))
+        continue;
+
+      fPress = 0;
+      size_t nNodeCount = pElem->get_node_count();
+      for(size_t j = 0; j < nNodeCount; j++)
+        fPress += w[j] * pElem->get_node(j)->press;
+
+      fIonMob = get_ion_mob(fPress, fTemp);
+    }
     
     CTrack track(m_nType, nEnsIndex, fPhase);
     track.reserve(100);
