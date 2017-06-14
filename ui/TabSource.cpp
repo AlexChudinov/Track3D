@@ -295,4 +295,14 @@ void CPropertiesWnd::update_source_ctrls()
     pProp->GetSubItem(1)->Enable(!bSelReg);
     pProp->GetSubItem(2)->Enable(!bSelReg);
   }
+
+  pProp = m_wndPropList.FindItemByData(pSrc->get_inject_dir_ptr());
+  if(pProp != NULL)
+  {
+    bool bUseGasVel = pSrc->get_use_initial_gas_vel();
+    pProp->GetSubItem(0)->Enable(!bUseGasVel);
+    pProp->GetSubItem(1)->Enable(!bUseGasVel);
+    pProp->GetSubItem(2)->Enable(!bUseGasVel);
+    pProp->Enable(!bUseGasVel);
+  }
 }

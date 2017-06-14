@@ -39,7 +39,7 @@ void CPropertiesWnd::add_type_ctrls()
   pDataGroup->AddSubItem(pGasProp);
 
   m_wndPropList.AddProperty(pDataGroup);
-
+/*
 // File output:
   EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
 
@@ -56,7 +56,7 @@ void CPropertiesWnd::add_type_ctrls()
   CCheckBoxButton* pQ00Prop = new CCheckBoxButton(this, _T("Output only Q00 tracks"), (_variant_t)outEng.get_restrict_output(), _T("If true, only those tracks will be output to a file which have passed to the Q00 region."), outEng.get_restrict_output_ptr());
   pOutGroup->AddSubItem(pQ00Prop);
   m_wndPropList.AddProperty(pOutGroup);
-
+*/
 // Saving track data to the *.tsk file:
   CMFCPropertyGridProperty* pSaveTrackGroup = new CMFCPropertyGridProperty(_T("Save track data onto the disk"));
   CCheckBoxButton* pEnableSaveTrack = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_save_tracks(), _T("If this flag is ON the File/Save... command saves the full tracks data on the disk."), pObj->get_enable_save_tracks_ptr());
@@ -130,18 +130,10 @@ void CPropertiesWnd::set_type_data()
   pProp = m_wndPropList.FindItemByData(pObj->get_molar_mass_ptr());
 	if(pProp != NULL)
     pObj->set_molar_mass(Const_AMU_CGS * pProp->GetValue().dblVal);
-
+/*
 // File output:
   EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
-/*
-  pProp = m_wndPropList.FindItemByData(outEng.get_enable_file_output_ptr());
-  if(pProp != NULL)
-    outEng.set_enable_file_output(pProp->GetValue().boolVal);
 
-  pProp = m_wndPropList.FindItemByData(outEng.get_enable_ens_by_radius_ptr());
-  if(pProp != NULL)
-    outEng.set_enable_ens_by_radius(pProp->GetValue().boolVal);
-*/
   pProp = m_wndPropList.FindItemByData(outEng.get_ens_by_radius_count_ptr());
   if(pProp != NULL)
     outEng.set_ens_by_radius_count(pProp->GetValue().lVal);
@@ -149,12 +141,6 @@ void CPropertiesWnd::set_type_data()
   pProp = m_wndPropList.FindItemByData(outEng.get_restrict_output_ptr());
   if(pProp != NULL)
     outEng.set_restrict_output(pProp->GetValue().boolVal);
-
-// Saving track data to the *.tsk file:
-/*
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_save_tracks_ptr());
-  if(pProp != NULL)
-    pObj->set_enable_save_tracks(pProp->GetValue().boolVal);
 */
 // Symmetry:
   pProp = m_wndPropList.FindItemByData(pObj->get_sym_plane_ptr());
@@ -174,11 +160,7 @@ void CPropertiesWnd::set_type_data()
 
 // Mesh transformation:
   EvaporatingParticle::CTransform& trans = pObj->get_transform();
-/*
-  pProp = m_wndPropList.FindItemByData(trans.get_enable_ptr());
-  if(pProp != NULL)
-    trans.set_enable(pProp->GetValue().boolVal);
-*/
+
   pProp = m_wndPropList.FindItemByData(trans.get_rot_axis_ptr());
   if(pProp != NULL)
   {
@@ -201,6 +183,7 @@ void CPropertiesWnd::set_type_data()
 void CPropertiesWnd::update_type_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+/*
   EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
 
   bool bEnable = false;
@@ -224,5 +207,6 @@ void CPropertiesWnd::update_type_ctrls()
   pProp = m_wndPropList.FindItemByData((DWORD_PTR)&outEng);
   if(pProp != NULL)
     pProp->Enable(bEnableButton);
+*/
 }
 

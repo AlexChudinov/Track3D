@@ -161,6 +161,9 @@ bool CSource::generate_initial_cond()
           fdY = -m_fRadius + fAmpl * rand() * scfRandCoeff;
 
           vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
+          if((vPos - m_vPos).length() > m_fRadius)
+            continue;
+
           vReflCoeff = reflector.reflectionCoefs(vPos);
           vReflPos = vReflCoeff && vPos;
           if(pObj->interpolate(vReflPos, 0, 0, node, pElem))

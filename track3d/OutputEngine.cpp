@@ -722,6 +722,8 @@ void COutputEngine::load(CArchive& ar)
   ar >> m_nEnsByRadiusCount;
   if(nVersion >= 1)
     ar >> m_fCrssSctX;
+
+  m_bEnableFileOutput = false;  // [MS] 14-06-2017 prohibit file output, enable only calculators output.
 }
 
 };  // namespace EvaporatingParticle
