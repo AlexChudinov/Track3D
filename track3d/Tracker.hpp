@@ -333,7 +333,7 @@ protected:
   bool                    read_2D_regions();
 
 public:
-  bool                    read_gasdyn_data();
+  bool                    read_gasdyn_data(bool bFieldsOnly = false);
 
   bool                    save_coulomb_field(const char* pFile);
   bool                    read_coulomb_field();

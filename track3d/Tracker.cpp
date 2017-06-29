@@ -1644,7 +1644,7 @@ bool CTracker::read_2D_regions()
   return true;
 }
 
-bool CTracker::read_gasdyn_data()
+bool CTracker::read_gasdyn_data(bool bFieldsOnly)
 {
   set_job_name("Reading gas-dynamic data...");
   set_progress(0);
@@ -1689,7 +1689,15 @@ bool CTracker::read_gasdyn_data()
     }
 
     pNode = m_vNodes.at(i);
-    pNode->set_data(fPress, fDens, fTemp, fDynVisc, fThermCond, fCp, vVel, vFieldDC, vFieldRF);
+    if(bFieldsOnly) // [MS] 29-06-2017 workaround to allow ANSYS fields together with DSMC gas dynamics.
+    {
+      pNode->field = vFieldDC;
+      pNode->rf = vFieldRF;
+    }
+    else
+    {
+      pNode->set_data(fPress, fDens, fTemp, fDynVisc, fThermCond, fCp, vVel, vFieldDC, vFieldRF);
+    }
 
 // Progress bar and termination support:
     if(i % 100 == 0)

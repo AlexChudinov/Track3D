@@ -175,7 +175,7 @@ static UINT __stdcall main_thread_func(LPVOID pData)
   if(pObj->get_enable_ansys_field())
   {
     if(pObj->is_ready())
-      pObj->read_gasdyn_data(); // restore ANSYS-calculated electric fields.
+      pObj->read_gasdyn_data(true); // restore only ANSYS-calculated electric fields, the other node data will be unchanged.
   }
   else
   {
