@@ -71,7 +71,7 @@ struct CIonTrackItem : public CBaseTrackItem, public BlockAllocator<CIonTrackIte
   {
   }
 
-  CIonTrackItem(int nId, const Vector3D& p, const Vector3D& v, double tmp, double unfrgm, double b, double t = 0.)
+  CIonTrackItem(int nId, const Vector3D& p, const Vector3D& v, double tmp, double unfrgm, double b, double t)
     : CBaseTrackItem(nId, p, v, t),
       temp(tmp),
       tempinf(tmp),

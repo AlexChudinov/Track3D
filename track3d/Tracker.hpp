@@ -2,6 +2,7 @@
 #ifndef _TRACKER_
 #define _TRACKER_
 
+#include "AnsysMesh.h"
 #include "TrackItem.h"
 #include "OutputEngine.h"
 #include "ParticleSource.h"
@@ -15,7 +16,7 @@
 class CExecutionDialog;
 class DiffusionVelocityJump;
 
-typedef RandomProcess::RandomProcessType CRandomDiffType;
+typedef RandomProcess::RandomProcessType CRandomProcType;
 
 namespace EvaporatingParticle
 {
@@ -29,7 +30,7 @@ class CBarnesHut;
 //-------------------------------------------------------------------------------------------------
 // CTracker - main class containing data and methods for ions and evaporating particles tracking.
 //-------------------------------------------------------------------------------------------------
-class CTracker : public CObject
+class CTracker : public CAnsysMesh
 {
 public:
   CTracker();
@@ -41,14 +42,6 @@ public:
     emMaxwell         = 1,
     emSteadyDiffusive = 2,
     emDiffusive       = 3
-  };
-
-  enum  // Symmetry planes
-  {
-    spNone  = 0,
-    spXY    = 1,
-    spXZ    = 2,
-    spYZ    = 4
   };
 
 	enum // Integrator type
@@ -67,13 +60,6 @@ public:
   void                    set_integr_type(int nType);
 
   const char*             get_integr_name(int nType) const;
-
-  const char*             get_filename() const;
-  DWORD_PTR               get_filename_ptr() const;
-  bool                    set_filename(const char* pName);
-
-  bool                    get_convert_to_cgs() const;
-  void                    set_convert_to_cgs(bool bEnable);
 
   int                     get_particle_type() const;
   DWORD_PTR               get_particle_type_ptr() const;
@@ -103,10 +89,6 @@ public:
   double                  get_dc_amplitude() const;
   DWORD_PTR               get_dc_amplitude_ptr() const;
   void                    set_dc_amplitude(double fAmpl);
-
-  int                     get_sym_plane() const;
-  DWORD_PTR               get_sym_plane_ptr() const;
-  void                    set_sym_plane(int nPlane);
 
   int                     get_symmetry_type() const;
 
@@ -138,7 +120,7 @@ public:
   DWORD_PTR               get_act_energy_ptr() const;
   void                    set_act_energy(double fEact);
 
-  double                  get_ion_cross_section() const;     // user-defined collision cross-section, cm^2, for output only.
+  double                  get_ion_cross_section() const;     // user-defined collision cross-section, cm^2.
   DWORD_PTR               get_ion_cross_section_ptr() const;
   void                    set_ion_cross_section(double fCrossSect);
 
@@ -235,13 +217,20 @@ public:
   DWORD_PTR               get_pre_calc_clmb_file_ptr() const;
   void                    set_pre_calc_clmb_file(const char* pName);
 
-// Random diffusion (for ion type of particles only).
+// Random processes (diffusion and collisions, for ion type of particles only).
   bool                    get_enable_diffusion() const;
   DWORD_PTR               get_enable_diffusion_ptr() const;
 
-  CRandomDiffType         get_rand_diff_type() const;
+  bool                    get_enable_collisions() const;
+  DWORD_PTR               get_enable_collisions_ptr() const;
+
+  double                  get_diffusion_switch_cond() const;
+  DWORD_PTR               get_diffusion_switch_cond_ptr() const;
+  void                    set_diffusion_switch_cond(double fX);
+
+  CRandomProcType         get_rand_diff_type() const;
   DWORD_PTR               get_rand_diff_type_ptr() const;
-  void                    set_rand_diff_type(CRandomDiffType nType);
+  void                    set_rand_diff_type(CRandomProcType nType);
 
   long                    get_random_seed() const;
   DWORD_PTR               get_random_seed_ptr() const;
@@ -282,17 +271,9 @@ public:
 //-------------------------------------------------------------------------------------------------
 // Drawing support:
 //-------------------------------------------------------------------------------------------------
-  CNodesCollection&       get_nodes();
-  CElementsCollection&    get_elems();
-  CRegionsCollection&     get_regions();
   CTrackVector&           get_tracks();
-  CBox&                   get_box();
 
   CSpaceChargeDistrib&    get_space_charge_dist();
-
-  Vector3D                get_center() const;
-
-  bool                    is_ready();
 
 // OpenFOAM import support:
   CImportOpenFOAM&        get_importer();
@@ -300,11 +281,13 @@ public:
 // Output to files:
   COutputEngine&          get_output_engine();
 
-// Mesh transformation:
-  CTransform&             get_transform();
-
 // DC Field perturbations:
   CFieldPtbCollection&    get_field_ptb();
+
+//-------------------------------------------------------------------------------------------------
+// Mesh specific interface:
+//-------------------------------------------------------------------------------------------------
+  bool                    interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, CElem3D*& pElem) const;
 
 //-------------------------------------------------------------------------------------------------
 // Streaming:
@@ -318,8 +301,6 @@ public:
   void                    save_track_const(CArchive& ar, const CTrack& track);
   void                    load_track_const(CArchive& ar, CTrack& track);
 
-  bool                    read_data();  // main function for reading ANSYS data.
-
   void                    clear_scene();
 
 protected:
@@ -327,45 +308,7 @@ protected:
   void                    set_data();         // force data from the properties list to be set before saving.
 
 //-------------------------------------------------------------------------------------------------
-// Mesh specific interface:
-//-------------------------------------------------------------------------------------------------
-  bool                    read_geometry();
-  bool                    read_2D_regions();
-
-public:
-  bool                    read_gasdyn_data(bool bFieldsOnly = false);
-
-  bool                    save_coulomb_field(const char* pFile);
-  bool                    read_coulomb_field();
-
-protected:
-  void                    add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3);
-  void                    add_pyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4);
-  void                    add_wedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5);
-  void                    add_hexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7);
-
-  void                    bounding_box();
-  
-  void                    clear();
-
-public:
-  bool                    interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, CElem3D*& pElem) const;
-
-// Reflect the particle's position, velocity and acceleration against the symmetry plane(s)if necessary.
-// The function returns "true" if reflection has been done and the back reflection is needed. In this case set
-// bForceReflect to "true" in the next call to ensure that the back reflection will occur.
-  bool                    sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool bForceReflect = false) const;
-
-protected:
-// Returns pointer to the element containing the input point or NULL if no element has been found.
-  CElem3D*                find_elem(CElem3D* pPrevElem, const Vector3D& vPos) const;
-
-// Try the nearest neighbors of the element, where the previous location was found, including the element itself.
-// Return pointer to the element containing the input point or NULL if no element has been found.
-  CElem3D*                try_neighbors(CElem3D* pElem, const Vector3D& vPos) const;
-
-//-------------------------------------------------------------------------------------------------
-// Particle tracking interface (everywhere the CGS system is suggested):
+// Particle tracking interface (everywhere the CGS system is assumed):
 //-------------------------------------------------------------------------------------------------
   void                    initial_conditions();
   void                    clear_tracks(bool bFinally = true);
@@ -425,9 +368,18 @@ protected:
   double                  get_full_current_at(UINT nIter);  // the full current is gradually increasing with iteration number.
   bool                    capture_save_image(UINT nIter);   // capture and save screenshot with tracks after nIter-th iteration.
 
-// These two functions are droplet-type specific:
+public:
+  bool                    save_coulomb_field(const char* pFile);
+protected:
+  bool                    read_coulomb_field();
+
+//-------------------------------------------------------------------------------------------------
+// Droplet-type specific:
+//-------------------------------------------------------------------------------------------------
   double                  get_particle_mass(double fD) const;
   double                  get_particle_diameter(double fMass) const;
+
+  void                    create_evapor_model();
 
 // Track limitations:
   bool                    track_is_over(double fTime, double fMass, double fTemp) const;
@@ -440,12 +392,7 @@ protected:
   static UINT __stdcall   main_thread_func(LPVOID pCalcThread);
 
   bool                    prepare();
-  void                    relax();
-
-//-------------------------------------------------------------------------------------------------
-// Evaporation:
-//-------------------------------------------------------------------------------------------------
-  void                    create_evapor_model();
+  void                    relax(); 
 
 private:
   int                     m_nIntegrType;
@@ -455,19 +402,7 @@ private:
 
   CalcThreadVector*       m_pCalcThreads;   // run-time, for progress bar support only.
 
-// Mesh specific data:
-  std::string             m_sDataFile;
 
-  CBox                    m_Box;          // bounding box.
-
-  CNodesCollection        m_vNodes;
-  CElementsCollection     m_vElems;
-
-  CRegionsCollection      m_vRegions;     // Regions containing triangular faces, for drawing only.
-  CRegionsCollection      m_vExtRegions;  // m_vRegions + cross-section regions, run-time.
-
-  bool                    m_bConv2CGS;    // a flag showing whether ANSYS data, which are normally in SI must be 
-                                          // converted to the CGS system; this is always "true" so far.
 // Particle data:
   int                     m_nType;        // type of particles, either droplets or ions.
 
@@ -491,8 +426,6 @@ private:
                           m_fMinMass,   // ... and corresponding minimal mass, g.
 
                           m_fMolarMass; // environment gas molar mass.
-
-  int                     m_nSymPlanes;
 
 // Electrostatics:
   bool                    m_bEnableField;
@@ -564,18 +497,21 @@ protected:
 // DC Field perturbations:
   CFieldPtbCollection     m_vFieldPtbColl;
 
-// Random diffusion (for ion type of particles only).
-  bool                    m_bEnableDiffusion;
-  CRandomDiffType         m_nRndDiffType;
+//-------------------------------------------------------------------------------------------------
+// Random processes (for ion type of particles only).
+//-------------------------------------------------------------------------------------------------
+  bool                    m_bEnableDiffusion,
+                          m_bEnableCollisions;
+// Now it is only the X-coordinate, at x < m_fDiffSwitchCond the diffusion is applied; at x > m_fDiffSwitchCond the collisions are turned ON.
+  double                  m_fDiffSwitchCond;
+
+  CRandomProcType         m_nRndDiffType;
   UINT                    m_nRandomSeed;
 
-  RandomProcess*          create_random_jump(UINT nSeed) const;
+  bool                    can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where) const;
 
-// Convertation to CGS:
-  void                    conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float& fThermCond, float& fCp,
-                            float& fVx, float& fVy, float& fVz, float& fEx, float& fEy, float& fEz, float& fRFEx, float& fRFEy, float& fRFEz);
-// Calculators:
-  void                    invalidate_calculators(); // called from read_data() and makes the calculators update their internal data.
+  RandomProcess*          create_random_jump(UINT nSeed) const;
+  RandomProcess*          create_collisions(UINT nSeed) const;
 
 // Output stuff:
   COutputEngine           m_OutputEngine;
@@ -583,14 +519,12 @@ protected:
 // Import OpenFOAM data:
   CImportOpenFOAM         m_Importer;
 
-// Mesh transformation (applied in read_geometry()).
-  CTransform              m_Transform;
-
 // Run-time:
-  bool                    m_bReady,     // this flag is set to "false" in set_filename(), to "true" in read_data().
-                          m_bResult;
+  bool                    m_bResult;
 
-  bool                    abort(FILE* pStream = NULL);
+// DEBUG
+  void                    subst_time_in_tracks();
+// END DEBUG
 
   friend class CExportOpenFOAM;
   friend class CImportOpenFOAM;
@@ -632,37 +566,6 @@ inline DWORD_PTR CTracker::get_use_multi_thread_ptr() const
 inline void CTracker::set_use_multi_thread(bool bEnable)
 {
   m_bUseMultiThread = bEnable;
-}
-
-// Gas-dynamic data input stuff.
-inline const char* CTracker::get_filename() const
-{
-  return m_sDataFile.c_str();
-}
-
-inline DWORD_PTR CTracker::get_filename_ptr() const
-{
-  return (DWORD_PTR)&m_sDataFile;
-}
-
-inline bool CTracker::set_filename(const char* pName)
-{
-  if(strcmp(pName, m_sDataFile.c_str()) == 0)
-    return false; // filename will not change, no need to set m_bReady flag to false. 
-
-  m_sDataFile = pName;
-  m_bReady = false; // force the data files to be re-read.
-  return true;
-}
-
-inline bool CTracker::get_convert_to_cgs() const
-{
-  return m_bConv2CGS;
-}
-
-inline void CTracker::set_convert_to_cgs(bool bEnable)
-{
-  m_bConv2CGS = bEnable;
 }
 
 inline int CTracker::get_particle_type() const
@@ -771,21 +674,6 @@ inline DWORD_PTR CTracker::get_dc_amplitude_ptr() const
 inline void CTracker::set_dc_amplitude(double fAmpl)
 {
   m_fAmplDC = fAmpl / cfDCVoltage;
-}
-
-inline int CTracker::get_sym_plane() const
-{
-  return m_nSymPlanes;
-}
-
-inline DWORD_PTR CTracker::get_sym_plane_ptr() const
-{
-  return (DWORD_PTR)&m_nSymPlanes;
-}
-
-inline void CTracker::set_sym_plane(int nPlane)
-{
-  m_nSymPlanes = nPlane;
 }
 
 // Particle source parameters:
@@ -1263,29 +1151,6 @@ inline CImportOpenFOAM& CTracker::get_importer()
   return m_Importer;
 }
 
-inline void CTracker::conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float& fThermCond, float& fCp,
-  float& fVx, float& fVy, float& fVz, float& fEx, float& fEy, float& fEz, float& fRFEx, float& fRFEy, float& fRFEz)
-{
-  fPress *= (float)SI_to_CGS_Press;
-  fDens *= (float)SI_to_CGS_Dens;
-  fDynVisc *= (float)SI_to_CGS_DynVisc;
-  fThermCond *= (float)SI_to_CGS_ThermCond;
-
-  fEx *= (float)SI_to_CGS_ElecField;
-  fEy *= (float)SI_to_CGS_ElecField;
-  fEz *= (float)SI_to_CGS_ElecField;
-
-  fRFEx *= (float)SI_to_CGS_ElecField;
-  fRFEy *= (float)SI_to_CGS_ElecField;
-  fRFEz *= (float)SI_to_CGS_ElecField;
-
-  fVx *= (float)SI_to_CGS_Vel;
-  fVy *= (float)SI_to_CGS_Vel;
-  fVz *= (float)SI_to_CGS_Vel;
-
-  fCp *= (float)SI_to_CGS_Cp;
-}
-
 inline double CTracker::get_Re(const Vector3D& vVel, double fDens, double fDynVisc, double fD) const
 {
   return fDens * fD * vVel.length() / fDynVisc;
@@ -1310,35 +1175,10 @@ inline double CTracker::get_particle_diameter(double fMass) const
   return exp(Const_One_Third * log(fMass * 6. * Const_1_PI / m_fPartDens));
 }
 
-inline CElementsCollection& CTracker::get_elems()
-{
-  return m_vElems;
-}
-
 // Drawing support:
-inline CNodesCollection& CTracker::get_nodes()
-{
-  return m_vNodes;
-}
-
 inline CTrackVector& CTracker::get_tracks()
 {
   return m_Tracks;
-}
-
-inline CBox& CTracker::get_box()
-{
-  return m_Box;
-}
-
-inline Vector3D CTracker::get_center() const
-{
-  return m_Box.get_center();
-}
-
-inline bool CTracker::is_ready()
-{
-  return m_bReady;
 }
 
 inline bool CTracker::get_result_flag() const
@@ -1398,11 +1238,6 @@ inline CSpaceChargeDistrib& CTracker::get_space_charge_dist()
   return m_SpaceChargeDist;
 }
 
-inline CTransform& CTracker::get_transform()
-{
-  return m_Transform;
-}
-
 inline CFieldPtbCollection& CTracker::get_field_ptb()
 {
   return m_vFieldPtbColl;
@@ -1417,6 +1252,31 @@ inline bool CTracker::get_enable_diffusion() const
 inline DWORD_PTR CTracker::get_enable_diffusion_ptr() const
 {
   return (DWORD_PTR)&m_bEnableDiffusion;
+}
+
+inline bool CTracker::get_enable_collisions() const
+{
+  return m_bEnableCollisions;
+}
+
+inline DWORD_PTR CTracker::get_enable_collisions_ptr() const
+{
+  return (DWORD_PTR)&m_bEnableCollisions;
+}
+
+inline double CTracker::get_diffusion_switch_cond() const
+{
+  return m_fDiffSwitchCond;
+}
+
+inline DWORD_PTR CTracker::get_diffusion_switch_cond_ptr() const
+{
+  return (DWORD_PTR)&m_fDiffSwitchCond;
+}
+
+inline void CTracker::set_diffusion_switch_cond(double fX)
+{
+  m_fDiffSwitchCond = fX;
 }
 
 inline long CTracker::get_random_seed() const
@@ -1434,7 +1294,7 @@ inline void CTracker::set_random_seed(long nSeed)
   m_nRandomSeed = UINT(std::abs(nSeed));
 }
 
-inline CRandomDiffType CTracker::get_rand_diff_type() const
+inline CRandomProcType CTracker::get_rand_diff_type() const
 {
   return m_nRndDiffType;
 }
@@ -1444,7 +1304,7 @@ inline DWORD_PTR CTracker::get_rand_diff_type_ptr() const
   return (DWORD_PTR)&m_nRndDiffType;
 }
 
-inline void CTracker::set_rand_diff_type(CRandomDiffType nType)
+inline void CTracker::set_rand_diff_type(CRandomProcType nType)
 {
   m_nRndDiffType = nType;
 }

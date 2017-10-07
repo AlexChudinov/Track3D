@@ -99,9 +99,6 @@
     <ClInclude Include="track3d\ImportOpenFOAM.h">
       <Filter>track3d\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="MathPhys\libIntegrators.h">
-      <Filter>track3d\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="track3d\mathematics.h">
       <Filter>track3d\Header Files</Filter>
     </ClInclude>
@@ -194,6 +191,9 @@
     </ClInclude>
     <ClInclude Include="RandomProcess\RandomProcess.h">
       <Filter>RandomProcess\HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\AnsysMesh.h">
+      <Filter>track3d\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -352,6 +352,9 @@
     </ClCompile>
     <ClCompile Include="RandomProcess\RandomProcess.cpp">
       <Filter>RandomProcess\SourceFiles</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\AnsysMesh.cpp">
+      <Filter>track3d\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -38,7 +38,7 @@ void CPropertiesWnd::add_ion_ctrls()
   m_wndPropList.AddProperty(pCollisionGroup);
 
 // Coulomb:
-  CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Coulomb Repulsion"));
+  CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Space Charge"));
   pCheckBox = new CCheckBoxButton(this, _T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
   pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Full Ion Current, nA"), COleVariant(pObj->get_full_current() / Const_nA_to_CGSE), _T("Full current carried by the ion bunch."), pObj->get_full_current_ptr());
@@ -111,9 +111,16 @@ void CPropertiesWnd::add_ion_ctrls()
   m_wndPropList.AddProperty(pCoulombGroup);
 
 // Random diffusion group:
-  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Diffusion"));
-  pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion velocities are disturbed by random variations at every time step."), pObj->get_enable_diffusion_ptr());
+  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Processes"));
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Diffusion"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion positions (or ion velocities) are disturbed by random variations at every time step. The random diffusion is applied if at X < Xc"), pObj->get_enable_diffusion_ptr());
   pDiffusionGroup->AddSubItem(pCheckBox);
+
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Collisions"), (_variant_t)pObj->get_enable_collisions(), _T("If this is set to 'true' the ion positions are disturbed by random variations once per several time steps. The random collisions are applied if at X > Xc"), pObj->get_enable_collisions_ptr());
+  pDiffusionGroup->AddSubItem(pCheckBox);
+
+  pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("X-coordinate, critical for application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
+  pDiffusionGroup->AddSubItem(pProp);
+
   pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
   pDiffusionGroup->AddSubItem(pProp);
 
@@ -233,7 +240,11 @@ void CPropertiesWnd::set_ion_data()
     }
   }
 
-// Random diffusion group:
+// Random processes group:
+  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
+  if(pProp != NULL)
+    pObj->set_diffusion_switch_cond(0.1 * pProp->GetValue().dblVal);
+
   pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
   if(pProp != NULL)
     pObj->set_random_seed(pProp->GetValue().lVal);
@@ -296,20 +307,29 @@ void CPropertiesWnd::update_ion_ctrls()
       bAxialSymm = pProp->GetValue().boolVal;
   }
 
+  bool bPreCalcClmb = false;
+  pProp = m_wndPropList.FindItemByData(pObj->get_use_pre_calc_coulomb_ptr());
+  if(pProp != NULL)
+    bPreCalcClmb = !bAxialSymm && pProp->GetValue().boolVal;
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_axial_symm_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnable && bEnableCoulomb && !bPreCalcClmb);
+
   pProp = m_wndPropList.FindItemByData(pObj->get_bunch_r0_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && bAxialSymm && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_iter_count_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   bool bDistAlongTraject = false;
   EvaporatingParticle::CSpaceChargeDistrib& distrib = pObj->get_space_charge_dist();
   pProp = m_wndPropList.FindItemByData(distrib.get_ion_distrib_type_ptr());
   if(pProp != NULL)
   {
-    bool bEnableSelector = bEnable && bEnableCoulomb && !bAxialSymm;
+    bool bEnableSelector = bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb;
     pProp->Enable(bEnableSelector);
     if(bEnableSelector)
     {
@@ -321,44 +341,44 @@ void CPropertiesWnd::update_ion_ctrls()
 
   pProp = m_wndPropList.FindItemByData(distrib.get_planes_count_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(distrib.get_space_charge_step_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_BH_dist_par_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_crit_radius_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_max_rec_depth_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_enable_quad_terms_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   bool bEnableRadialCoulomb = false;
   pProp = m_wndPropList.FindItemByData(pObj->get_use_radial_coulomb_ptr());
   if(pProp != NULL)
   {
     bool bEnableSelector = bEnable && bEnableCoulomb && !bAxialSymm;
-    pProp->Enable(bEnableSelector);
+    pProp->Enable(bEnableSelector && !bPreCalcClmb);
     bEnableRadialCoulomb = bEnableSelector && pProp->GetValue().boolVal;
   }
 
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnableRadialCoulomb);
+    pProp->Enable(bEnableRadialCoulomb && !bPreCalcClmb);
 
   bool bEnablePreCalc = false;
   pProp = m_wndPropList.FindItemByData(pObj->get_use_pre_calc_coulomb_ptr());
