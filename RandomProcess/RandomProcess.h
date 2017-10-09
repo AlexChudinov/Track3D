@@ -143,7 +143,6 @@ public:
 	virtual Item gasDependedRndJmp(const ItemNode& in1, const ItemNode& in2);
 
 	//Calculates average relative ion molecular speed
-	//Look, for example, here: [http://simion.com/info/collision_model_hs1.html]
 	double meanRelativeSpeed(const Vector3D& velIonRel, double Tgas) const;
 
 	//Recalculate first particle velocity according to a hard sphere collision

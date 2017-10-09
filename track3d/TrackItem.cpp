@@ -69,7 +69,7 @@ CBaseTrackItem* CBaseTrackItem::create(int nType, int nElemId, double fTime, dou
     {
       double fIonTemp = pState[6];
       double fUnfragm = pState[7];
-      CIonTrackItem* pIonItem = new CIonTrackItem(nElemId, vPos, vVel, fIonTemp, fUnfragm, fTime);
+      CIonTrackItem* pIonItem = new CIonTrackItem(nElemId, vPos, vVel, fIonTemp, fUnfragm, 0., fTime);
 
       return (CBaseTrackItem*)pIonItem;
     }
@@ -144,7 +144,7 @@ void CIonTrackItem::set_param(int nId, double fTime, double* pState)
 
 CBaseTrackItem* CIonTrackItem::copy() const
 {
-  CIonTrackItem* pItem = new CIonTrackItem(nElemId, pos, vel, temp, unfragm, time);
+  CIonTrackItem* pItem = new CIonTrackItem(nElemId, pos, vel, temp, unfragm, mob, time);
   pItem->tempinf = tempinf;
   return (CBaseTrackItem*)pItem;
 }

@@ -245,12 +245,15 @@ Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNod
 	Item res = in2.first;
 	double h = in2.first.time - in1.first.time;
 	double Tgas = (in1.second.temp + in2.second.temp) / 2.;
+	double Pgas = (in1.second.press + in2.second.press) / 2.;
+	Vector3D Ugas = (in1.second.vel + in2.second.vel) / 2.;
+	double nGas = Pgas / Tgas / Const_Boltzmann;
 	Vector3D velIonRel = ((in1.first.vel - in1.second.vel) + (in2.first.vel - in2.second.vel)) / 2.;
 
-	if (meanRelativeSpeed(velIonRel, Tgas) * m_fIonCrossSection * h > rand()) {
-		velIonRel = in2.first.vel - in2.second.vel;
+	if (meanRelativeSpeed(velIonRel, Tgas) * nGas * m_fIonCrossSection * h > rand()) {
+		velIonRel = in2.first.vel - Ugas;
 		velIonRel = collide(velIonRel, Tgas);
-		res.vel = velIonRel + in2.second.vel;
+		res.vel = velIonRel + Ugas;
 	}
 
 	return res;
