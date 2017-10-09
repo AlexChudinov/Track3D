@@ -59,11 +59,11 @@ RandomProcess::Vector3D RandomProcess::rndMol(const Vector3D & vrel, double Tgas
 	Vector3D res;
 
 	double sigma = sqrt(Const_Boltzmann * Tgas / Mgas);
-	double vbig = sqrt((vrel & vrel) + 9.0 * sigma * sigma);
+	double vbig = sqrt((vrel & vrel) + 9.0 * sigma * sigma) * rand();
 
 	do {
 		res = sigma * Vector3D{ randn(), randn(), randn() };
-	} while ((res - vrel).length() < vbig * rand());
+	} while ((res - vrel).length() < vbig);
 
 	return res;
 }
