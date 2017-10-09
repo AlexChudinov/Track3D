@@ -63,7 +63,7 @@ RandomProcess::Vector3D RandomProcess::rndMol(const Vector3D & vrel, double Tgas
 
 	do {
 		res = sigma * Vector3D{ randn(), randn(), randn() };
-	} while ((res - vrel).sqlength() < vbigSqr);
+	} while ((res - vrel).sqlength() < vbigSqr * rand());
 
 	return res;
 }
