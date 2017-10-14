@@ -118,7 +118,7 @@ void CPropertiesWnd::add_ion_ctrls()
   pCheckBox = new CCheckBoxButton(this, _T("Enable Collisions"), (_variant_t)pObj->get_enable_collisions(), _T("If this is set to 'true' the ion positions are disturbed by random variations once per several time steps. The random collisions are applied if at X > Xc"), pObj->get_enable_collisions_ptr());
   pDiffusionGroup->AddSubItem(pCheckBox);
 
-  pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("X-coordinate, critical for application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("Limiting X-Coordinate, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("Xc the x-coordinate, limiting the application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
   pDiffusionGroup->AddSubItem(pProp);
 
   pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
@@ -397,4 +397,26 @@ void CPropertiesWnd::update_ion_ctrls()
   pProp = m_wndPropList.FindItemByData((DWORD_PTR)pObj);
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+
+// Random processes:
+  bool bDiffOn = false, bCollOn = false;
+  pProp = m_wndPropList.FindItemByData(pObj->get_enable_diffusion_ptr());
+  if(pProp != NULL)
+    bDiffOn = pProp->GetValue().boolVal;
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_enable_collisions_ptr());
+  if(pProp != NULL)
+    bCollOn = pProp->GetValue().boolVal;
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn || bCollOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn || bCollOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn);
 }
