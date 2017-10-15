@@ -20,6 +20,7 @@ public:
 	using ItemNode = std::pair<Item, Node>;
 	using UniformDistribution = std::uniform_real_distribution<double>;
 	using NormalDistribution = std::normal_distribution<double>;
+	using PoissonDistribution = std::poisson_distribution<unsigned long long>;
 	using PProcess = std::unique_ptr<RandomProcess>;
 
 	//Base params for random process initialisation
@@ -31,7 +32,8 @@ public:
 	enum RandomProcessType {
 		DIFFUSION_VELOCITY_JUMP,
 		DIFFUSION_COORD_JUMP,
-		COLLISION
+		COLLISION,
+		COLLISION_ANY_PRESS
 	};
 
 	//Creates custom random process
@@ -62,6 +64,8 @@ protected:
 	double rand();
 	//Returns normally distributed random value
 	double randn();
+	//Returns number distributed with poisson distribution with mean lambda
+	unsigned long long randPoisson(double lambda);
 
 	//Returns vector isotropically distributed on unite sphere
 	Vector3D randOnSphere();
@@ -73,6 +77,7 @@ private:
 	RndGen m_generator;
 	UniformDistribution m_uniDistrib;
 	NormalDistribution m_normalDistrib;
+	PoissonDistribution m_poisonDistrib;
 };
 
 struct DiffusionParams : public RandomProcess::RandomProcessParams {
@@ -143,17 +148,33 @@ public:
 	//Generates collision
 	virtual Item gasDependedRndJmp(const ItemNode& in1, const ItemNode& in2);
 
+protected:
 	//Calculates average relative ion molecular speed
 	double meanRelativeSpeed(const Vector3D& velIonRel, double Tgas) const;
-
-	//Recalculate first particle velocity according to a hard sphere collision
-	//with a random molecule in the gas with temperature Tgas
-	Vector3D collide(const Vector3D& v, double Tgas);
-
-private:
 	double m_fIonCrossSection;
 	double m_fIonMass;
 	double m_fGasMass;
+
+	//Recalculate first particle velocity according to a hard sphere collision
+	//with a random molecule in the gas with temperature Tgas
+	Vector3D collide(double m1, const Vector3D& v1, double m2, const Vector3D& v2);
+};
+
+//Modelling collisions for every preassure
+class CollisionAnyPress : public Collision
+{
+public:
+	CollisionAnyPress(const CollisionParams& params);
+
+	virtual const char* rndProcName() const;
+
+	virtual RandomProcessType rndProcType() const;
+
+	//Dummy function
+	virtual Item randomJump(const Item& i1, const Item& i2);
+
+	//Generates collision
+	virtual Item gasDependedRndJmp(const ItemNode& in1, const ItemNode& in2);
 };
 
 #endif

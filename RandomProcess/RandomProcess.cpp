@@ -12,6 +12,8 @@ RandomProcess::PProcess RandomProcess::createRandomProcess(const RandomProcessPa
 		return PProcess(new DiffusionCoordJump((const DiffusionParams&)params));
 	case COLLISION:
 		return PProcess(new Collision((const Collision::CollisionParams&)params));
+	case COLLISION_ANY_PRESS:
+		return PProcess(new CollisionAnyPress((const Collision::CollisionParams&)params));
 	default:
 		return PProcess();
 	}
@@ -33,7 +35,8 @@ RandomProcess::RandomProcess(RndGenResult seed)
 	:
 	m_generator(seed),
 	m_uniDistrib(0.0, 1.0),
-	m_normalDistrib(0.0, 1.0)
+	m_normalDistrib(0.0, 1.0),
+	m_poisonDistrib()
 {
 }
 
@@ -45,6 +48,12 @@ double RandomProcess::rand()
 double RandomProcess::randn()
 {
 	return m_normalDistrib(m_generator);
+}
+
+unsigned long long RandomProcess::randPoisson(double lamdba)
+{
+	m_poisonDistrib.param(PoissonDistribution::param_type(lamdba));
+	return m_poisonDistrib(m_generator);
 }
 
 EP::Vector3D RandomProcess::randOnSphere()
@@ -251,9 +260,10 @@ Collision::Item Collision::gasDependedRndJmp(const ItemNode & in1, const ItemNod
 	Vector3D velIonRel = (in1.first.vel + in2.first.vel) / 2. - Ugas;
 
 	if (meanRelativeSpeed(velIonRel, Tgas) * nGas * m_fIonCrossSection * h > rand()) {
-		velIonRel = in2.first.vel - Ugas;
-		velIonRel = collide(velIonRel, Tgas);
-		res.vel = velIonRel + Ugas;
+		Vector3D velMol = rndMol(velIonRel, Tgas, m_fGasMass);
+		res.vel -= in2.second.vel;
+		res.vel = collide(m_fIonMass, res.vel, m_fGasMass, velMol);
+		res.vel += in2.second.vel;
 	}
 
 	return res;
@@ -268,19 +278,61 @@ double Collision::meanRelativeSpeed(const Vector3D & velIonRel, double Tgas) con
 	return meanGasSpeed*((s + 1. / (2.*s))*sqrt(Const_PI) / 2.*EP::CMath::erf(s) + 1. / 2. * exp(-s*s));
 }
 
-Collision::Vector3D Collision::collide(const Vector3D & v, double Tgas)
+Collision::Vector3D Collision::collide(double m1, const Vector3D & v1, double m2, const Vector3D& v2)
 {
-	//Molecular velocity
-	Vector3D vmol = rndMol(v, Tgas, m_fGasMass);
-
 	//Absolute ion-molecular velocity
-	double dvAbs = (v - vmol).length();
+	double dvAbs = (v1 - v2).length();
 
 	//Total mass of the system
-	double M = m_fIonMass + m_fGasMass;
+	double M = m1 + m2;
 
 	//Center mass velocity
-	Vector3D vC = (m_fIonMass * v + m_fGasMass * vmol) / M;
+	Vector3D vC = (m1 * v1 + m2 * v2) / M;
 
-	return vC + m_fGasMass / M * dvAbs * randOnSphere();
+	return vC + m2 / M * dvAbs * randOnSphere();
+}
+
+CollisionAnyPress::CollisionAnyPress(const CollisionParams & params)
+	:
+	Collision(params)
+{
+}
+
+const char * CollisionAnyPress::rndProcName() const
+{
+	return _T("Collisions for any preassure.");
+}
+
+CollisionAnyPress::RandomProcessType CollisionAnyPress::rndProcType() const
+{
+	return COLLISION_ANY_PRESS;
+}
+
+CollisionAnyPress::Item CollisionAnyPress::randomJump(const Item & i1, const Item & i2)
+{
+	return i2;
+}
+
+CollisionAnyPress::Item CollisionAnyPress::gasDependedRndJmp(const ItemNode & in1, const ItemNode & in2)
+{
+	Item res = in2.first;
+	double h = in2.first.time - in1.first.time;
+	double Tgas = (in1.second.temp + in2.second.temp) / 2.;
+	double Pgas = (in1.second.press + in2.second.press) / 2.;
+	Vector3D Ugas = (in1.second.vel + in2.second.vel) / 2.;
+	double nGas = Pgas / Tgas / Const_Boltzmann;
+	Vector3D velIonRel = (in1.first.vel + in2.first.vel) / 2. - Ugas;
+
+	double lambda = meanRelativeSpeed(velIonRel, Tgas) * nGas * m_fIonCrossSection * h;
+	unsigned long long nCollisions = randPoisson(lambda);
+
+	if (nCollisions != 0) {
+		double fQuasiMolMass = nCollisions*m_fGasMass;
+		Vector3D velMol = rndMol(velIonRel, Tgas, fQuasiMolMass);
+		res.vel -= in2.second.vel;
+		res.vel = collide(m_fIonMass, res.vel, fQuasiMolMass, velMol);
+		res.vel += in2.second.vel;
+	}
+
+	return res;
 }
