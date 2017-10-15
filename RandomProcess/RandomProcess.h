@@ -47,6 +47,9 @@ public:
 	//Constructs with given seed
 	RandomProcess(RndGenResult seed);
 
+	//Destructor
+	virtual ~RandomProcess() {}
+
 	//Returns recalculated CTrackItem taking into account start conditions {i1, n1}
 	//...and finish conditions {i2, n2}
 	//Calculates random jump depended only on particle
@@ -54,6 +57,7 @@ public:
 	//Calculates random jump depended also on gas conditions
 	virtual Item gasDependedRndJmp(const ItemNode& i1, const ItemNode& i2) = 0;
 
+protected:
 	//Returns uniformly distributed random value
 	double rand();
 	//Returns normally distributed random value
@@ -64,9 +68,6 @@ public:
 
 	//Returns random molecule with respect to a given ion velocity
 	Vector3D rndMol(const Vector3D& vrel, double Tgas, double Mgas);
-
-	//!!!
-	virtual ~RandomProcess() {}
 
 private:
 	RndGen m_generator;
