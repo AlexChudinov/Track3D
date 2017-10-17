@@ -115,8 +115,22 @@ void CPropertiesWnd::add_ion_ctrls()
   pCheckBox = new CCheckBoxButton(this, _T("Enable Diffusion"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion positions (or ion velocities) are disturbed by random variations at every time step. The random diffusion is applied if at X < Xc"), pObj->get_enable_diffusion_ptr());
   pDiffusionGroup->AddSubItem(pCheckBox);
 
+  COleVariant var1(RandomProcess::rndProcName(pObj->get_rand_diff_type()));
+  pProp = new CMFCPropertyGridProperty(_T("Random Diffusion Type"), var1, _T("Select the type of random diffusion model."), pObj->get_rand_diff_type_ptr());
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP));
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_COORD_JUMP));
+  pProp->AllowEdit(FALSE);
+  pDiffusionGroup->AddSubItem(pProp);
+
   pCheckBox = new CCheckBoxButton(this, _T("Enable Collisions"), (_variant_t)pObj->get_enable_collisions(), _T("If this is set to 'true' the ion positions are disturbed by random variations once per several time steps. The random collisions are applied if at X > Xc"), pObj->get_enable_collisions_ptr());
   pDiffusionGroup->AddSubItem(pCheckBox);
+
+  COleVariant var2(RandomProcess::rndProcName(pObj->get_rand_collision_type()));
+  pProp = new CMFCPropertyGridProperty(_T("Random Collisions Model"), var2, _T("Select the type of random collisions model."), pObj->get_rand_collision_type_ptr());
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION));
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION_ANY_PRESS));
+  pProp->AllowEdit(FALSE);
+  pDiffusionGroup->AddSubItem(pProp);
 
   pProp = new CMFCPropertyGridProperty(_T("Limiting X-Coordinate, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("Xc the x-coordinate, limiting the application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
   pDiffusionGroup->AddSubItem(pProp);
@@ -124,12 +138,7 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
   pDiffusionGroup->AddSubItem(pProp);
 
-  COleVariant var1(RandomProcess::rndProcName(pObj->get_rand_diff_type()));
-  pProp = new CMFCPropertyGridProperty(_T("Random Diffusion Type"), var1, _T("Select the type of random diffusion model."), pObj->get_rand_diff_type_ptr());
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP));
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_COORD_JUMP));
-  pProp->AllowEdit(FALSE);
-  pDiffusionGroup->AddSubItem(pProp);
+  
 
   m_wndPropList.AddProperty(pDiffusionGroup);
 }
@@ -257,6 +266,16 @@ void CPropertiesWnd::set_ion_data()
       pObj->set_rand_diff_type(RandomProcess::DIFFUSION_VELOCITY_JUMP);
     else
       pObj->set_rand_diff_type(RandomProcess::DIFFUSION_COORD_JUMP);
+  }
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
+  if(pProp != NULL)
+  {
+    CString cTypeName = (CString)pProp->GetValue();
+    if(cTypeName == RandomProcess::rndProcName(RandomProcess::COLLISION))
+      pObj->set_rand_collision_type(RandomProcess::COLLISION);
+    else
+      pObj->set_rand_collision_type(RandomProcess::COLLISION_ANY_PRESS);
   }
 }
 
@@ -419,4 +438,8 @@ void CPropertiesWnd::update_ion_ctrls()
   pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
   if(pProp != NULL)
     pProp->Enable(bDiffOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bCollOn);
 }

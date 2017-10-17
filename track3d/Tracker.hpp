@@ -232,6 +232,10 @@ public:
   DWORD_PTR               get_rand_diff_type_ptr() const;
   void                    set_rand_diff_type(CRandomProcType nType);
 
+  CRandomProcType         get_rand_collision_type() const;
+  DWORD_PTR               get_rand_collision_type_ptr() const;
+  void                    set_rand_collision_type(CRandomProcType nType);
+
   long                    get_random_seed() const;
   DWORD_PTR               get_random_seed_ptr() const;
   void                    set_random_seed(long nSeed);
@@ -505,7 +509,8 @@ protected:
 // Now it is only the X-coordinate, at x < m_fDiffSwitchCond the diffusion is applied; at x > m_fDiffSwitchCond the collisions are turned ON.
   double                  m_fDiffSwitchCond;
 
-  CRandomProcType         m_nRndDiffType;
+  CRandomProcType         m_nRndDiffType,
+                          m_nRndCollisionType;
   UINT                    m_nRandomSeed;
 
   bool                    can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where) const;
@@ -1307,6 +1312,21 @@ inline DWORD_PTR CTracker::get_rand_diff_type_ptr() const
 inline void CTracker::set_rand_diff_type(CRandomProcType nType)
 {
   m_nRndDiffType = nType;
+}
+
+inline CRandomProcType CTracker::get_rand_collision_type() const
+{
+  return m_nRndCollisionType;
+}
+
+inline DWORD_PTR CTracker::get_rand_collision_type_ptr() const
+{
+  return (DWORD_PTR)&m_nRndCollisionType;
+}
+
+inline void CTracker::set_rand_collision_type(CRandomProcType nType)
+{
+  m_nRndCollisionType = nType;
 }
 
 }; // namespace EvaporatingParticle

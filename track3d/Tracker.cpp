@@ -124,6 +124,7 @@ void CTracker::set_default()
   m_bEnableCollisions = false;
   m_fDiffSwitchCond = 11.6; // cm.
   m_nRndDiffType = RandomProcess::DIFFUSION_COORD_JUMP;
+  m_nRndCollisionType = RandomProcess::COLLISION;
   m_nRandomSeed = 15021991;
 }
 
@@ -253,7 +254,7 @@ RandomProcess* CTracker::create_random_jump(UINT nSeed) const
 
   if(m_nRndDiffType == RandomProcess::DIFFUSION_VELOCITY_JUMP)
     return new DiffusionVelocityJump(param);
-  else
+  else if(m_nRndDiffType == RandomProcess::DIFFUSION_COORD_JUMP)
     return new DiffusionCoordJump(param);
 
   return NULL;
@@ -270,7 +271,12 @@ RandomProcess* CTracker::create_collisions(UINT nSeed) const
   param.ionMass = get_ion_mass(); 
   param.seed = nSeed;
 
-  return new Collision(param);
+  if(m_nRndCollisionType == RandomProcess::COLLISION)
+    return new Collision(param);
+  else if(m_nRndCollisionType == RandomProcess::COLLISION_ANY_PRESS)
+    return new CollisionAnyPress(param);
+
+  return NULL;
 }
 
 bool CTracker::can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where) const
@@ -278,7 +284,7 @@ bool CTracker::can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where)
   if(nWhat == RandomProcess::DIFFUSION_COORD_JUMP || nWhat == RandomProcess::DIFFUSION_VELOCITY_JUMP)
     return Where.pos.x < m_fDiffSwitchCond;
 
-  if((nWhat == RandomProcess::COLLISION) && (Where.nElemId >= 0) && (Where.nElemId < m_vElems.size()))
+  if((nWhat == RandomProcess::COLLISION || nWhat == RandomProcess::COLLISION_ANY_PRESS) && (Where.nElemId >= 0) && (Where.nElemId < m_vElems.size()))
     return Where.pos.x > m_fDiffSwitchCond;
 
   return false;
@@ -361,6 +367,8 @@ void CTracker::do_track()
       RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
       CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
       CNode3D currNode;
+      bool bReflDonePrev, bReflDoneCurr;
+      Vector3D vAccel;
 
       while(true)
       {
@@ -405,8 +413,16 @@ void CTracker::do_track()
         else if((pColl != NULL) && can_be_applied(RandomProcess::COLLISION, prevItem))  // never apply both processes simultaneousely.
         {
           currItem.set_param(data.nElemId, fTime, pState);
+// Symmetry support:
+          bReflDoneCurr = sym_corr(currItem.pos, currItem.vel, vAccel);
+          bReflDonePrev = sym_corr(prevItem.pos, prevItem.vel, vAccel);
           m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
           prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
+          if(bReflDonePrev)
+            sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
+          if(bReflDoneCurr)
+            sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
           prevItem.state(pState); // the initial velocity is perturbed for the next time step.
         }
         else  // update the previous item even though none of the random processes has been applied.
@@ -651,6 +667,8 @@ UINT CTracker::main_thread_func(LPVOID pData)
       RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
       CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
       CNode3D currNode;
+      bool bReflDonePrev, bReflDoneCurr;
+      Vector3D vAccel;
 
       while(true)
       {
@@ -695,8 +713,16 @@ UINT CTracker::main_thread_func(LPVOID pData)
         else if((pColl != NULL) && pObj->can_be_applied(RandomProcess::COLLISION, prevItem))  // never apply both processes simultaneousely.
         {
           currItem.set_param(data.nElemId, fTime, pState);
+// Symmetry support:
+          bReflDoneCurr = pObj->sym_corr(currItem.pos, currItem.vel, vAccel);
+          bReflDonePrev = pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel);
           pObj->m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
           prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
+          if(bReflDonePrev)
+            pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
+          if(bReflDoneCurr)
+            pObj->sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
           prevItem.state(pState); // the initial velocity is perturbed for the next time step.
         }
         else  // update the previous item even though none of the random processes has been applied.
