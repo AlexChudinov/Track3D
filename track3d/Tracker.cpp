@@ -279,13 +279,21 @@ RandomProcess* CTracker::create_collisions(UINT nSeed) const
   return NULL;
 }
 
-bool CTracker::can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where) const
+bool CTracker::can_be_applied(CRandomProcType nWhat, const Vector3D& vWhere) const
 {
-  if(nWhat == RandomProcess::DIFFUSION_COORD_JUMP || nWhat == RandomProcess::DIFFUSION_VELOCITY_JUMP)
-    return Where.pos.x < m_fDiffSwitchCond;
-
-  if((nWhat == RandomProcess::COLLISION || nWhat == RandomProcess::COLLISION_ANY_PRESS) && (Where.nElemId >= 0) && (Where.nElemId < m_vElems.size()))
-    return Where.pos.x > m_fDiffSwitchCond;
+  switch(nWhat)
+  {
+    case RandomProcess::DIFFUSION_COORD_JUMP:
+    case RandomProcess::DIFFUSION_VELOCITY_JUMP:
+    {
+      return vWhere.x < m_fDiffSwitchCond;
+    }
+    case RandomProcess::COLLISION_ANY_PRESS:
+    case RandomProcess::COLLISION:
+    {
+      return vWhere.x > m_fDiffSwitchCond;
+    }
+  }
 
   return false;
 }
@@ -403,14 +411,14 @@ void CTracker::do_track()
         nStep++;
 
 // Random processes support:
-        if((pDiffJump != NULL) && can_be_applied(m_nRndDiffType, prevItem))
+        if((pDiffJump != NULL) && can_be_applied(m_nRndDiffType, prevItem.pos))
         {
           currItem.set_param(data.nElemId, fTime, pState);
           currItem.mob = data.fIonMob;
           prevItem = pDiffJump->randomJump(prevItem, currItem);
           prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
         }
-        else if((pColl != NULL) && can_be_applied(RandomProcess::COLLISION, prevItem))  // never apply both processes simultaneousely.
+        else if((pColl != NULL) && can_be_applied(m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
         {
           currItem.set_param(data.nElemId, fTime, pState);
 // Symmetry support:
@@ -703,14 +711,14 @@ UINT CTracker::main_thread_func(LPVOID pData)
         nStep++;
 
 // Random processes support:
-        if((pDiffJump != NULL)  && pObj->can_be_applied(pObj->m_nRndDiffType, prevItem))
+        if((pDiffJump != NULL)  && pObj->can_be_applied(pObj->m_nRndDiffType, prevItem.pos))
         {
           currItem.set_param(data.nElemId, fTime, pState);
           currItem.mob = data.fIonMob;
           prevItem = pDiffJump->randomJump(prevItem, currItem);
           prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
         }
-        else if((pColl != NULL) && pObj->can_be_applied(RandomProcess::COLLISION, prevItem))  // never apply both processes simultaneousely.
+        else if((pColl != NULL) && pObj->can_be_applied(pObj->m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
         {
           currItem.set_param(data.nElemId, fTime, pState);
 // Symmetry support:
@@ -1084,6 +1092,9 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
       vE += vClmb;
     }
   }
+
+  if(m_bEnableCollisions && can_be_applied(m_nRndCollisionType, node.pos))
+    return vE * m_fChargeMassRatio;
 
   return (node.vel - vVel + fMob * vE) * fExpCoeff;
 }

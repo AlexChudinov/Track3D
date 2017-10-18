@@ -513,7 +513,7 @@ protected:
                           m_nRndCollisionType;
   UINT                    m_nRandomSeed;
 
-  bool                    can_be_applied(CRandomProcType nWhat, const CIonTrackItem& Where) const;
+  bool                    can_be_applied(CRandomProcType nWhat, const Vector3D& vWhere) const;
 
   RandomProcess*          create_random_jump(UINT nSeed) const;
   RandomProcess*          create_collisions(UINT nSeed) const;
