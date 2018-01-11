@@ -44,7 +44,6 @@ public:
 
   bool                get_enable() const;
   DWORD_PTR           get_enable_ptr() const;
-  void                set_enable(bool bEnable);
 
   virtual void        save(CArchive& ar);
   virtual void        load(CArchive& ar);
@@ -199,9 +198,9 @@ public:
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
 
-  double              get_add_Edc() const;
+  Vector3D            get_add_Edc() const;
   DWORD_PTR           get_add_Edc_ptr() const;
-  void                set_add_Edc(double fEx);
+  void                set_add_Edc(const Vector3D& vE);
 
   double              get_add_Edc_beg_x() const;
   DWORD_PTR           get_add_Edc_beg_x_ptr() const;
@@ -245,11 +244,6 @@ inline bool CFieldPerturbation::get_enable() const
 inline DWORD_PTR CFieldPerturbation::get_enable_ptr() const
 {
   return (DWORD_PTR)&m_bEnable;
-}
-
-inline void CFieldPerturbation::set_enable(bool bEnable)
-{
-  m_bEnable = bEnable;
 }
 
 //-----------------------------------------------------------------------------
@@ -450,9 +444,9 @@ inline void CStackRingPerturbation::set_charge_distr_type(int nType)
 //-----------------------------------------------------------------------------
 // CUniformAddField
 //-----------------------------------------------------------------------------
-inline double CUniformAddField::get_add_Edc() const
+inline Vector3D CUniformAddField::get_add_Edc() const
 {
-  return m_vAddEdc.x;
+  return m_vAddEdc;
 }
 
 inline DWORD_PTR CUniformAddField::get_add_Edc_ptr() const
@@ -460,9 +454,9 @@ inline DWORD_PTR CUniformAddField::get_add_Edc_ptr() const
   return (DWORD_PTR)&m_vAddEdc;
 }
 
-inline void CUniformAddField::set_add_Edc(double fEx)
+inline void CUniformAddField::set_add_Edc(const Vector3D& vE)
 {
-  m_vAddEdc.x = fEx;
+  m_vAddEdc = vE;
 }
 
 inline double CUniformAddField::get_add_Edc_beg_x() const

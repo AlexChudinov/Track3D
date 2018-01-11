@@ -9,8 +9,6 @@ using namespace EvaporatingParticle;
 
 void CPropertiesWnd::add_ptb_ctrls()
 {
-  CMFCPropertyGridProperty* pFieldPtbGroup = new CMFCPropertyGridProperty(_T("DC Field Perturbations"));
-
   CFieldPtbCollection& coll = CParticleTrackingApp::Get()->GetTracker()->get_field_ptb();
   size_t nPtbCount = coll.size();
   for(size_t i = 0; i < nPtbCount; i++)
@@ -47,7 +45,7 @@ void CPropertiesWnd::add_ptb_ctrls()
         CRemovePerturbationButton* pRemBtn = new CRemovePerturbationButton(this, _T("Remove Perturbation"), var, _T("Click to delete this perturbation."), (DWORD_PTR)pPtb);
         pChargedRingGroup->AddSubItem(pRemBtn);
 
-        pFieldPtbGroup->AddSubItem(pChargedRingGroup);
+        m_wndPropList.AddProperty(pChargedRingGroup);
         break;
       }
       case CFieldPerturbation::ptbStackOfRings:
@@ -96,7 +94,7 @@ void CPropertiesWnd::add_ptb_ctrls()
         CRemovePerturbationButton* pRemBtn = new CRemovePerturbationButton(this, _T("Remove Perturbation"), del, _T("Click to delete this perturbation."), (DWORD_PTR)pPtb);
         pStackRingGroup->AddSubItem(pRemBtn);
 
-        pFieldPtbGroup->AddSubItem(pStackRingGroup);
+        m_wndPropList.AddProperty(pStackRingGroup);
         break;
       }
       case CFieldPerturbation::ptbUniform:
@@ -107,24 +105,31 @@ void CPropertiesWnd::add_ptb_ctrls()
         CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pAddField->get_enable(), _T("Turns ON/OFF the field perturbation."), pAddField->get_enable_ptr());
         pAddFieldGroup->AddSubItem(pCheckBox);
 // Additional Ex parameters:
-        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Additional Ex, V/cm"), COleVariant(pAddField->get_add_Edc() / SI_to_CGS_Voltage), _T("X-component of the additional electric field."), pAddField->get_add_Edc_ptr());
-        pAddFieldGroup->AddSubItem(pProp);
+        CMFCPropertyGridProperty* pComponentsGroup = new CMFCPropertyGridProperty(_T("Additional Field, V/cm"), pAddField->get_add_Edc_ptr());
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Ex"), COleVariant(pAddField->get_add_Edc().x / SI_to_CGS_Voltage), _T("X-component of the additional electric field."));
+        pComponentsGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Ey"), COleVariant(pAddField->get_add_Edc().y / SI_to_CGS_Voltage), _T("Y-component of the additional electric field."));
+        pComponentsGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Ez"), COleVariant(pAddField->get_add_Edc().z / SI_to_CGS_Voltage), _T("Z-component of the additional electric field."));
+        pComponentsGroup->AddSubItem(pProp);
+        pAddFieldGroup->AddSubItem(pComponentsGroup);
+// Restriction group:
+        CMFCPropertyGridProperty* pLimitsGroup = new CMFCPropertyGridProperty(_T("Limits"));
         pProp = new CMFCPropertyGridProperty(_T("X min, mm"), COleVariant(10 * pAddField->get_add_Edc_beg_x()), _T("The additional electric field is applied in the range from Xmin to Xmax."), pAddField->get_add_Edc_beg_x_ptr());
-        pAddFieldGroup->AddSubItem(pProp);
+        pLimitsGroup->AddSubItem(pProp);
         pProp = new CMFCPropertyGridProperty(_T("X max, mm"), COleVariant(10 * pAddField->get_add_Edc_end_x()), _T("The additional electric field is applied in the range from Xmin to Xmax."), pAddField->get_add_Edc_end_x_ptr());
-        pAddFieldGroup->AddSubItem(pProp);
+        pLimitsGroup->AddSubItem(pProp);
+        pAddFieldGroup->AddSubItem(pLimitsGroup);
 // Remove the perturbation:
         COleVariant var(_T(""));
         CRemovePerturbationButton* pRemBtn = new CRemovePerturbationButton(this, _T("Remove Perturbation"), var, _T("Click to delete this perturbation."), (DWORD_PTR)pPtb);
         pAddFieldGroup->AddSubItem(pRemBtn);
 
-        pFieldPtbGroup->AddSubItem(pAddFieldGroup);
+        m_wndPropList.AddProperty(pAddFieldGroup);
         break;
       }
     }
   }
-
-  m_wndPropList.AddProperty(pFieldPtbGroup);
 }
 
 void CPropertiesWnd::set_ptb_data()
@@ -214,13 +219,15 @@ void CPropertiesWnd::set_ptb_data()
       {
         CUniformAddField* pAddField = (CUniformAddField*)pPtb;
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pAddField->get_enable_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_ptr());
         if(pProp != NULL)
-          pAddField->set_enable(pProp->GetValue().boolVal);
-
-        pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_ptr());
-        if(pProp != NULL)
-          pAddField->set_add_Edc(SI_to_CGS_Voltage * pProp->GetValue().dblVal);
+        {
+          EvaporatingParticle::Vector3D vE;
+          vE.x = SI_to_CGS_Voltage * pProp->GetSubItem(0)->GetValue().dblVal;
+          vE.y = SI_to_CGS_Voltage * pProp->GetSubItem(1)->GetValue().dblVal;
+          vE.z = SI_to_CGS_Voltage * pProp->GetSubItem(2)->GetValue().dblVal;
+          pAddField->set_add_Edc(vE);
+        }
 
         pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_beg_x_ptr());
         if(pProp != NULL)
@@ -238,4 +245,93 @@ void CPropertiesWnd::set_ptb_data()
 
 void CPropertiesWnd::update_ptb_ctrls()
 {
+  CFieldPtbCollection& coll = CParticleTrackingApp::Get()->GetTracker()->get_field_ptb();
+  size_t nPtbCount = coll.size();
+  for(size_t i = 0; i < nPtbCount; i++)
+  {
+    CFieldPerturbation* pPtb = coll.at(i);
+    int nType = pPtb->type();
+    bool bEnable = pPtb->get_enable();
+    switch(nType)
+    {
+      case CFieldPerturbation::ptbRing:
+      {
+        CChargedRingPerturbation* pChargedRing = (CChargedRingPerturbation*)pPtb;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pChargedRing->get_ring_pos_ptr());
+        if(pProp != NULL)
+        {
+          pProp->GetSubItem(0)->Enable(bEnable);
+          pProp->GetSubItem(1)->Enable(bEnable);
+          pProp->GetSubItem(2)->Enable(bEnable);
+        }
+
+        pProp = m_wndPropList.FindItemByData(pChargedRing->get_ring_charge_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pChargedRing->get_ring_radius_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        break;
+      }
+      case CFieldPerturbation::ptbStackOfRings:
+      {
+        CStackRingPerturbation* pStackPtb = (CStackRingPerturbation*)pPtb;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pStackPtb->get_rings_count_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pStackPtb->get_ring_radius_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pStackPtb->get_sum_charge_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pStackPtb->get_charge_distr_type_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        Vector3D vPos;
+        pProp = m_wndPropList.FindItemByData(pStackPtb->get_stack_beg_pos_ptr());
+        if(pProp != NULL)
+        {
+          pProp->GetSubItem(0)->Enable(bEnable);
+          pProp->GetSubItem(1)->Enable(bEnable);
+          pProp->GetSubItem(2)->Enable(bEnable);
+        }
+
+        pProp = m_wndPropList.FindItemByData(pStackPtb->get_stack_end_pos_ptr());
+        if(pProp != NULL)
+        {
+          pProp->GetSubItem(0)->Enable(bEnable);
+          pProp->GetSubItem(1)->Enable(bEnable);
+          pProp->GetSubItem(2)->Enable(bEnable);
+        }
+      }
+      case CFieldPerturbation::ptbUniform:
+      {
+        CUniformAddField* pAddField = (CUniformAddField*)pPtb;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_ptr());
+        if(pProp != NULL)
+        {
+          pProp->GetSubItem(0)->Enable(bEnable);
+          pProp->GetSubItem(1)->Enable(bEnable);
+          pProp->GetSubItem(2)->Enable(bEnable);
+        }
+
+        pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_beg_x_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_end_x_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        break;
+      }
+    }
+  }
 }

@@ -20,15 +20,20 @@ CObject::~CObject()
 
 CString CObject::compile_string(const CStringVector& vNames)
 {
-  std::string cStr("");
   size_t nCount = vNames.size();
+  char buff[16];
+  std::string cStr(itoa(nCount, buff, 10));
+  cStr += "  regions";
+  
+/*
+  std::string cStr("");
   for(size_t j = 0; j < nCount; j++)
   {
     cStr += vNames.at(j);
     if(j < nCount - 1)
       cStr += ", ";
   }
-
+*/
   return CString(cStr.c_str());
 }
 

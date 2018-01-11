@@ -176,6 +176,9 @@ public:
   void              exit_sel_context(CNamesVector* pRegNames);
   void              hide_selected();
 
+  bool              get_ctrl_pressed() const;
+  void              set_ctrl_pressed(bool bCtrlKeyDown);
+
   CRegion*          get_region_under_cursor() const;
   void              set_region_under_cursor(CRegion* pReg);
 
@@ -305,7 +308,8 @@ private:
   int               m_nRegime,
                     m_nContext;
 
-  bool              m_bSelFlag;   // this flag becomes "true" in enter_sel_context(...) and "false" in exit_sel_context(...).
+  bool              m_bSelFlag,     // this flag becomes "true" in enter_sel_context(...) and "false" in exit_sel_context(...).
+                    m_bCtrlPressed; // true if the Control key is pressed.
 
   CPoint            m_StartPoint;
 
@@ -468,6 +472,16 @@ inline void CTrackDraw::new_data()
 inline CRegion* CTrackDraw::get_region_under_cursor() const
 {
   return m_pRegUnderCursor;
+}
+
+inline bool CTrackDraw::get_ctrl_pressed() const
+{
+  return m_bCtrlPressed;
+}
+
+inline void CTrackDraw::set_ctrl_pressed(bool bCtrlKeyDown)
+{
+  m_bCtrlPressed = bCtrlKeyDown;
 }
 
 inline bool CTrackDraw::get_rot_center() const

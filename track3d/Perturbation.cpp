@@ -393,7 +393,7 @@ CUniformAddField::~CUniformAddField()
 
 void CUniformAddField::set_default()
 {
-  m_vAddEdc = Vector3D(2000 * SI_to_CGS_ElecField, 0, 0); // by default this is 20 V/cm.
+  m_vAddEdc = Vector3D(200 * SI_to_CGS_ElecField, 0, 0); // by default this is 2 V/cm.
   m_fAddEdcBegX = 5.85;   // cm.
   m_fAddEdcEndX = 11.29;  // cm.
 }

@@ -36,6 +36,7 @@ void CSelectRegionButton::OnClickButton(CPoint point)
     {
       pDrawObj->exit_sel_context(pRegNames);  // here pRegNames is updated using the information stored in the Draw Object.
       SetValue(EvaporatingParticle::CObject::compile_string(*pRegNames));
+      
       pDrawObj->invalidate_contour(m_dwData);
       m_bPressed = FALSE;
 
@@ -511,7 +512,7 @@ static UINT __stdcall calc_field_func(LPVOID pData)
 {
   CExecutionDialog* pDlg = (CExecutionDialog*)pData;
   EvaporatingParticle::CElectricFieldData* pField = (EvaporatingParticle::CElectricFieldData*)(pDlg->GetDialogObject());
-  pField->calc_field(true);
+  pField->calc_field();
 
   if(!pField->get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations are over.
     pDlg->PostMessage(WM_CLOSE);

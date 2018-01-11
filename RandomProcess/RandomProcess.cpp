@@ -26,7 +26,7 @@ const char* RandomProcess::rndProcName(RandomProcessType nType)
 	case DIFFUSION_VELOCITY_JUMP: return _T("Velocity Jump");
 	case DIFFUSION_COORD_JUMP: return _T("Coordinates Jump");
 	case COLLISION: return _T("Random Collisions");
-	case COLLISION_ANY_PRESS: return _T("Collisions for any Pressure"); // [MS] 16-10-2017 UI support.
+  case COLLISION_ANY_PRESS: return _T("Collisions for any Pressure"); // [MS] 16-10-2017 UI support.
 	}
 
 	return _T("None");

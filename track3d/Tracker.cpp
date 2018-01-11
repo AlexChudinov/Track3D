@@ -53,6 +53,7 @@ void CTracker::set_default()
   m_nIntegrType = intModMidpnt;
   m_bOldIntegrator = false;
   m_bAnsysFields = true;
+  m_bSaveImage = false;         // by default the screen image is not captured and saved at every iteration.
   m_bUseRadialCoulomb = true;
   m_bUsePreCalcCoulomb = false;
   m_bSaveTracks = false;
@@ -793,7 +794,7 @@ void CTracker::multi_thread_calculate()
     if(m_bTerminate)
       return;
 
-    if(bIter)
+    if(bIter && m_bSaveImage)
       capture_save_image(i);  // capture and save the screen image at every iteration.
 
     if(i == nIterCount - 1)
@@ -918,7 +919,9 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
   if(m_bAnsysFields)
   {
     if(m_bEnableField)
-      accel += fEoverM * (node.field + m_vFieldPtbColl.apply(node.pos));
+      accel += fEoverM * node.field;
+
+    accel += fEoverM * m_vFieldPtbColl.apply(node.pos); // the perturbations can be swiched off individually.
 
     if(m_bEnableRF)
     {
@@ -1065,8 +1068,11 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   Vector3D vE(0, 0, 0);
   if(m_bAnsysFields)
   {
-    if(m_bEnableField)  // DC Field:
-      vE += (node.field + m_vFieldPtbColl.apply(node.pos));
+    if(m_bEnableField)  // enable/disable Ansys DC field:
+      vE += node.field;
+
+    vE += m_vFieldPtbColl.apply(node.pos);  // DC perturbation field can be swiched on/off individually.
+
     if(m_bEnableRF)     // RF field:
       vE += get_rf_field(node, fTime, fPhase);
   }

@@ -16,22 +16,25 @@ namespace EvaporatingParticle
 //---------------------------------------------------------------------------------------
 struct CPotentialBoundCond
 {
-  CPotentialBoundCond(BoundaryMesh::BoundaryType type = BoundaryMesh::FIXED_VAL, int val = fvPlusUnity)
-    : nType(type), nFixedValType(val)
-  {
-  }
+  CPotentialBoundCond(BoundaryMesh::BoundaryType type = BoundaryMesh::FIXED_VAL, int val = fvPlusUnity);
 
   enum  // fixed value types:
   {
     fvPlusUnity   = 0,
     fvMinusUnity  = 1,
-    fvCount       = 2
+    fvStepLike    = 2,
+    fvCount       = 3
   };
 
   BoundaryMesh::BoundaryType    nType;
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
   int                           nFixedValType;  // the value at the boundary can be either +1V or -1V.
   std::string                   sName;
+
+// Step-like potential:
+  double                        fStartX,
+                                fStepX,
+                                fEndX;
 
   static const char*            get_bc_type_name(BoundaryMesh::BoundaryType nType);
   static const char*            get_fixed_value_name(int nType);
@@ -123,6 +126,8 @@ protected:
   bool                    set_boundary_conditions(CMeshAdapter& mesh);
   bool                    set_default_boundary_conditions(CMeshAdapter& mesh);
   void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
+
+  double                  step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const; // step-wise boundary conditions support.
 
   Vector3D                calc_norm(CNode3D* pNode) const;
 

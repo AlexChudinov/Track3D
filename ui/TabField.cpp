@@ -91,10 +91,26 @@ void CPropertiesWnd::add_field_ctrls()
       pBoundCondGroup->AddSubItem(pBCType);
 
       COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
-      CMFCPropertyGridProperty* pBCValue = new CMFCPropertyGridProperty(_T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
+//      CMFCPropertyGridProperty* pBCValue = new CMFCPropertyGridProperty(_T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
+      CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
       pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvPlusUnity));
       pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvMinusUnity));
+      pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvStepLike));
       pBoundCondGroup->AddSubItem(pBCValue);
+
+      if(pBC->nFixedValType == CPotentialBoundCond::fvStepLike)
+      {
+        CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Step-Wise Boundary Conditions"));
+
+        pProp = new CMFCPropertyGridProperty(_T("Start X, mm"), COleVariant(10 * pBC->fStartX), _T("Specify the X-coordinate of beginning of the first step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fStartX));
+        pStepWiseGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Step X, mm"), COleVariant(10 * pBC->fStepX), _T("Specify the width of the X-step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fStepX));
+        pStepWiseGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("End X, mm"), COleVariant(10 * pBC->fEndX), _T("Specify the X-coordinate of end of the last step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fEndX));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        pBoundCondGroup->AddSubItem(pStepWiseGroup);
+      }
 
       CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
       CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Boundary Regions"), cRegNames, _T("Click to select 2D regions for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
@@ -174,7 +190,21 @@ void CPropertiesWnd::set_field_data()
           pBC->nFixedValType = CPotentialBoundCond::fvPlusUnity;
         if(cBCValue == CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvMinusUnity))
           pBC->nFixedValType = CPotentialBoundCond::fvMinusUnity;
+        if(cBCValue == CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvStepLike))
+          pBC->nFixedValType = CPotentialBoundCond::fvStepLike;
       }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartX));
+      if(pProp != NULL)
+        pBC->fStartX = 0.1 * pProp->GetValue().dblVal;
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStepX));
+      if(pProp != NULL)
+        pBC->fStepX = 0.1 * pProp->GetValue().dblVal;
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fEndX));
+      if(pProp != NULL)
+        pBC->fEndX = 0.1 * pProp->GetValue().dblVal;
     }
   }
 }
@@ -210,6 +240,7 @@ void CPropertiesWnd::update_field_ctrls()
     if(pProp != NULL)
       pProp->Enable(bFieldRF);
 
+// Boundary conditions:
     size_t nBoundCondCount = pData->get_bc_count();
     for(size_t k = 0; k < nBoundCondCount; k++)
     {

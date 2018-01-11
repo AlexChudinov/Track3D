@@ -240,18 +240,19 @@ public:
   DWORD_PTR               get_random_seed_ptr() const;
   void                    set_random_seed(long nSeed);
 
-// Different integrators:
+// Backward compatibility:
   bool                    get_use_old_integrator() const;
   DWORD_PTR               get_use_old_integrator_ptr() const;
-  void                    set_use_old_integrator(bool bEnable);
 
   bool                    get_enable_ansys_field() const;
   DWORD_PTR               get_enable_ansys_field_ptr() const;
 
+  bool                    get_save_image() const;
+  DWORD_PTR               get_save_image_ptr() const;
+
 // Turn ON/OFF saving the tracks on disk:
   bool                    get_enable_save_tracks() const;
   DWORD_PTR               get_enable_save_tracks_ptr() const;
-  void                    set_enable_save_tracks(bool bEnable);
 
 //-------------------------------------------------------------------------------------------------
 // Multi-threading support.
@@ -421,7 +422,8 @@ public:
                           m_fMaxIntegrTime;
 private:
   bool                    m_bOldIntegrator, // the first predictor-corrector integrator improved by correct field averaging.
-                          m_bAnsysFields;   // if true, the ANSYS calculated electric fields are used.
+                          m_bAnsysFields,   // if true, the ANSYS calculated electric fields are used.
+                          m_bSaveImage;     // if true, the screen image will be captured and saved at every iteration, never saved to the disk.
 
   double                  m_fInitMass,
                           m_fPartDens,
@@ -1197,7 +1199,7 @@ inline COutputEngine& CTracker::get_output_engine()
   return m_OutputEngine;
 }
 
-// Different integrators:
+// Backward compatibility:
 inline bool CTracker::get_use_old_integrator() const
 {
   return m_bOldIntegrator;
@@ -1206,11 +1208,6 @@ inline bool CTracker::get_use_old_integrator() const
 inline DWORD_PTR CTracker::get_use_old_integrator_ptr() const
 {
   return (DWORD_PTR)&m_bOldIntegrator;
-}
-
-inline void CTracker::set_use_old_integrator(bool bEnable)
-{
-  m_bOldIntegrator = bEnable;
 }
 
 inline bool CTracker::get_enable_ansys_field() const
@@ -1223,6 +1220,16 @@ inline DWORD_PTR CTracker::get_enable_ansys_field_ptr() const
   return (DWORD_PTR)&m_bAnsysFields;
 }
 
+inline bool CTracker::get_save_image() const
+{
+  return m_bSaveImage;
+}
+
+inline DWORD_PTR CTracker::get_save_image_ptr() const
+{
+  return (DWORD_PTR)&m_bSaveImage;
+}
+
 inline bool CTracker::get_enable_save_tracks() const
 {
   return m_bSaveTracks;
@@ -1231,11 +1238,6 @@ inline bool CTracker::get_enable_save_tracks() const
 inline DWORD_PTR CTracker::get_enable_save_tracks_ptr() const
 {
   return (DWORD_PTR)&m_bSaveTracks;
-}
-
-inline void CTracker::set_enable_save_tracks(bool bEnable)
-{
-  m_bSaveTracks = bEnable;
 }
 
 inline CSpaceChargeDistrib& CTracker::get_space_charge_dist()

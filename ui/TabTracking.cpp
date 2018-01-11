@@ -76,7 +76,7 @@ void CPropertiesWnd::add_tracking_ctrls()
   CMFCPropertyGridProperty* pRFFlatapoleGroup = new CMFCPropertyGridProperty(_T("RF in Flatapole"));
   pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_flatapole_ampl()), _T("Amplitude of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_ampl_ptr());
   pRFFlatapoleGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_flatapole_freq()), _T("Frquency of RF voltage applied electrodes in flatapole region."), pObj->get_rf_flatapole_freq_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_flatapole_freq()), _T("Frquency of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_freq_ptr());
   pRFFlatapoleGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Transition to Flatapole, mm"), COleVariant(10 * pObj->get_flatapole_trans()), _T("X-coordinate of transition to flatapole region."), pObj->get_flatapole_trans_ptr());
   pRFFlatapoleGroup->AddSubItem(pProp);
@@ -84,11 +84,14 @@ void CPropertiesWnd::add_tracking_ctrls()
 
   m_wndPropList.AddProperty(pRFGroup);
 
+// Backward compatibility:
   CMFCPropertyGridProperty* pOldIntegratorGroup = new CMFCPropertyGridProperty(_T("Backward compatibility"));
 // Old Predictor-Corrector switcher:
   pCheckBox = new CCheckBoxButton(this, _T("Enable Old Integrator"), (_variant_t)pObj->get_use_old_integrator(), _T("If this is true the old predictor-corrector integrator is used."), pObj->get_use_old_integrator_ptr());
   pOldIntegratorGroup->AddSubItem(pCheckBox);
   pCheckBox = new CCheckBoxButton(this, _T("Use ANSYS Electric Fields"), (_variant_t)pObj->get_enable_ansys_field(), _T("If this is true the electric fields computed in ANSYS are used."), pObj->get_enable_ansys_field_ptr());
+  pOldIntegratorGroup->AddSubItem(pCheckBox);
+  pCheckBox = new CCheckBoxButton(this, _T("Save Screen Image"), (_variant_t)pObj->get_save_image(), _T("If this is true the screen image will be captured and saved at every iteration."), pObj->get_save_image_ptr());
   pOldIntegratorGroup->AddSubItem(pCheckBox);
 
   m_wndPropList.AddProperty(pOldIntegratorGroup);

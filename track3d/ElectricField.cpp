@@ -14,6 +14,14 @@ namespace EvaporatingParticle
 //---------------------------------------------------------------------------------------
 // CPotentialBoundCond
 //---------------------------------------------------------------------------------------
+CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int val)
+  : nType(type), nFixedValType(val)
+{
+  fStartX = 13.225;
+  fStepX = 0.1;
+  fEndX = 5.825;
+}
+
 const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nType)
 {
   switch(nType)
@@ -31,6 +39,7 @@ const char* CPotentialBoundCond::get_fixed_value_name(int nType)
   {
     case fvPlusUnity: return _T("+1");
     case fvMinusUnity: return _T("-1");
+    case fvStepLike: return _T("Stepwise Potential");
   }
 
   return _T("0");
@@ -38,7 +47,7 @@ const char* CPotentialBoundCond::get_fixed_value_name(int nType)
 
 void CPotentialBoundCond::save(CArchive& ar)
 {
-  UINT nVersion = 0;
+  UINT nVersion = 1;  // step-like potential is supported since version 1.
   ar << nVersion;
 
   int nIntType = (int)nType;
@@ -54,6 +63,10 @@ void CPotentialBoundCond::save(CArchive& ar)
     cStr = CString(vRegNames.at(i).c_str());
     ar << cStr;
   }
+
+  ar << fStartX;
+  ar << fStepX;
+  ar << fEndX;
 }
 
 void CPotentialBoundCond::load(CArchive& ar)
@@ -77,6 +90,13 @@ void CPotentialBoundCond::load(CArchive& ar)
     ar >> cStr;
     std::string sRegName((const char*)cStr);
     vRegNames.push_back(sRegName);
+  }
+
+  if(nVersion >= 1)
+  {
+    ar >> fStartX;
+    ar >> fStepX;
+    ar >> fEndX;
   }
 }
 
@@ -313,8 +333,9 @@ bool CElectricFieldData::calc_field(bool bTest)
     {
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
 
-//      if(bTest)
-//        CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
+// DEBUG  (MS 10-01-2018 for step-wise boundary conditions testing)
+      CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
+// END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
@@ -346,7 +367,7 @@ bool CElectricFieldData::get_result(bool bTest) const
   {
     if(bTest)
       vNodes.at(i)->phi = m_vField[i].length();
-    else if(m_nType == typeFieldDC)
+    if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
   }
 
@@ -442,6 +463,9 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
   std::vector<UINT> vNodeIds;
   std::vector<Vector3D> vNorms;
   size_t nBndFacesCount = pReg->vFaces.size();
+  if(nBndFacesCount == 0)
+    return;
+
   for(size_t k = 0; k < nBndFacesCount; k++)
   {
     pFace = pReg->vFaces.at(k);
@@ -466,11 +490,44 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
 
   double fVal = 0;
   if((pBC != NULL) && (nType == BoundaryMesh::FIXED_VAL))
-    fVal = pBC->nFixedValType == CPotentialBoundCond::fvPlusUnity ? 1 : -1;
+  {
+//    fVal = pBC->nFixedValType == CPotentialBoundCond::fvPlusUnity ? 1 : -1;
+    switch(pBC->nFixedValType)
+    {
+      case CPotentialBoundCond::fvPlusUnity: fVal = 1.0;
+      case CPotentialBoundCond::fvMinusUnity: fVal = -1.0;
+      case CPotentialBoundCond::fvStepLike: fVal = step_potential(pBC, pReg->vFaces.at(0)->p0->pos);
+    }
+  }
     
   mesh.boundaryMesh()->boundaryVals(
 	  sName, 
 	  std::vector<double>(mesh.boundaryMesh()->patchSize(sName), fVal));
+}
+
+double CElectricFieldData::step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
+{
+  double fX = vPos.x;
+  int nStepsCount = int(fabs(pBC->fEndX - pBC->fStartX) / pBC->fStepX);
+  double fPhiStep = 1. / nStepsCount;
+  if(pBC->fStartX < pBC->fEndX)
+  {
+    if(fX <= pBC->fStartX)
+      return 0;
+    else if(fX <= pBC->fEndX)
+      return fPhiStep * int((fX - pBC->fStartX) / pBC->fStepX);
+    else
+      return 1;
+  }
+  else
+  {
+    if(fX >= pBC->fStartX)
+      return 0;
+    else if(fX >= pBC->fEndX)
+      return fPhiStep * int((pBC->fStartX - fX) / pBC->fStepX);
+    else
+      return 1;
+  }
 }
 
 CRegion* CElectricFieldData::get_region(const std::string& sName) const

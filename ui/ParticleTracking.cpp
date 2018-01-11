@@ -128,6 +128,14 @@ BOOL CParticleTrackingApp::PreTranslateMessage(MSG* pMsg)
     m_Exporter.terminate();
     bResult = TRUE;
   }
+  else if(pMsg->message == WM_KEYDOWN && pMsg->wParam  == VK_CONTROL)
+  {
+    m_Drawer.set_ctrl_pressed(true);
+  }
+  else if(pMsg->message == WM_KEYUP && pMsg->wParam  == VK_CONTROL)
+  {
+    m_Drawer.set_ctrl_pressed(false);
+  }
   else
   {
     bResult = CWinAppEx::PreTranslateMessage(pMsg);

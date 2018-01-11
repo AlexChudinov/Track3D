@@ -791,6 +791,13 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
     CRay ray = get_view_dir(point);
     CRegion* pReg = intersect(ray);
     set_region_under_cursor(pReg);
+
+    if(m_bCtrlPressed && (pReg != NULL))  // if the Control key is down, select all regions, over which the cursor is, on the fly.
+    {
+      pReg->bSelected = true;
+      invalidate_hidden();
+    }
+
     draw();
   }
   else
@@ -848,12 +855,19 @@ void CTrackDraw::on_left_button_down(const CPoint& point)
   if(m_pTracker == NULL)
     return;
 
-  if(m_nContext == nContextMove)
-    m_nRegime = nRegimeMove;
+  if(m_bCtrlPressed)
+  {
+    m_nRegime = nRegimeNone;
+  }
   else
-    m_nRegime = nRegimeRotate;
+  {
+    if(m_nContext == nContextMove)
+      m_nRegime = nRegimeMove;
+    else
+      m_nRegime = nRegimeRotate;
 
-  m_StartPoint = point;
+    m_StartPoint = point;
+  }
 }
 
 void CTrackDraw::on_left_button_up(const CPoint& point)
