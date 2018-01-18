@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <queue>
+#include "../MeshElement/MeshElement.h"
 #include "MeshData.h"
 
 double CMeshAdapter::s_fEpsilon;
@@ -531,6 +532,23 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 		double w = e->shape_func(s, t, u, i);
 		res.insert(InterpCoef(e->get_node_index(i), w));
 	}
+
+	/*MeshTet::Tets tets = MeshTet::splitAnsysElement(*e);
+	MeshTet::DblList coefs;
+
+	for (const MeshTet& tet : tets)
+	{
+		coefs = tet.barycentricCoords(pos);
+		if (std::all_of(coefs.begin(), coefs.end(), [](double c)->bool {return c >= 0.0; }))
+		{
+			const MeshTet::IdxList nodeIdxs = tet.nodeIdxs();
+			res[nodeIdxs[0]] = coefs[0];
+			res[nodeIdxs[1]] = coefs[1];
+			res[nodeIdxs[2]] = coefs[2];
+			res[nodeIdxs[3]] = coefs[3];
+		}
+	}*/
+
 	return res;
 }
 
@@ -552,6 +570,7 @@ CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallS
 {
 	s_fEpsilon = 100 * std::numeric_limits<double>::epsilon();
 	createGraph();
+	MeshTet::setGlobalNodes(&ns);
 }
 
 CMeshAdapter::ProgressBar * CMeshAdapter::progressBar() const

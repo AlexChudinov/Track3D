@@ -332,7 +332,7 @@ bool CElectricFieldData::calc_field(bool bTest)
     for(size_t i = 0; i < nNodesCount; i++)
     {
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
-
+	  
 // DEBUG  (MS 10-01-2018 for step-wise boundary conditions testing)
       CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
 // END DEBUG
