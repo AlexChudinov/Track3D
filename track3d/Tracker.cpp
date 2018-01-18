@@ -1479,7 +1479,8 @@ void CTracker::save(CArchive& ar)
   ar << m_fDiffSwitchCond;
 }
 
-static UINT __stdcall read_data_thread_func(LPVOID pData)
+//AC correct thread fun
+static UINT __cdecl read_data_thread_func(LPVOID pData)
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   pObj->read_data();

@@ -49,7 +49,7 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::add(InterpCoefs & ic1, const InterpCoe
 		else
 			it->second += c.second;
 	}
-	removeZeros(ic1);
+	//removeZeros(ic1);
 	return ic1;
 }
 
@@ -317,9 +317,12 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 				mul(n.x, gradX(nCurNodeIdx)),
 				add(mul(n.y, gradY(nCurNodeIdx)),
 					mul(n.z, gradZ(nCurNodeIdx)))));
-			double fSum = coefs[nCurNodeIdx];
 			coefs.erase(nCurNodeIdx);
-			mul(-1. / fSum, coefs);
+
+			double s = 0.0;
+			for (const auto& c : coefs) s += c.second;
+
+			mul(1. / s, coefs);
 			result.m_matrix[nCurNodeIdx] = std::move(coefs);
 			break;
 		}
@@ -387,22 +390,27 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 		case SecondTypeBoundaryNode:
 		{
 			const Vector3D& n = boundaryMesh()->normal(nInd);
-			if (isFlatBoundary(nInd, n, vNodeTypes))
-			{
-				add(solver.m_matrix[nInd],
-					add(mul(n.x, gradX(nInd)),
-						add(mul(n.y, gradY(nInd)),
-							mul(n.z, gradZ(nInd)))));
-				double fSum = solver.m_matrix[nInd][nInd];
-				solver.m_matrix[nInd].erase(nInd);
-				mul(-1. / fSum, solver.m_matrix[nInd]);
-			}
+			InterpCoefs coefs = std::move(add(
+				mul(n.x, gradX(nInd)),
+				add(mul(n.y, gradY(nInd)),
+					mul(n.z, gradZ(nInd)))));
+			coefs.erase(nInd);
+
+			double s = 0.0;
+			for (const auto& c : coefs) s += c.second;
+
+			mul(1. / s, coefs);
+			solver.m_matrix[nInd] = std::move(coefs);
+			break;
 		}
 		default:
 		{
-			double fSum = solver.m_matrix[nInd][nInd];
 			solver.m_matrix[nInd].erase(nInd);
-			mul(-1. / fSum, solver.m_matrix[nInd]);
+			
+			double s = 0.0;
+			for (const auto& c : solver.m_matrix[nInd]) s += c.second;
+
+			mul(1. / s, solver.m_matrix[nInd]);
 		}
 		}
 	}, progressBar());
@@ -438,9 +446,12 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 				mul(n.x, gradX(nCurNodeIdx)),
 				add(mul(n.y, gradY(nCurNodeIdx)),
 					mul(n.z, gradZ(nCurNodeIdx)))));
-			double fSum = coefs[nCurNodeIdx];
 			coefs.erase(nCurNodeIdx);
-			mul(-1. / fSum, coefs);
+
+			double s = 0.0;
+			for (const auto& c : coefs) s += c.second;
+
+			mul(1. / s, coefs);
 			result.m_matrix[nCurNodeIdx] = std::move(coefs);
 			break;
 		}
@@ -472,7 +483,12 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 			InterpCoefs coefsZ = add(interpCoefs(y0, nNextNodeIdx, nCurNodeIdx),
 				interpCoefs(y1, nNextNodeIdx, nCurNodeIdx));
 
-			mul(1. / 6., add(coefsX, add(coefsY, coefsZ)));
+			add(coefsX, add(coefsY, coefsZ));
+
+			double s = 0.0;
+			for (const auto& c : coefsX) s += c.second;
+
+			mul(1. / s, coefsX);
 			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
 		}
 		}
