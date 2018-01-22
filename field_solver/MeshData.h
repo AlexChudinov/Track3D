@@ -73,7 +73,7 @@ public:
 
 	friend class CMeshAdapter;
 	friend CFieldOperator& operator+=(CFieldOperator& op1, const CFieldOperator& op2);
-	friend CFieldOperator& operator*=(CFieldOperator& op1, const CFieldOperator& op2);
+	friend CFieldOperator operator*(const CFieldOperator& op1, const CFieldOperator& op2);
 private:
 	Matrix m_matrix;
 
@@ -89,7 +89,7 @@ class CMeshAdapter
 public:
 	using Elements = EvaporatingParticle::CElementsCollection;
 	using Nodes = EvaporatingParticle::CNodesCollection;
-	using PBoundary = std::unique_ptr<BoundaryMesh>;
+	using PBoundary = std::shared_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double,
 		std::less<uint32_t>, Allocator<std::pair<uint32_t, double>>>;
@@ -104,7 +104,7 @@ public:
 	using ScalarFieldOperator = CFieldOperator;
 	using PScalFieldOp = std::unique_ptr<COperator>;
 	using ProgressBar = EvaporatingParticle::CObject;
-	using PProgressBar = std::unique_ptr<ProgressBar>;
+	using PProgressBar = std::shared_ptr<ProgressBar>;
 	using Graph = CMeshConnectivity;
 
 	//Keeps base set of parameters for operator instantiation
@@ -127,7 +127,6 @@ private:
 
 	//Looks for an element containing point with coordinates v
 	const Element* element(const Vector3D& v, Label& nCurNode, const Label& nPrevNode = Label(0)) const;
-
 public:
 	//Math operations with interpolation coeffs
 	static InterpCoefs& add(InterpCoefs& ic1, const InterpCoefs& ic2);
