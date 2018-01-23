@@ -537,7 +537,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const Element * e) const
 {
 	InterpCoefs res;
-	/*double s, t, u;
+	double s, t, u;
 	if (!e->param(pos, s, t, u))
 		throw std::runtime_error("CMeshAdapter::interpCoefs"
 			": CElem3D::param returned false.");
@@ -545,9 +545,9 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 	{
 		double w = e->shape_func(s, t, u, i);
 		res.insert(InterpCoef(e->get_node_index(i), w));
-	}*/
+	}
 
-	MeshTet::Tets tets = MeshTet::splitAnsysElement(*e);
+	/*MeshTet::Tets tets = MeshTet::splitAnsysElement(*e);
 	MeshTet::DblList coefs;
 
 	for (const MeshTet& tet : tets)
@@ -561,7 +561,7 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 			res[nodeIdxs[2]] = coefs[2];
 			res[nodeIdxs[3]] = coefs[3];
 		}
-	}
+	}*/
 
 	return res;
 }
