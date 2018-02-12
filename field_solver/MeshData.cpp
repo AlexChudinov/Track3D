@@ -499,11 +499,14 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 {
-	ScalarFieldOperator opLaplace;
+	ScalarFieldOperator opLaplace, opGrad;
 	opLaplace.m_matrix.resize(m_nodes.size());
-	opLaplace += (gradX() * gradX());
-	opLaplace += (gradY() * gradY());
-	opLaplace += (gradZ() * gradZ());
+	opGrad = gradX();
+	opLaplace += (opGrad * opGrad);
+	opGrad = gradY();
+	opLaplace += (opGrad * opGrad);
+	opGrad = gradZ();
+	opLaplace += (opGrad * opGrad);
 	return opLaplace;
 }
 
