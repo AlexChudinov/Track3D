@@ -82,8 +82,6 @@ void CPropertiesWnd::add_ion_ctrls()
   pBHGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Max Recursion Depth"), COleVariant((long)pObj->get_max_rec_depth()), _T("The depth of sub-division of the initial cubical cell into sub-cells."), pObj->get_max_rec_depth_ptr());
   pBHGroup->AddSubItem(pProp);
-  pCheckBox = new CCheckBoxButton(this, _T("Enable Quad Terms"), (_variant_t)pObj->get_enable_quad_terms(), _T("If this is set to 'true' the quadripole terms are taken into account when Coulomb force is calculated."), pObj->get_enable_quad_terms_ptr());
-  pBHGroup->AddSubItem(pCheckBox);
 
   pCoulombGroup->AddSubItem(pBHGroup);
 
@@ -231,10 +229,6 @@ void CPropertiesWnd::set_ion_data()
   if(pProp != NULL)
     pObj->set_max_rec_depth(pProp->GetValue().lVal);
 
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_quad_terms_ptr());
-  if(pProp != NULL)
-    pObj->set_enable_quad_terms(pProp->GetValue().boolVal);
-
    pProp = m_wndPropList.FindItemByData(distrib.get_ion_distrib_type_ptr());
   if(pProp != NULL)
   {
@@ -379,10 +373,6 @@ void CPropertiesWnd::update_ion_ctrls()
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_max_rec_depth_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_quad_terms_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 

@@ -9,7 +9,8 @@ namespace EvaporatingParticle
 //-------------------------------------------------------------------------------------------------
 // CAnsysMesh - the base class for mesh data reading from the ANSYS data file
 //-------------------------------------------------------------------------------------------------
-CAnsysMesh::CAnsysMesh()
+CAnsysMesh::CAnsysMesh(bool bAux)
+  : m_bAux(bAux)
 {
   m_bReady = false;
   m_bConv2CGS = true;
@@ -26,7 +27,9 @@ void CAnsysMesh::clear()
   size_t nElemCount = m_vElems.size();
   for(size_t j = 0; j < nElemCount; j++)
   {
-    set_status("Deleting elements", 100 * j / nElemCount);
+    if(!m_bAux)
+      set_status("Deleting elements", 100 * j / nElemCount);
+
     delete m_vElems.at(j);
   }
 
@@ -38,14 +41,18 @@ void CAnsysMesh::clear()
     for(size_t l = 0; l < nFaceCount; l++)
       delete pReg->vFaces.at(l);
 
-    set_status("Deleting regions", 100 * k / nRegCount);
+    if(!m_bAux)
+      set_status("Deleting regions", 100 * k / nRegCount);
+
     delete pReg;
   }
 
   size_t nNodeCount = m_vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    set_status("Deleting nodes", 100 * i / nNodeCount);
+    if(!m_bAux)
+      set_status("Deleting nodes", 100 * i / nNodeCount);
+
     delete m_vNodes.at(i);
   }
 
@@ -56,11 +63,15 @@ void CAnsysMesh::clear()
 
   m_Transform.set_default();
 
-  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  pDrawObj->clear();
-  pDrawObj->invalidate_all();
+  if(!m_bAux)
+  {
+    CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->clear();
+    pDrawObj->invalidate_all();
+  }
 
-  set_status("Ready", -1);
+  if(!m_bAux)
+    set_status("Ready", -1);
 }
 
 //-------------------------------------------------------------------------------------------------

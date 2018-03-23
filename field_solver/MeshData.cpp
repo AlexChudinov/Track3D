@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include <queue>
-#include "../MeshElement/MeshElement.h"
 #include "MeshData.h"
 
 double CMeshAdapter::s_fEpsilon;
@@ -65,10 +64,10 @@ CMeshAdapter::InterpCoefs & CMeshAdapter::removeZeros(InterpCoefs & ic)
 		[](const auto& e1, const auto& e2)->bool
 	{
 		return e1.second < e2.second;
-	})->second;
+	})->second; fMax *= fMax;
 	for (InterpCoefs::iterator it = ic.begin(); it != ic.end();)
 	{
-		if (fMax*eps() >= it->second) it = ic.erase(it);
+		if (fMax*eps() >= it->second*it->second) it = ic.erase(it);
 		else ++it;
 	}
 	return ic;
@@ -317,12 +316,9 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 				mul(n.x, gradX(nCurNodeIdx)),
 				add(mul(n.y, gradY(nCurNodeIdx)),
 					mul(n.z, gradZ(nCurNodeIdx)))));
+			double fSum = coefs[nCurNodeIdx];
 			coefs.erase(nCurNodeIdx);
-
-			double s = 0.0;
-			for (const auto& c : coefs) s += c.second;
-
-			mul(1. / s, coefs);
+			mul(-1. / fSum, coefs);
 			result.m_matrix[nCurNodeIdx] = std::move(coefs);
 			break;
 		}
@@ -390,27 +386,22 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 		case SecondTypeBoundaryNode:
 		{
 			const Vector3D& n = boundaryMesh()->normal(nInd);
-			InterpCoefs coefs = std::move(add(
-				mul(n.x, gradX(nInd)),
-				add(mul(n.y, gradY(nInd)),
-					mul(n.z, gradZ(nInd)))));
-			coefs.erase(nInd);
-
-			double s = 0.0;
-			for (const auto& c : coefs) s += c.second;
-
-			mul(1. / s, coefs);
-			solver.m_matrix[nInd] = std::move(coefs);
-			break;
+			if (isFlatBoundary(nInd, n, vNodeTypes))
+			{
+				add(solver.m_matrix[nInd],
+					add(mul(n.x, gradX(nInd)),
+						add(mul(n.y, gradY(nInd)),
+							mul(n.z, gradZ(nInd)))));
+				double fSum = solver.m_matrix[nInd][nInd];
+				solver.m_matrix[nInd].erase(nInd);
+				mul(-1. / fSum, solver.m_matrix[nInd]);
+			}
 		}
 		default:
 		{
+			double fSum = solver.m_matrix[nInd][nInd];
 			solver.m_matrix[nInd].erase(nInd);
-			
-			double s = 0.0;
-			for (const auto& c : solver.m_matrix[nInd]) s += c.second;
-
-			mul(1. / s, solver.m_matrix[nInd]);
+			mul(-1. / fSum, solver.m_matrix[nInd]);
 		}
 		}
 	}, progressBar());
@@ -446,12 +437,9 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 				mul(n.x, gradX(nCurNodeIdx)),
 				add(mul(n.y, gradY(nCurNodeIdx)),
 					mul(n.z, gradZ(nCurNodeIdx)))));
+			double fSum = coefs[nCurNodeIdx];
 			coefs.erase(nCurNodeIdx);
-
-			double s = 0.0;
-			for (const auto& c : coefs) s += c.second;
-
-			mul(1. / s, coefs);
+			mul(-1. / fSum, coefs);
 			result.m_matrix[nCurNodeIdx] = std::move(coefs);
 			break;
 		}
@@ -483,12 +471,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 			InterpCoefs coefsZ = add(interpCoefs(y0, nNextNodeIdx, nCurNodeIdx),
 				interpCoefs(y1, nNextNodeIdx, nCurNodeIdx));
 
-			add(coefsX, add(coefsY, coefsZ));
-
-			double s = 0.0;
-			for (const auto& c : coefsX) s += c.second;
-
-			mul(1. / s, coefsX);
+			mul(1. / 6., add(coefsX, add(coefsY, coefsZ)));
 			result.m_matrix[nCurNodeIdx] = std::move(coefsX);
 		}
 		}
@@ -499,14 +482,13 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 {
-	ScalarFieldOperator opLaplace, opGrad;
-	opLaplace.m_matrix.resize(m_nodes.size());
-	opGrad = gradX();
-	opLaplace += (opGrad * opGrad);
-	opGrad = gradY();
-	opLaplace += (opGrad * opGrad);
-	opGrad = gradZ();
-	opLaplace += (opGrad * opGrad);
+	ScalarFieldOperator opGradComp1 = gradX(), opGradComp2 = opGradComp1, opLaplace;
+	opLaplace.m_matrix.resize(opGradComp1.m_matrix.size());
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradY(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradZ(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
 	return opLaplace;
 }
 
@@ -549,23 +531,6 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 		double w = e->shape_func(s, t, u, i);
 		res.insert(InterpCoef(e->get_node_index(i), w));
 	}
-
-	/*MeshTet::Tets tets = MeshTet::splitAnsysElement(*e);
-	MeshTet::DblList coefs;
-
-	for (const MeshTet& tet : tets)
-	{
-		coefs = tet.barycentricCoords(pos);
-		if (std::all_of(coefs.begin(), coefs.end(), [](double c)->bool {return c >= 0.0; }))
-		{
-			const MeshTet::IdxList nodeIdxs = tet.nodeIdxs();
-			res[nodeIdxs[0]] = coefs[0];
-			res[nodeIdxs[1]] = coefs[1];
-			res[nodeIdxs[2]] = coefs[2];
-			res[nodeIdxs[3]] = coefs[3];
-		}
-	}*/
-
 	return res;
 }
 
@@ -587,7 +552,6 @@ CMeshAdapter::CMeshAdapter(const Elements & es, const Nodes & ns, double fSmallS
 {
 	s_fEpsilon = 100 * std::numeric_limits<double>::epsilon();
 	createGraph();
-	MeshTet::setGlobalNodes(&ns);
 }
 
 CMeshAdapter::ProgressBar * CMeshAdapter::progressBar() const
@@ -870,13 +834,11 @@ CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)
 	return op1;
 }
 
-CFieldOperator operator*(const CFieldOperator & op1, const CFieldOperator & op2)
+CFieldOperator& operator*=(CFieldOperator & op1, const CFieldOperator & op2)
 {
 	if (op1.m_matrix.size() != op2.m_matrix.size())
 		throw std::runtime_error("operator*=(CFieldOperator&, const CFieldOperator&):"
 			" Operator sizes mismatch!");
-
-	CFieldOperator res; res.m_matrix.resize(op1.m_matrix.size());
 
 	ThreadPool::splitInPar(op1.m_matrix.size(), [&](size_t nInd)
 	{
@@ -886,8 +848,8 @@ CFieldOperator operator*(const CFieldOperator & op1, const CFieldOperator & op2)
 			CFieldOperator::MatrixRow row2 = op2.m_matrix[c.first];
 			CMeshAdapter::add(row1, CMeshAdapter::mul(c.second, row2));
 		}
-		res.m_matrix[nInd] = row1;
+		op1.m_matrix[nInd] = row1;
 	});
 
-	return res;
+	return op1;
 }

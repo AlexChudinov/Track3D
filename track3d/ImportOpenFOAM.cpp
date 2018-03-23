@@ -240,7 +240,7 @@ bool CImportOpenFOAM::second_step()
   if(nNodeCount == 0)
     return false;
 
-  CTracker AuxObj;
+  CTracker AuxObj(true);
 // At this step m_sFile must point to the short geometry, the "*.var" file of which has been earlier modified by
 // CImportOpenFOAM::first_step(). Since that time it contains pressure, temperature and velocity from OpenFOAM.
   AuxObj.set_filename(m_sFile.c_str());
@@ -283,7 +283,6 @@ bool CImportOpenFOAM::second_step()
       return false;
   }
 
-  AuxObj.set_handlers(NULL, NULL);
   return true;
 }
 
@@ -294,7 +293,10 @@ bool CImportOpenFOAM::restore_ansys_data()
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   pObj->terminate(false);
-  return pObj->read_gasdyn_data();
+  pObj->set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
+  bool bRes = pObj->read_gasdyn_data();
+  pObj->set_handlers(NULL, NULL);
+  return bRes;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -302,7 +304,7 @@ bool CImportOpenFOAM::restore_ansys_data()
 //-------------------------------------------------------------------------------------------------
 void CImportOpenFOAM::save(CArchive& ar)
 {
-  const UINT nVersion = 2;
+  const UINT nVersion = 3;
   ar << nVersion;
 
 // Data file:
@@ -310,6 +312,7 @@ void CImportOpenFOAM::save(CArchive& ar)
   ar << cFileName;
 
   ar << m_fShiftX;
+  ar << m_nStep;
 }
 
 void CImportOpenFOAM::load(CArchive& ar)
@@ -323,6 +326,9 @@ void CImportOpenFOAM::load(CArchive& ar)
   set_filename((const char*)cFileName);
 
   ar >> m_fShiftX;
+
+  if(nVersion >= 3)
+    ar >> m_nStep;
 
   if(nVersion == 1) // since version 2 the environment gas molar mass was moved to the CTracker class.
   {
