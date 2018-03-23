@@ -33,7 +33,7 @@ class CBarnesHut;
 class CTracker : public CAnsysMesh
 {
 public:
-  CTracker();
+  CTracker(bool bAux = false);
   ~CTracker();
 
   enum  // Evaporation model type

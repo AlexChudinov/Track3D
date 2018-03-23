@@ -13,7 +13,7 @@ namespace EvaporatingParticle
 class CAnsysMesh : public CObject
 {
 public:
-  CAnsysMesh();
+  CAnsysMesh(bool bAux = false);
   virtual ~CAnsysMesh();
 
   enum  // Symmetry planes
@@ -112,7 +112,8 @@ protected:
   CTransform              m_Transform;
 
 // Run-time:
-  bool                    m_bReady;       // this flag is set to "false" in set_filename(), to "true" in read_data().
+  bool                    m_bReady,       // this flag is set to "false" in set_filename(), to "true" in read_data().
+                          m_bAux;         // this flag is set in the constructor and never changed afterwards; the only example - second step of import OpenFOAM.
 };
 
 //---------------------------------------------------------------------------------------

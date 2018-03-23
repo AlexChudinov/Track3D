@@ -72,6 +72,27 @@ std::string COutputEngine::get_base_name(const char* pFullPath)
   return cPath;
 }
 
+std::string COutputEngine::subst_base_dir(const char* pOldDir, const char* pNewDir, const char* pOldFullPath)
+{
+  std::string cOldFullPath(pOldFullPath);
+  if(strcmp(pOldDir, pNewDir) == 0)
+    return cOldFullPath;  // old and new directories coinside, nothing to do.
+
+  std::string cOldDir(pOldDir);
+  size_t nDirSize = cOldDir.size();
+  if(nDirSize >= cOldFullPath.size())
+    return cOldFullPath;  // size of the directory name should not be greater than the full path name, there is definately some error.
+
+  cOldFullPath.erase(cOldFullPath.begin(), cOldFullPath.begin() + nDirSize);  // erase the old directory name from the full path name...
+
+  std::string cNewFullPath(pNewDir);
+  size_t nSize = cOldFullPath.size();
+  for(size_t i = 0; i < nSize; i++)
+    cNewFullPath.push_back(cOldFullPath.at(i));
+
+  return cNewFullPath;
+}
+
 bool COutputEngine::output_droplet_track(UINT nTrackIndex)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();

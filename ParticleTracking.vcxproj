@@ -225,7 +225,6 @@
     <ClInclude Include="field_solver\BoundaryMesh.h" />
     <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
-    <ClInclude Include="MeshElement\MeshElement.h" />
     <ClInclude Include="RandomProcess\RandomProcess.h" />
     <ClInclude Include="track3d\AnsysMesh.h" />
     <ClInclude Include="track3d\BarnesHut.h" />
@@ -274,7 +273,6 @@
   <ItemGroup>
     <ClCompile Include="field_solver\BoundaryMesh.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
-    <ClCompile Include="MeshElement\MeshElement.cpp" />
     <ClCompile Include="RandomProcess\RandomProcess.cpp" />
     <ClCompile Include="track3d\AnsysMesh.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />

@@ -58,6 +58,8 @@ public:
   static std::string get_file_name(const char* pFullPath);    // returns the file name without the path.
   static std::string get_base_name(const char* pFullPath);    // discards the extension only, keeps the rest path.
 
+  static std::string subst_base_dir(const char* pOldDir, const char* pNewDir, const char* pOldFullPath);
+
 // Streams:
   void              save(CArchive& archive);
   void              load(CArchive& archive);

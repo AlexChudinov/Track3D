@@ -52,15 +52,6 @@
     <Filter Include="RandomProcess\SourceFiles">
       <UniqueIdentifier>{d14ee42e-4fab-4031-93e1-70d8662f1c43}</UniqueIdentifier>
     </Filter>
-    <Filter Include="MeshElement">
-      <UniqueIdentifier>{9c354346-06f1-4098-aa72-f3c9ceabc613}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="MeshElement\Headers">
-      <UniqueIdentifier>{eab724a6-bdbf-4f4b-8bef-ef30f0f098d7}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="MeshElement\Sources">
-      <UniqueIdentifier>{e3a0d610-1203-46eb-b3a7-50b9d59b8bf4}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="track3d\BarnesHut.h">
@@ -203,9 +194,6 @@
     </ClInclude>
     <ClInclude Include="track3d\AnsysMesh.h">
       <Filter>track3d\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MeshElement\MeshElement.h">
-      <Filter>MeshElement\Headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -367,9 +355,6 @@
     </ClCompile>
     <ClCompile Include="track3d\AnsysMesh.cpp">
       <Filter>track3d\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MeshElement\MeshElement.cpp">
-      <Filter>MeshElement\Sources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

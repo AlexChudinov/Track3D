@@ -31,8 +31,8 @@ namespace EvaporatingParticle
 // CTracker - the main class for data reading from ANSYS data file and tracking particles taking
 //            into account evaporation and heat exchange with the environment.
 //-------------------------------------------------------------------------------------------------
-CTracker::CTracker()
-  : m_pEvaporModel(NULL), m_pBarnesHut(NULL)
+CTracker::CTracker(bool bAux)
+  : CAnsysMesh(bAux), m_pEvaporModel(NULL), m_pBarnesHut(NULL)
 {
   set_default();
 }
@@ -491,7 +491,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
   m_pBarnesHut->set_dist_coeff(m_fBHDist);
   m_pBarnesHut->set_crit_radius(m_fBHCritR);
   m_pBarnesHut->set_max_rec_depth(m_nMaxRecDepth);
-  m_pBarnesHut->set_enable_quad_terms(m_bEnableQuadTerms);
+  m_pBarnesHut->set_enable_quad_terms(false);
   m_pBarnesHut->set_sym_type(get_symmetry_type());
 
   Vector3D vCenter;
@@ -564,6 +564,8 @@ bool CTracker::capture_save_image(UINT nIter)
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->invalidate_tracks();
   pDrawObj->invalidate_contours();
+  if(!m_bSaveImage)
+    return true;
 
   CMainFrame* pMainFrame = (CMainFrame*)(CParticleTrackingApp::Get()->GetMainWnd());
   CView* pView = pMainFrame->GetActiveView();
@@ -794,7 +796,7 @@ void CTracker::multi_thread_calculate()
     if(m_bTerminate)
       return;
 
-    if(bIter && m_bSaveImage)
+    if(bIter)
       capture_save_image(i);  // capture and save the screen image at every iteration.
 
     if(i == nIterCount - 1)
@@ -1479,13 +1481,27 @@ void CTracker::save(CArchive& ar)
   ar << m_fDiffSwitchCond;
 }
 
-//AC correct thread fun
-static UINT __cdecl read_data_thread_func(LPVOID pData)
+static UINT __stdcall read_data_thread_func(LPVOID pData)
 {
-  EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   pObj->read_data();
   
   if(!pObj->get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations have ended.
+  {
+    CDialog* pDlg = (CDialog*)pData;
+    pDlg->PostMessage(WM_CLOSE);
+  }
+
+  return 0;
+}
+
+static UINT __stdcall import_dsmc_thread_func(LPVOID pData)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CImportOpenFOAM& importer = pObj->get_importer();
+  importer.do_import();
+  
+  if(!importer.get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations have ended.
   {
     CDialog* pDlg = (CDialog*)pData;
     pDlg->PostMessage(WM_CLOSE);
@@ -1517,11 +1533,24 @@ void CTracker::load(CArchive& ar)
     set_filename((const char*)cFileName);
   }
 
+// Correction of the file names:
+  std::string sFileName = COutputEngine::get_file_name(get_filename());   // take the file name from the data file.
+  std::string sOldPath = COutputEngine::get_full_path(get_filename());
+  std::string sNewPath = COutputEngine::get_full_path((const char*)ar.m_strFileName); // take the path from the archive.
+
+// The data file is always supposed to lie beside the *.tsk file.
+  m_sDataFile = sNewPath + sFileName;
+
   if(nVersion >= 1)
   {
     CString cFieldFileName;
     ar >> cFieldFileName;
-    set_pre_calc_clmb_file((const char*)cFieldFileName);
+
+    if(cFieldFileName != "")
+    {
+      std::string sNewClmbFile = COutputEngine::subst_base_dir(sOldPath.c_str(), sNewPath.c_str(), (const char*)cFieldFileName);
+      set_pre_calc_clmb_file(sNewClmbFile.c_str());
+    }
   }
 
   ar >> m_bUseMultiThread;
@@ -1670,19 +1699,8 @@ void CTracker::load(CArchive& ar)
     {
       load_tracks(ar);
 
-      std::string sFileName = COutputEngine::get_file_name(get_filename());   // take the file name from the data file.
-      std::string sNewPath = COutputEngine::get_full_path((const char*)ar.m_strFileName); // take the path from the archive.
-      m_sDataFile = sNewPath + sFileName;
-
       CExecutionDialog dlg(&read_data_thread_func, (CObject*)this);
       INT_PTR nRes = dlg.DoModal();
-
-      if(m_bReady)
-      {
-        CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-        pDrawObj->set_hidden_reg_names();
-        pDrawObj->draw();
-      }
 
       m_Src.set_data_from_tracks();
     }
@@ -1740,6 +1758,22 @@ void CTracker::load(CArchive& ar)
 // DEBUG
   subst_time_in_tracks();
 // END DEBUG
+
+// Correct importer's data file name:
+  std::string sNewImpFile = COutputEngine::subst_base_dir(sOldPath.c_str(), sNewPath.c_str(), m_Importer.get_filename());
+  m_Importer.set_filename(sNewImpFile.c_str());
+  if(m_Importer.get_step() == CImportOpenFOAM::opSecondStep)
+  {
+    CExecutionDialog dlg(&import_dsmc_thread_func, (CObject*)(&m_Importer));
+    INT_PTR nImpRes = dlg.DoModal();
+  }
+
+  if(m_bReady)
+  {
+    CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->set_hidden_reg_names();
+    pDrawObj->draw();
+  }
 
   invalidate_calculators();
   update_interface();
