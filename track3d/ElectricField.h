@@ -23,7 +23,8 @@ struct CPotentialBoundCond
     fvPlusUnity   = 0,
     fvMinusUnity  = 1,
     fvStepLike    = 2,
-    fvCount       = 3
+    fvCoulomb     = 3,    // attempt to calculate a mirror Coulomb field.
+    fvCount       = 4
   };
 
   BoundaryMesh::BoundaryType    nType;
@@ -57,7 +58,8 @@ public:
   {
     typeFieldDC = 0,
     typeFieldRF = 1,
-    typeCount   = 2
+    typeMirror  = 2,    // attempt to calculate a mirror Coulomb field.
+    typeCount   = 3
   };
 
   CElectricFieldData(int nType = typeFieldDC);
@@ -170,7 +172,8 @@ public:
   CFieldDataColl();
   virtual ~CFieldDataColl();
 
-  bool              calc_fields();
+// CFieldDataColl::calc_fields(true) is called only from CTracker::create_BH_object(...).
+  bool              calc_fields(bool bMirrorClmb = false);
   bool              need_recalc() const;
 
   void              clear_fields_in_nodes();

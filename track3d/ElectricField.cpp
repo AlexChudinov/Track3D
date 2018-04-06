@@ -6,6 +6,7 @@
 
 #include "ElectricField.h"
 #include "ParticleTracking.h"
+#include "BarnesHut.h"
 
 
 namespace EvaporatingParticle
@@ -37,9 +38,10 @@ const char* CPotentialBoundCond::get_fixed_value_name(int nType)
 {
   switch(nType)
   {
-    case fvPlusUnity: return _T("+1");
-    case fvMinusUnity: return _T("-1");
-    case fvStepLike: return _T("Stepwise Potential");
+    case fvPlusUnity:   return _T("+1");
+    case fvMinusUnity:  return _T("-1");
+    case fvStepLike:    return _T("Stepwise Potential");
+    case fvCoulomb:     return _T("Coulomb Potential");
   }
 
   return _T("0");
@@ -124,18 +126,23 @@ void CFieldDataColl::clear_fields()
   clear();
 }
 
-bool CFieldDataColl::calc_fields()
+bool CFieldDataColl::calc_fields(bool bMirrorClmb)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   HWND hProgress, hJobName, hDlgWnd;
   pObj->get_handlers(hJobName, hProgress, hDlgWnd);
 
-  clear_fields_in_nodes();
+  if(!bMirrorClmb)
+    clear_fields_in_nodes();  // do not clear fields from the nodes if Mirror Coulomb field is about to be calculated.
 
   size_t nCount = size();
   for(size_t i = 0; i < nCount; i++)
   {
     CElectricFieldData* pData = at(i);
+    bool bDoCalc = bMirrorClmb ? pData->get_type() == CElectricFieldData::typeMirror : pData->get_type() != CElectricFieldData::typeMirror;
+    if(!bDoCalc)
+      continue;
+
     pData->set_handlers(hJobName, hProgress, hDlgWnd);
     if(!pData->calc_field())
     {
@@ -328,13 +335,19 @@ bool CElectricFieldData::calc_field(bool bTest)
     std::vector<double> dPhiDz(nNodesCount, 0.0);
     dPhiDz = pGrad->applyToField(field);
 
+// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
+    CBarnesHut* pBHObj = pObj->get_BH_object();
+    CNode3D* pNode = NULL;
+// END DEBUG
+
     m_vField.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
 
-// DEBUG  (MS 10-01-2018 for step-wise boundary conditions testing)
-      CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i)->phi = (float)field[i];
+// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing). Delete or comment these stgrings when tests are complete!
+      pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
+      pNode->phi = (float)field[i] + pBHObj->coulomb_phi(pNode->pos);
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
@@ -342,7 +355,7 @@ bool CElectricFieldData::calc_field(bool bTest)
         apply_analytic_field(vNodes.at(i)->pos, m_vField[i]);
     }
 
-    m_bNeedRecalc = false;
+    m_bNeedRecalc = m_nType == typeMirror;  // false;
 	}
   catch (const std::exception& ex)
   {
@@ -369,6 +382,8 @@ bool CElectricFieldData::get_result(bool bTest) const
       vNodes.at(i)->phi = m_vField[i].length();
     if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
+    else if(m_nType == typeMirror)
+      vNodes.at(i)->clmb += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
   }
 
   return true;
@@ -488,10 +503,35 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
   if(nType != BoundaryMesh::FIXED_VAL)
     return;
 
+// There are two cases: 
+// 1) Ordinary field specified by a single constant potential value at all nodes of a region (metallic electrode);
+// 2) Mirror Coulomb field, boundary potential values for which can be different at different nodes of a region.
   double fVal = 0;
   if((pBC != NULL) && (nType == BoundaryMesh::FIXED_VAL))
   {
-//    fVal = pBC->nFixedValType == CPotentialBoundCond::fvPlusUnity ? 1 : -1;
+    if(pBC->nFixedValType == CPotentialBoundCond::fvCoulomb)  // mirror Coulomb field.
+    {
+      CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+      CBarnesHut* pBHObj = pObj->get_BH_object();
+
+      const BoundaryMesh::SetLabels& vNodeLabels = mesh.boundaryMesh()->boundaryLabels(sName);
+      size_t nRegNodeCount = vNodeLabels.size();
+      std::vector<double> vBoundPhi;
+      BoundaryMesh::SetLabels::const_iterator citer;
+      UINT nNodeId = 0;
+      Vector3D vPos;
+      for(citer = vNodeLabels.cbegin(); citer != vNodeLabels.cend(); citer++)
+      {
+        nNodeId = *citer;
+        vPos = pObj->get_nodes().at(nNodeId)->pos;
+        fVal = -pBHObj->coulomb_phi(vPos);
+        vBoundPhi.push_back(fVal);
+      }
+
+      mesh.boundaryMesh()->boundaryVals(sName, vBoundPhi);
+      return;
+    }
+
     switch(pBC->nFixedValType)
     {
       case CPotentialBoundCond::fvPlusUnity: fVal = 1.0;
@@ -597,6 +637,7 @@ const char* CElectricFieldData::get_field_type_name(int nType)
   {
     case typeFieldDC: return _T("DC Electric Field");
     case typeFieldRF: return _T("Radio-Frequency Field");
+    case typeMirror:  return _T("Mirror Coulomb Field");
   }
 
   return _T("None");

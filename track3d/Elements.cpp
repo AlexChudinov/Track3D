@@ -501,7 +501,7 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
   const UINT nMaxIterCount = 10;
 
 // Initial approximation:
-  s = 0.49, t = 0.49, u = 0.49;
+  elem_middle(s, t, u); // [MS] 02-04-2018, this point must be always inside the element; hopefully this will accelerate the convergence.
 
   Vector3D vF;
   Matrix3D mdF, mdFR;

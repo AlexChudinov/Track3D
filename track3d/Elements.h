@@ -277,6 +277,10 @@ struct CElem3D
   virtual double          shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const = 0;
 
 // Newton method support.
+// Initial guess for parametric coordinates (the middle of the element). Note that at this point, which is always inside the element,
+// the shape functions of each node return 1/N, where N is the nodes count of the element.
+  virtual void            elem_middle(double& s, double& t, double& u) const = 0;
+
 // Discrepancy of positions: computed for a k-th iteration and given point.
   virtual Vector3D        func(double s, double t, double u, const Vector3D& pos) const;
 
@@ -326,6 +330,8 @@ struct CTetra : public CElem3D, public BlockAllocator<CTetra>
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
 
+  virtual void      elem_middle(double& s, double& t, double& u) const { s = 0.25; t = 0.25; u = 0.25; }
+
   virtual UINT      get_node_count() const { return 4; }
   virtual UINT      get_node_index(UINT nInd) const { return vTetNodeIds[nInd]; }  // index of this node in the global nodes collection.
   virtual CNode3D*  get_node(UINT nInd) const { return nInd < 4 ? vGlobNodes[vTetNodeIds[nInd]] : NULL; }
@@ -360,6 +366,8 @@ struct CPyramid : public CElem3D, public BlockAllocator<CPyramid>
   virtual bool      inside(const Vector3D& p) const;
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
+
+  virtual void      elem_middle(double& s, double& t, double& u) const { s = 0.5; t = 0.5; u = 0.2; }
 
   virtual UINT      get_node_count() const { return 5; }
   virtual UINT      get_node_index(UINT nInd) const { return vPyrNodeIds[nInd]; }  // index of this node in the global nodes collection.
@@ -397,6 +405,8 @@ struct CWedge : public CElem3D, public BlockAllocator<CWedge>
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
 
+  virtual void      elem_middle(double& s, double& t, double& u) const { s = Const_One_Third; t = Const_One_Third; u = 0.5; }
+
   virtual UINT      get_node_count() const { return 6; }
   virtual UINT      get_node_index(UINT nInd) const { return vWdgNodeIds[nInd]; }  // index of this node in the global nodes collection.
   virtual CNode3D*  get_node(UINT nInd) const { return nInd < 6 ? vGlobNodes[vWdgNodeIds[nInd]] : NULL; }
@@ -430,6 +440,8 @@ struct CHexa : public CElem3D, public BlockAllocator<CHexa>
   virtual bool      inside(const Vector3D& p) const;
   virtual double    shape_func(double s, double t, double u, size_t node_id) const;
   virtual double    shape_func_deriv(double s, double t, double u, size_t nfunc, size_t nvar) const;
+
+  virtual void      elem_middle(double& s, double& t, double& u) const { s = 0.5; t = 0.5; u = 0.5; }
 
   virtual UINT      get_node_count() const { return 8; }
   virtual UINT      get_node_index(UINT nInd) const { return vHexNodeIds[nInd]; }  // index of this node in the global nodes collection.

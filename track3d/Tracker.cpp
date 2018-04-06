@@ -517,6 +517,14 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
   m_pBarnesHut->prepare(vThreads, m_vNodes, nIter);
 
   m_SpaceChargeDist.set_handlers(NULL, NULL);
+
+// Calculate the Coulomb Mirror field:
+  if(!CParticleTrackingApp::Get()->GetFields()->calc_fields(true))
+  {
+    m_bTerminate = true;
+    return false;
+  }
+
   return true;
 }
 
@@ -564,8 +572,6 @@ bool CTracker::capture_save_image(UINT nIter)
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->invalidate_tracks();
   pDrawObj->invalidate_contours();
-  if(!m_bSaveImage)
-    return true;
 
   CMainFrame* pMainFrame = (CMainFrame*)(CParticleTrackingApp::Get()->GetMainWnd());
   CView* pView = pMainFrame->GetActiveView();
@@ -577,6 +583,9 @@ bool CTracker::capture_save_image(UINT nIter)
   pView->SendMessage(WM_PAINT);
   pDrawObj->capture_image();
   show_dlg(SW_SHOW);
+
+  if(!m_bSaveImage)
+    return true;
 
   std::string cPath = COutputEngine::get_full_path(get_filename());
   std::string cName("iter_#");

@@ -191,40 +191,43 @@ UINT CBarnesHut::build_moments(LPVOID pCalcThread)
     
     pCell->charge_center = vPosChargeSum / pCell->qSum;
 
-    double dx, dy, dz, dx2, dy2, dz2, dr2sum = 0;
-    for(UINT i = 0; i < nChargesCount; i++)
+    if(pObj->m_bEnableQuadTerms)
     {
-      ChargeData* pData = pCell->charges.at(i);
+      double dx, dy, dz, dx2, dy2, dz2, dr2sum = 0;
+      for(UINT i = 0; i < nChargesCount; i++)
+      {
+        ChargeData* pData = pCell->charges.at(i);
 
-      dx = pData->pos.x - pCell->charge_center.x;
-      dy = pData->pos.y - pCell->charge_center.y;
-      dz = pData->pos.z - pCell->charge_center.z;
+        dx = pData->pos.x - pCell->charge_center.x;
+        dy = pData->pos.y - pCell->charge_center.y;
+        dz = pData->pos.z - pCell->charge_center.z;
 
-      dx2 = dx * dx;
-      dy2 = dy * dy;
-      dz2 = dz * dz;
+        dx2 = dx * dx;
+        dy2 = dy * dy;
+        dz2 = dz * dz;
 
-      dr2sum += dx2 + dy2 + dz2;
+        dr2sum += dx2 + dy2 + dz2;
 
-      pCell->Qxx += dx2;
-      pCell->Qyy += dy2;
-      pCell->Qzz += dz2;
-      pCell->Qxy += dx * dy;
-      pCell->Qyz += dy * dz;
-      pCell->Qxz += dz * dx;
+        pCell->Qxx += dx2;
+        pCell->Qyy += dy2;
+        pCell->Qzz += dz2;
+        pCell->Qxy += dx * dy;
+        pCell->Qyz += dy * dz;
+        pCell->Qxz += dz * dx;
+      }
+
+      dr2sum *= 0.3333333;
+      pCell->Qxx -= dr2sum;
+      pCell->Qyy -= dr2sum;
+      pCell->Qzz -= dr2sum;
+
+      pCell->Qxx *= 1.5;
+      pCell->Qyy *= 1.5;
+      pCell->Qzz *= 1.5;
+      pCell->Qxy *= 1.5;
+      pCell->Qyz *= 1.5;
+		  pCell->Qxz *= 1.5;
     }
-
-    dr2sum *= 0.3333333;
-    pCell->Qxx -= dr2sum;
-    pCell->Qyy -= dr2sum;
-    pCell->Qzz -= dr2sum;
-
-    pCell->Qxx *= 1.5;
-    pCell->Qyy *= 1.5;
-    pCell->Qzz *= 1.5;
-    pCell->Qxy *= 1.5;
-    pCell->Qyz *= 1.5;
-		pCell->Qxz *= 1.5;
 
 		pThread->done_job();
   }

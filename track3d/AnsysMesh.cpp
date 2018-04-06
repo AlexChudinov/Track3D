@@ -340,6 +340,8 @@ bool CAnsysMesh::read_2D_regions()
   return true;
 }
 
+static const Vector3D scvNull(0, 0, 0);
+
 bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
 {
   set_job_name("Reading gas-dynamic data...");
@@ -385,6 +387,8 @@ bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
     }
 
     pNode = m_vNodes.at(i);
+    pNode->clmb = scvNull;
+    pNode->phi = 0;
     if(bFieldsOnly) // [MS] 29-06-2017 workaround to allow ANSYS fields together with DSMC gas dynamics.
     {
       pNode->field = vFieldDC;

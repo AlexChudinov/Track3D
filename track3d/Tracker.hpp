@@ -289,6 +289,9 @@ public:
 // DC Field perturbations:
   CFieldPtbCollection&    get_field_ptb();
 
+// Mirror Coulomb field support:
+  CBarnesHut*             get_BH_object();
+
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface:
 //-------------------------------------------------------------------------------------------------
@@ -1329,6 +1332,11 @@ inline DWORD_PTR CTracker::get_rand_collision_type_ptr() const
 inline void CTracker::set_rand_collision_type(CRandomProcType nType)
 {
   m_nRndCollisionType = nType;
+}
+
+inline CBarnesHut* CTracker::get_BH_object()
+{
+  return m_pBarnesHut;
 }
 
 }; // namespace EvaporatingParticle

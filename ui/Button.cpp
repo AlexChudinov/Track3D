@@ -528,8 +528,8 @@ void CCalcFieldButton::OnClickButton(CPoint point)
   m_pWndProp->set_data_to_model();
 
   EvaporatingParticle::CElectricFieldData* pData = (EvaporatingParticle::CElectricFieldData*)m_dwData;
-  if(pData == NULL)
-    return;
+  if(pData == NULL || pData->get_type() == EvaporatingParticle::CElectricFieldData::typeMirror)
+    return; // Mirror Coulomb field cannot be computed from UI.
 
   CExecutionDialog dlg(&calc_field_func, (EvaporatingParticle::CObject*)pData);
   INT_PTR nRes = dlg.DoModal();

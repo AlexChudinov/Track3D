@@ -93,9 +93,9 @@ void CPropertiesWnd::add_field_ctrls()
       COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
 //      CMFCPropertyGridProperty* pBCValue = new CMFCPropertyGridProperty(_T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
       CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
-      pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvPlusUnity));
-      pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvMinusUnity));
-      pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvStepLike));
+      for(int k = CPotentialBoundCond::fvPlusUnity; k < CPotentialBoundCond::fvCount; k++)
+        pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(k));
+
       pBoundCondGroup->AddSubItem(pBCValue);
 
       if(pBC->nFixedValType == CPotentialBoundCond::fvStepLike)
@@ -186,12 +186,14 @@ void CPropertiesWnd::set_field_data()
       if(pProp != NULL)
       {
         CString cBCValue = (CString)pProp->GetValue();
-        if(cBCValue == CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvPlusUnity))
-          pBC->nFixedValType = CPotentialBoundCond::fvPlusUnity;
-        if(cBCValue == CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvMinusUnity))
-          pBC->nFixedValType = CPotentialBoundCond::fvMinusUnity;
-        if(cBCValue == CPotentialBoundCond::get_fixed_value_name(CPotentialBoundCond::fvStepLike))
-          pBC->nFixedValType = CPotentialBoundCond::fvStepLike;
+        for(int i = CPotentialBoundCond::fvPlusUnity; i < CPotentialBoundCond::fvCount; i++)
+        {
+          if(cBCValue == CPotentialBoundCond::get_fixed_value_name(i))
+          {
+            pBC->nFixedValType = i;
+            break;
+          }
+        }
       }
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartX));
@@ -217,12 +219,18 @@ void CPropertiesWnd::update_field_ctrls()
   if(pData != NULL)
   {
     bool bFieldRF = false;
+    bool bMirrorField = false;
     CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pData->get_type_ptr());
     if(pProp != NULL)
     {
       CString cFieldType = (CString)pProp->GetValue();
       bFieldRF = cFieldType == pData->get_field_type_name(CElectricFieldData::typeFieldRF);
+      bMirrorField = cFieldType == pData->get_field_type_name(CElectricFieldData::typeMirror);
     }
+
+    pProp = m_wndPropList.FindItemByData(pData->get_scale_ptr());
+    if(pProp != NULL)
+      pProp->Enable(!bMirrorField);
 
     pProp = m_wndPropList.FindItemByData(pData->get_freq_ptr());
     if(pProp != NULL)
