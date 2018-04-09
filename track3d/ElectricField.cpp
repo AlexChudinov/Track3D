@@ -347,7 +347,7 @@ bool CElectricFieldData::calc_field(bool bTest)
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing). Delete or comment these stgrings when tests are complete!
       pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi = (float)field[i] + pBHObj->coulomb_phi(pNode->pos);
+      pNode->phi = (float)field[i] + (float)pBHObj->coulomb_phi(pNode->pos);
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
@@ -383,7 +383,7 @@ bool CElectricFieldData::get_result(bool bTest) const
     if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
     else if(m_nType == typeMirror)
-      vNodes.at(i)->clmb += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
+      vNodes.at(i)->clmb += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z);
   }
 
   return true;
