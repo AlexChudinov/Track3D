@@ -14,6 +14,10 @@
 #include <sstream>
 #include <algorithm>
 
+// DEBUG
+#include "DirichletTesselation.h"
+// END DEBUG
+
 namespace EvaporatingParticle
 {
 
@@ -40,7 +44,7 @@ CTrackDraw::CTrackDraw()
   m_fOpacity = 1.0f;
 
   set_bkgr_color(clLtGray);
-  m_bRotCenter = true;
+  m_bRotCenter = false;
 
   m_nOvrAxis = 0;
   m_bBusy = false;
@@ -65,7 +69,7 @@ void CTrackDraw::clear()
 {
   m_vFaceVert.clear();
   m_vWireFrame.clear();
-  m_vNormals.clear();
+  m_vAuxLines.clear();
 
   m_vCrossSectVert.clear();
   m_vSelRegVert.clear();
@@ -285,15 +289,19 @@ void CTrackDraw::set_projection()
 
   glMatrixMode(GL_MODELVIEW);
 
-  if(m_bRotCenter)
+// Visualization of the Dirichlet cells support.
+  vC = Vector3D(0, 0, 0);
+  if(m_bRotCenter && m_bDrawNorm && (m_nDrawnCell < m_pTracker->get_nodes().size()))
+  {
+    vC = m_pTracker->get_nodes().at(m_nDrawnCell)->pos;
     glTranslated(vC.x, vC.y, vC.z);
+  }
 
   glRotated(m_fRotAngleX, 1., 0., 0.);
   glRotated(m_fRotAngleY, 0., 1., 0.);
   glRotated(m_fRotAngleZ, 0., 0., 1.);
 
-  if(m_bRotCenter)
-    glTranslated(-vC.x, -vC.y, -vC.z);
+  glTranslated(-vC.x, -vC.y, -vC.z);
 
   m_fRotAngleX = 0;
   m_fRotAngleY = 0;
@@ -387,7 +395,29 @@ void CTrackDraw::build_norm_array()
   if(m_bNormReady)
     return;
 
-  m_vNormals.clear();
+  m_vAuxLines.clear();
+  if(!m_bDrawNorm)
+    return;
+
+  const CNodesCollection& vNodes = m_pTracker->get_nodes();
+  size_t nNodeCount = vNodes.size();
+  if(m_nDrawnCell >= nNodeCount)
+    return;
+
+  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
+  if(pTestNode->vNbrFaces.size() > 0)
+    return;
+
+  CDirichletTesselation test_obj(true);
+  test_obj.set_mesh((CAnsysMesh*)m_pTracker);
+  test_obj.build_cell_in_node(pTestNode, vNodes);
+
+  m_bNormReady = true;
+/*
+  if(m_bNormReady)
+    return;
+
+  m_vAuxLines.clear();
   if(!m_bDrawNorm)
     return;
 
@@ -423,11 +453,12 @@ void CTrackDraw::build_norm_array()
       continue;
 
     vNorm.normalize();
-    m_vNormals.push_back(CEdgeVertex(pNode->pos));
-    m_vNormals.push_back(CEdgeVertex(pNode->pos + 0.05 * vNorm));
+    m_vAuxLines.push_back(CEdgeVertex(pNode->pos));
+    m_vAuxLines.push_back(CEdgeVertex(pNode->pos + 0.05 * vNorm));
   }
 
   m_bNormReady = true;
+*/
 }
 
 void CTrackDraw::build_wireframe_array()
@@ -652,7 +683,7 @@ void CTrackDraw::draw_norm()
   if(!m_bDrawNorm)
     return;
 
-  size_t nSize = m_vNormals.size();
+  size_t nSize = m_vAuxLines.size();
   if(nSize == 0)
     return;
 
@@ -663,7 +694,7 @@ void CTrackDraw::draw_norm()
 
   glColor3ub(0, 0, 255);
   UINT nStride = 3 * sizeof(GLdouble);
-  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vNormals[0].x));
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vAuxLines[0].x));
 
   glDrawArrays(GL_LINES, 0, nSize);
 

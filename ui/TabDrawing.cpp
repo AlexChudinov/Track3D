@@ -103,8 +103,11 @@ void CPropertiesWnd::add_draw_ctrls()
   CCheckBoxButton* pGenericCheckBox = new CCheckBoxButton(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
   pGeneralGroup->AddSubItem(pGenericCheckBox);
 
-  pCheckBox = new CRedrawCheckBox(this, _T("Enable Drawing Normals"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables drawing normal vectors at enabled regions."), pObj->get_enable_draw_norm_ptr());
+  pCheckBox = new CRedrawCheckBox(this, _T("Visualize Dirichlet Cells"), (_variant_t)pObj->get_enable_draw_norm(), _T("Enables / disables wireframe drawing a specified Dirichlet cell."), pObj->get_enable_draw_norm_ptr());
   pGeneralGroup->AddSubItem(pCheckBox);
+
+  CResponseProperty* pIndexProp = new CResponseProperty(this, _T("Index of Dirichlet Cell"), COleVariant((long)pObj->get_cell_index()), _T("Specify node index for drawing the Dirichlet cell."), pObj->get_cell_index_ptr());
+  pGeneralGroup->AddSubItem(pIndexProp);
 
   m_wndPropList.AddProperty(pGeneralGroup);
 
@@ -301,6 +304,10 @@ void CPropertiesWnd::update_draw_ctrls()
     if(!bEnable)
       pProp->SetValue(COleVariant(pObj->get_max_val()));
   }
+
+  pProp = m_wndPropList.FindItemByData(pDrawObj->get_cell_index_ptr());
+  if(pProp != NULL)
+    pProp->Enable(pDrawObj->get_enable_draw_norm());
 
   update_contour_ctrls();
 }

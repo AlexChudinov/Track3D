@@ -90,6 +90,7 @@ struct CNode3D : public BlockAllocator<CNode3D>
 
 // Neighbors:
   CIndexVector        vNbrElems;
+  CIndexVector        vNbrNodes;    // for Dirichlet cell creation around this node.
   CFaceIndices        vNbrFaces;    // contains indices of boundary faces for boundary nodes; empty for inner nodes.
 
   void                shrink_to_fit();

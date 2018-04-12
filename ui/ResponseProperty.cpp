@@ -35,9 +35,14 @@ BOOL CResponseProperty::OnUpdateValue()
     pDrawObj->set_opacity(GetValue().dblVal);
     pDrawObj->draw();
   }
-  else if(pDrawObj->get_rot_center_ptr() == pData)
+//  else if(pDrawObj->get_rot_center_ptr() == pData)
+//  {
+//    pDrawObj->set_rot_center(GetValue().boolVal);
+//  }
+  else if(pDrawObj->get_cell_index_ptr() == pData)
   {
-    pDrawObj->set_rot_center(GetValue().boolVal);
+    pDrawObj->set_cell_index(GetValue().lVal);
+    pDrawObj->draw();
   }
   else if(pDrawObj->get_colored_tracks().get_var_index_ptr() == pData)
   {

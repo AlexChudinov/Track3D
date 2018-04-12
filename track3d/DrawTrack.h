@@ -117,9 +117,14 @@ public:
   DWORD_PTR         get_rot_center_ptr() const;
   void              set_rot_center(bool bEnable);
 
+// Auxiliary lines (visualization of normals or Dirichlet cells)
   bool              get_enable_draw_norm() const;
   DWORD_PTR         get_enable_draw_norm_ptr() const;
   void              set_enable_draw_norm(bool bEnable);
+
+  UINT              get_cell_index() const;
+  DWORD_PTR         get_cell_index_ptr() const;
+  void              set_cell_index(UINT nId);
 
 // Contours and vector plots:
   void              add_contour();
@@ -267,12 +272,14 @@ private:
   CEdgeVertexColl   m_vCrossSectVert;
 // Wireframe lines:
   CEdgeVertexColl   m_vWireFrame;
-// Normal lines:
-  CEdgeVertexColl   m_vNormals;
+// Auxiliary lines (visualization of normals or Dirichlet cells):
+  CEdgeVertexColl   m_vAuxLines;
 
   int               m_nDrawMode;  // can be one of the following: dmNone, dmWire and dmFlat.
   bool              m_bDrawTracks,
-                    m_bDrawNorm;  // optional normal vectors drawing.
+                    m_bDrawNorm;  // optional auxiliary lines drawing.
+
+  UINT              m_nDrawnCell; // index of the Dirichlet cell to visualize.
 
 // Names of regions to be hidden:
   CNamesVector      m_vHiddenRegNames;
@@ -347,6 +354,7 @@ private:
     dirMinusZ = 6
   };
 
+  friend class CDirichletTesselation;
 };
 
 
@@ -514,6 +522,25 @@ inline void CTrackDraw::set_enable_draw_norm(bool bEnable)
   if(m_bDrawNorm != bEnable)
   {
     m_bDrawNorm = bEnable;
+    m_bNormReady = false;
+  }
+}
+
+inline UINT CTrackDraw::get_cell_index() const
+{
+  return m_nDrawnCell;
+}
+
+inline DWORD_PTR CTrackDraw::get_cell_index_ptr() const
+{
+  return (DWORD_PTR)&m_nDrawnCell;
+}
+
+inline void CTrackDraw::set_cell_index(UINT nId)
+{
+  if(m_nDrawnCell != nId)
+  {
+    m_nDrawnCell = nId;
     m_bNormReady = false;
   }
 }

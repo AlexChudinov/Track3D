@@ -235,6 +235,7 @@
     <ClInclude Include="track3d\ColorContour.h" />
     <ClInclude Include="track3d\ColorImage.h" />
     <ClInclude Include="track3d\constant.hpp" />
+    <ClInclude Include="track3d\DirichletTesselation.h" />
     <ClInclude Include="track3d\DomainCrossSection.h" />
     <ClInclude Include="track3d\DrawTrack.h" />
     <ClInclude Include="track3d\ElectricField.h" />
@@ -282,6 +283,7 @@
     <ClCompile Include="track3d\CObject.cpp" />
     <ClCompile Include="track3d\ColorContour.cpp" />
     <ClCompile Include="track3d\ColorImage.cpp" />
+    <ClCompile Include="track3d\DirichletTesselation.cpp" />
     <ClCompile Include="track3d\DomainCrossSection.cpp" />
     <ClCompile Include="track3d\DrawTrack.cpp" />
     <ClCompile Include="track3d\ElectricField.cpp" />

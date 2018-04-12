@@ -345,9 +345,9 @@ bool CElectricFieldData::calc_field(bool bTest)
     {
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
 
-// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing). Delete or comment these stgrings when tests are complete!
+// DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
       pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi = (float)field[i] + (float)pBHObj->coulomb_phi(pNode->pos);
+      pNode->phi += (float)field[i];
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
