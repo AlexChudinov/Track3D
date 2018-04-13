@@ -174,10 +174,13 @@ double CDirichletTesselation::build_polygon_in_plane(const CPlane& plane, const 
   }
 
 // At this point vPoly contains unordered vertices of the face polygon. What we need is to order them and find the polygon's square.
-  order_vert_in_plane(vPoly, plane);  // Note that after this call the coordinates of the vectors in vPoly are relative to plane.pos!
+  Vector3D vC;
+// Note: 1. After this call vPoly contains ordered vertices of the polygone.
+//       2. Vector coordinates in vPoly are in the c.s. originating in the face center vC. 
+  order_vert_in_plane(vPoly, plane.norm, vC);
 
   if(m_bTest)
-    cell_visualization(vPoly, plane.pos);
+    cell_visualization(vPoly, vC);
 
 // When the vertices in the polygon are ordered, the square can be easily found:
   double fSquare = 0;
@@ -188,15 +191,23 @@ double CDirichletTesselation::build_polygon_in_plane(const CPlane& plane, const 
   return fSquare;
 }
 
-void CDirichletTesselation::order_vert_in_plane(CVertexColl& poly, const CPlane& face) const
+static const Vector3D scvNull(0, 0, 0);
+
+void CDirichletTesselation::order_vert_in_plane(CVertexColl& poly, const Vector3D& vNorm, Vector3D& vC) const
 {
   size_t nVertCount = poly.size();
   if(nVertCount == 0)
     return;
 
-  Vector3D vC = face.pos, vN = face.norm;
-  Vector3D v0 = poly.at(0) - vC, v1;
+  vC = scvNull;
+// For correct ordering and face square calculation the face center must be inside the face.
+  for(size_t j = 0; j < nVertCount; j++)
+    vC += poly.at(j);
+
+  vC /= (double)nVertCount;
+
   double fAng = 0;
+  Vector3D v0 = poly.at(0) - vC, v1;
 
   std::map<double, Vector3D> ordered_poly;
   ordered_poly.insert(std::pair<double, Vector3D>(fAng, v0));
@@ -204,7 +215,7 @@ void CDirichletTesselation::order_vert_in_plane(CVertexColl& poly, const CPlane&
   for(size_t i = 1; i < nVertCount; i++)
   {
     v1 = poly.at(i) - vC;
-    fAng = angle_0_360(v0, v1, vN);
+    fAng = angle_0_360(v0, v1, vNorm);
     ordered_poly.insert(std::pair<double, Vector3D>(fAng, v1));
   }
 
@@ -266,18 +277,15 @@ double CDirichletTesselation::angle_0_360(const Vector3D& vA, const Vector3D& vB
   return fProj > 0 ? fPhi : Const_2PI - fPhi;
 }
 
-void CDirichletTesselation::cell_visualization(const CVertexColl& poly, const Vector3D& v0) const
+void CDirichletTesselation::cell_visualization(const CVertexColl& poly, const Vector3D& vC) const
 {
-  Vector3D vVert;
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   size_t nCount = poly.size();
   for(size_t j = 0; j < nCount; j++)
   {
-    vVert = poly.at(j) + v0;
-    pDrawObj->m_vAuxLines.push_back(CEdgeVertex(vVert));
+    pDrawObj->m_vAuxLines.push_back(CEdgeVertex(poly.at(j) + vC));
     size_t j1 = j < nCount - 1 ? j + 1 : 0;
-    vVert = poly.at(j1) + v0;
-    pDrawObj->m_vAuxLines.push_back(CEdgeVertex(vVert));
+    pDrawObj->m_vAuxLines.push_back(CEdgeVertex(poly.at(j1) + vC));
   }
 }
 

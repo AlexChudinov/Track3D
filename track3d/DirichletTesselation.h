@@ -62,13 +62,13 @@ protected:
 
 // Input:  unordered collection of vertices belonging to one and the same plane and forming a convex polygon.
 // Output: ordered vertices of the polygon so that the polygon's region is always on the left-hand side if we go around.
-  void                order_vert_in_plane(CVertexColl& poly, const CPlane& face) const;
+  void                order_vert_in_plane(CVertexColl& poly, const Vector3D& vNorm, Vector3D& vFaceCenter) const;
 
 // Input:  Vectors vA, vB and vNorm originate from one point. Vectors vA and vB are in the plane and vNorm is normal to that plane.
 // Output: Angle between vA and vB counted in the direction from vA to vB counterclockwise.
   double              angle_0_360(const Vector3D& vA, const Vector3D& vB, const Vector3D& vNorm) const;
 
-  void                cell_visualization(const CVertexColl& poly, const Vector3D& v0) const;
+  void                cell_visualization(const CVertexColl& poly, const Vector3D& vFaceCenter) const;
 
 private:
   CAnsysMesh*         m_pMesh;
