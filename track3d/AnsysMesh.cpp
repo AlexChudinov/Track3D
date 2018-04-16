@@ -92,6 +92,13 @@ bool CAnsysMesh::read_data()
 
   invalidate_calculators();
   m_bReady = true;
+
+  CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
+  pTessObj->set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
+  pTessObj->set_mesh(this);
+  if(!pTessObj->init())
+    return false;
+
   return true;
 }
 

@@ -291,9 +291,9 @@ void CTrackDraw::set_projection()
 
 // Visualization of the Dirichlet cells support.
   vC = Vector3D(0, 0, 0);
-  if(m_bRotCenter && m_bDrawNorm && (m_nDrawnCell < m_pTracker->get_nodes().size()))
+  if(m_bRotCenter && m_bDrawNorm)
   {
-    vC = m_pTracker->get_nodes().at(m_nDrawnCell)->pos;
+    vC = m_vCenter;
     glTranslated(vC.x, vC.y, vC.z);
   }
 
@@ -399,14 +399,23 @@ void CTrackDraw::build_norm_array()
   if(!m_bDrawNorm)
     return;
 
-  const CNodesCollection& vNodes = m_pTracker->get_nodes();
-  size_t nNodeCount = vNodes.size();
-  if(m_nDrawnCell >= nNodeCount)
+// Temporarily interpret m_nDrawnCell as index of a region in the regions collection.
+  const CRegionsCollection& vRegs = m_pTracker->get_regions();
+  if(m_nDrawnCell >= vRegs.size())
     return;
 
-  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
-  if(pTestNode->vNbrFaces.size() > 0)
-    return;
+  const CNodesCollection& vNodes = m_pTracker->get_nodes();
+//  size_t nNodeCount = vNodes.size();
+//  if(m_nDrawnCell >= nNodeCount)
+//    return;
+
+  CRegion* pReg = vRegs.at(m_nDrawnCell);
+  CNode3D* pTestNode = pReg->vFaces.at(pReg->vFaces.size() / 2)->p0;
+  m_vCenter = pTestNode->pos;
+
+//  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
+//  if(pTestNode->vNbrFaces.size() > 0)
+//    return;
 
   CDirichletTesselation test_obj(true);
   test_obj.set_mesh((CAnsysMesh*)m_pTracker);

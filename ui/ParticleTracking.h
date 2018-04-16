@@ -12,6 +12,7 @@
 #include "ExportOpenFOAM.h"
 #include "Calculator.h"
 #include "ElectricField.h"
+#include "DirichletTesselation.h"
 #include "DomainCrossSection.h"
 #include "DrawTrack.h"
 
@@ -24,41 +25,43 @@ class CParticleTrackingApp : public CWinAppEx
 public:
 	CParticleTrackingApp();
 
-  static CParticleTrackingApp*              Get();
+  static CParticleTrackingApp*                Get();
 
-  EvaporatingParticle::CTracker*            GetTracker();
-  EvaporatingParticle::CTrackDraw*          GetDrawObj();
-  EvaporatingParticle::CExportOpenFOAM*     GetExporter();
-  EvaporatingParticle::CCalcCollection*     GetCalcs();
-  EvaporatingParticle::CFieldDataColl*      GetFields();
-  EvaporatingParticle::CCrossSectColl*      GetPlanes();
+  EvaporatingParticle::CTracker*              GetTracker();
+  EvaporatingParticle::CDirichletTesselation* GetDirichletTess();
+  EvaporatingParticle::CTrackDraw*            GetDrawObj();
+  EvaporatingParticle::CExportOpenFOAM*       GetExporter();
+  EvaporatingParticle::CCalcCollection*       GetCalcs();
+  EvaporatingParticle::CFieldDataColl*        GetFields();
+  EvaporatingParticle::CCrossSectColl*        GetPlanes();
 
-  void                                      SelectedRegionChanged(EvaporatingParticle::CNamesVector* pRegNames);
+  void                                        SelectedRegionChanged(EvaporatingParticle::CNamesVector* pRegNames);
 
 // Overrides
 public:
-	virtual                                   BOOL InitInstance();
-  virtual BOOL                              OnIdle(LONG lCount); // return TRUE if more idle processing.
+	virtual                                     BOOL InitInstance();
+  virtual BOOL                                OnIdle(LONG lCount); // return TRUE if more idle processing.
 
 // Implementation
-	UINT                                      m_nAppLook;
-	BOOL                                      m_bHiColorIcons;
+	UINT                                        m_nAppLook;
+	BOOL                                        m_bHiColorIcons;
 
-	virtual void                              PreLoadState();
-	virtual void                              LoadCustomState();
-	virtual void                              SaveCustomState();
+	virtual void                                PreLoadState();
+	virtual void                                LoadCustomState();
+	virtual void                                SaveCustomState();
 
-  virtual BOOL                              PreTranslateMessage(MSG* pMsg); // for key press events.
+  virtual BOOL                                PreTranslateMessage(MSG* pMsg); // for key press events.
 
-	afx_msg void                              OnAppAbout();
+	afx_msg void                                OnAppAbout();
 
 private:
-  EvaporatingParticle::CTracker             m_Tracker;
-  EvaporatingParticle::CTrackDraw           m_Drawer;
-  EvaporatingParticle::CExportOpenFOAM      m_Exporter;
-  EvaporatingParticle::CCalcCollection      m_vCalcs;
-  EvaporatingParticle::CFieldDataColl       m_vFields;
-  EvaporatingParticle::CCrossSectColl       m_vPlanes;
+  EvaporatingParticle::CTracker               m_Tracker;
+  EvaporatingParticle::CDirichletTesselation  m_DirichletTess;
+  EvaporatingParticle::CTrackDraw             m_Drawer;
+  EvaporatingParticle::CExportOpenFOAM        m_Exporter;
+  EvaporatingParticle::CCalcCollection        m_vCalcs;
+  EvaporatingParticle::CFieldDataColl         m_vFields;
+  EvaporatingParticle::CCrossSectColl         m_vPlanes;
 
 	DECLARE_MESSAGE_MAP()
 };

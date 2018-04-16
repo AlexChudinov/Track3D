@@ -291,7 +291,8 @@ private:
                     m_fBkgrGreen,
                     m_fBkgrBlue;
 
-  bool              m_bRotCenter; // if true the rotation takes place around the bounding box center, otherwise around zero point.
+  bool              m_bRotCenter; // if true the rotation takes place around the center m_vCenter, otherwise around zero point.
+  Vector3D          m_vCenter;    // run-time variable used generally in tests.
 
   CTracker*         m_pTracker;
 

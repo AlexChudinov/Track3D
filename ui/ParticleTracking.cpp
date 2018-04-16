@@ -210,6 +210,11 @@ EvaporatingParticle::CTracker* CParticleTrackingApp::GetTracker()
   return &m_Tracker;
 }
 
+EvaporatingParticle::CDirichletTesselation* CParticleTrackingApp::GetDirichletTess()
+{
+  return &m_DirichletTess;
+}
+
 EvaporatingParticle::CTrackDraw* CParticleTrackingApp::GetDrawObj()
 {
   return &m_Drawer;
