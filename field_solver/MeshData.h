@@ -72,6 +72,7 @@ public:
 	using Matrix = std::vector<MatrixRow>;
 
 	friend class CMeshAdapter;
+	friend class DCMeshAdapter;
 	friend CFieldOperator& operator+=(CFieldOperator& op1, const CFieldOperator& op2);
 	friend CFieldOperator& operator*=(CFieldOperator& op1, const CFieldOperator& op2);
 private:
@@ -110,9 +111,10 @@ public:
 	//Keeps base set of parameters for operator instantiation
 	struct BaseOperatorParams{};
 
-private:
+protected:
 	const Elements& m_elems;
 	const Nodes& m_nodes;
+private:
 	PBoundary m_pBoundary;
 
 	//Lazy because it will be created only once by demand
@@ -135,7 +137,7 @@ public:
 	//Removes zero elements making memory consumption by InterpCoefs smaller
 	static InterpCoefs& removeZeros(InterpCoefs& ic);
 
-private:
+protected:
 	//Creates covariance matrix for dirrections around label 
 	Matrix3D covarianceOfDirections(Label l) const;
 	//Returns vector of finite difference total projections on a directions x,y,z
@@ -181,6 +183,9 @@ private:
 	const Element* lookInClosestElements(const Vector3D& pos, Label l) const;
 public:
 	CMeshAdapter(const Elements& es, const Nodes& ns, double fSmallStepFactor = 0.3);
+
+	//Returns mesh graph
+	const CMeshConnectivity* meshGraph() const { return &m_meshGraph; }
 
 	//Access to a progress bar interface
 	ProgressBar* progressBar() const;
