@@ -8,6 +8,8 @@
 #include "ParticleTracking.h"
 #include "BarnesHut.h"
 
+#include "../field_solver/DCMeshAdapter.h"
+
 
 namespace EvaporatingParticle
 {
@@ -265,6 +267,7 @@ CElectricFieldData::~CElectricFieldData()
 void CElectricFieldData::set_default()
 {
   m_bEnable = true;
+  m_nCalcMethod = cmLaplacian3;   // the oldest and most tested method so far.
 
   m_fScale = 10 * SI_to_CGS_Voltage;  // 10 V in CGS.
   set_freq(1.0e+6);                   // 1 MHz by default.
@@ -292,6 +295,18 @@ bool CElectricFieldData::calc_field(bool bTest)
   if(!m_bNeedRecalc)
     return get_result(bTest);
 
+  switch(m_nCalcMethod)
+  {
+    case cmLaplacian3: return calc_lap3(bTest);
+    case cmDirTessLap3: return calc_dirichlet_lap3(bTest);
+    case cmFinVolSeidel: return calc_finite_vol_seidel(bTest);
+  }
+
+  return false;
+}
+
+bool CElectricFieldData::calc_lap3(bool bTest)
+{
   try
   {
     m_bTerminate = false;
@@ -372,14 +387,103 @@ bool CElectricFieldData::calc_field(bool bTest)
   return bRes;
 }
 
+bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
+{
+  CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
+  try
+  {
+    m_bTerminate = false;
+    CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+    const CNodesCollection& vNodes = pObj->get_nodes();
+    DCMeshAdapter mesh(pObj->get_elems(), vNodes, *pTessObj);
+    mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
+
+    if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
+      return false;
+
+    size_t nNodesCount = vNodes.size();
+    std::vector<double> field(nNodesCount, 0.0);
+
+// Laplacian Solver:
+    mesh.boundaryMesh()->applyBoundaryVals(field);
+    DCMeshAdapter::PScalFieldOp pOp = mesh.createOperator(DCMeshAdapter::LaplacianSolver, NULL);
+    if(pOp == NULL)
+      return false;
+
+    set_job_name("Field calculation...");
+    for(int i = 0; i < m_nIterCount; ++i)
+    {
+      if(m_bTerminate)
+        return false;
+
+      field = pOp->applyToField(field);
+      set_progress(100 * i / m_nIterCount);
+    }
+
+// Gradient calculation:
+    DCMeshAdapter::PScalFieldOp pGrad = mesh.createOperator(DCMeshAdapter::GradX, NULL);
+    std::vector<double> dPhiDx(nNodesCount, 0.0);
+    dPhiDx = pGrad->applyToField(field);
+
+    pGrad = mesh.createOperator(DCMeshAdapter::GradY, NULL);
+    std::vector<double> dPhiDy(nNodesCount, 0.0);
+    dPhiDy = pGrad->applyToField(field);
+
+    pGrad = mesh.createOperator(DCMeshAdapter::GradZ, NULL);
+    std::vector<double> dPhiDz(nNodesCount, 0.0);
+    dPhiDz = pGrad->applyToField(field);
+
+// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
+    CBarnesHut* pBHObj = pObj->get_BH_object();
+    CNode3D* pNode = NULL;
+// END DEBUG
+
+    m_vField.resize(nNodesCount);
+    for(size_t i = 0; i < nNodesCount; i++)
+    {
+      m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
+
+// DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
+      pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
+      pNode->phi = (float)field[i];
+// END DEBUG
+
+// An attempt to get analytic field in the flatapole. Alpha version.
+      if(m_bAnalytField && (m_nType == typeFieldRF))
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i]);
+    }
+
+    m_bNeedRecalc = m_nType == typeMirror;  // false;
+	}
+  catch (const std::exception& ex)
+  {
+    AfxMessageBox(ex.what());
+  }
+
+  bool bRes = get_result(bTest);
+  notify_scene();
+
+  /*[AC 03.05.2017] Memory clean up */
+  BlockPoolInterface::cleanUpEveryPool();
+  /*[/AC]*/
+
+  return bRes;
+}
+
+bool CElectricFieldData::calc_finite_vol_seidel(bool bTest)
+{
+  return true;
+}
+
+
 bool CElectricFieldData::get_result(bool bTest) const
 {
   CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    if(bTest)
-      vNodes.at(i)->phi = m_vField[i].length();
+//    if(bTest)
+//      vNodes.at(i)->phi = m_vField[i].length();
     if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
     else if(m_nType == typeMirror)
@@ -458,7 +562,7 @@ bool CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
   for(size_t i = 0; i < nRegCount; i++)
   {
     if(m_bTerminate)
-      return false;;
+      return false;
 
     CRegion* pReg = vRegions.at(i);
     if(is_selected(pReg) || pReg->bCrossSection)
@@ -643,6 +747,18 @@ const char* CElectricFieldData::get_field_type_name(int nType)
   return _T("None");
 }
 
+const char* CElectricFieldData::get_calc_method_name(int nCalcMethod)
+{
+  switch(nCalcMethod)
+  {
+    case cmLaplacian3: return _T("Laplacian Solver #3");
+    case cmDirTessLap3: return _T("Advanced Laplacian Solver");
+    case cmFinVolSeidel:  return _T("Finite Volume (Gauss-Seidel)");
+  }
+
+  return _T("None");
+}
+
 void CElectricFieldData::clear_bc()
 {
   size_t nCount = m_vBoundCond.size();
@@ -685,7 +801,7 @@ void CElectricFieldData::notify_scene()
 
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 2;  // 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
+  UINT nVersion = 3;  // 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
   ar << nVersion;
 
   ar << m_bEnable;
@@ -693,6 +809,7 @@ void CElectricFieldData::save(CArchive& ar)
   ar << m_fScale;
   ar << m_fOmega;
   ar << m_nIterCount;
+  ar << m_nCalcMethod;
 
   size_t nCount = m_vBoundCond.size();
   ar << nCount;
@@ -733,6 +850,9 @@ void CElectricFieldData::load(CArchive& ar)
   ar >> m_fScale;
   ar >> m_fOmega;
   ar >> m_nIterCount;
+
+  if(nVersion >= 3)
+    ar >> m_nCalcMethod;
 
   size_t nCount;
   ar >> nCount;

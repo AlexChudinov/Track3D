@@ -224,6 +224,7 @@
   <ItemGroup>
     <ClInclude Include="field_solver\BoundaryMesh.h" />
     <ClInclude Include="field_solver\DCMeshAdapter.h" />
+    <ClInclude Include="field_solver\FiniteVolumesSolver.h" />
     <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
     <ClInclude Include="RandomProcess\RandomProcess.h" />

@@ -29,7 +29,7 @@ struct CPotentialBoundCond
 
   BoundaryMesh::BoundaryType    nType;
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
-  int                           nFixedValType;  // the value at the boundary can be either +1V or -1V.
+  int                           nFixedValType;  // the value at the boundary can be +1V, -1V, step-wise potential or Coulomb potential.
   std::string                   sName;
 
 // Step-like potential:
@@ -56,9 +56,17 @@ public:
 
   enum
   {
+    cmLaplacian3    = 0,
+    cmDirTessLap3   = 1,
+    cmFinVolSeidel  = 2,
+    cmCount         = 3
+  };
+
+  enum
+  {
     typeFieldDC = 0,
     typeFieldRF = 1,
-    typeMirror  = 2,    // attempt to calculate a mirror Coulomb field.
+    typeMirror  = 2,    // attempt to calculate mirror Coulomb field.
     typeCount   = 3
   };
 
@@ -67,6 +75,10 @@ public:
 
   bool                    get_enable_field() const;
   DWORD_PTR               get_enable_field_ptr() const;
+
+  int                     get_calc_method() const;
+  DWORD_PTR               get_calc_method_ptr() const;
+  void                    set_calc_method(int nCalcMethod);
 
   int                     get_type() const;
   DWORD_PTR               get_type_ptr() const;
@@ -110,6 +122,7 @@ public:
   void                    remove_bc(size_t nId);
 
   static const char*      get_field_type_name(int nType);
+  static const char*      get_calc_method_name(int nCalcMethod);
 
   bool                    calc_field(bool bTest = false);
   bool                    need_recalc() const;
@@ -138,9 +151,14 @@ protected:
 
   void                    apply_analytic_field(const Vector3D& vPos, Vector3F& vField);
 
+  bool                    calc_lap3(bool bTest);
+  bool                    calc_dirichlet_lap3(bool bTest);
+  bool                    calc_finite_vol_seidel(bool bTest);
+
 private:
   bool                    m_bEnable;
-  int                     m_nType;
+  int                     m_nCalcMethod,
+                          m_nType;
 
   double                  m_fScale,       // potential scale, in V.
                           m_fOmega;       // circular frequency, for radio-frequency fields only.
@@ -244,6 +262,25 @@ inline void CElectricFieldData::set_type(int nType)
   if(m_nType != nType)
   {
     m_nType = nType;
+    m_bNeedRecalc = true;
+  }
+}
+
+inline int CElectricFieldData::get_calc_method() const
+{
+  return m_nCalcMethod;
+}
+
+inline DWORD_PTR CElectricFieldData::get_calc_method_ptr() const
+{
+  return (DWORD_PTR)&m_nCalcMethod;
+}
+
+inline void CElectricFieldData::set_calc_method(int nCalcMethod)
+{
+  if(m_nCalcMethod != nCalcMethod)
+  {
+    m_nCalcMethod = nCalcMethod;
     m_bNeedRecalc = true;
   }
 }

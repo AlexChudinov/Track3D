@@ -201,6 +201,9 @@
     <ClInclude Include="field_solver\DCMeshAdapter.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="field_solver\FiniteVolumesSolver.h">
+      <Filter>field_solver\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">

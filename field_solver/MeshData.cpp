@@ -93,14 +93,25 @@ CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
 CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 {
 	Vector3DOp result;
+	Vector3D vSum;
+	size_t j = 1, nOpSize = m_meshGraph.neighbor(l).size() + 1;
+	result[0].resize(nOpSize);
+	result[1].resize(nOpSize);
+	result[2].resize(nOpSize);
 	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
 		double fSqLength = v.sqlength();
-		add(result[0], mul(v.x / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
-		add(result[1], mul(v.y / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
-		add(result[2], mul(v.z / fSqLength, InterpCoefs{ { uint32_t(i), 1.0 },{ uint32_t(l), -1.0 } }));
+		v /= fSqLength;
+		result[0][j] = v.x;
+		result[1][j] = v.y;
+		result[2][j] = v.z;
+		vSum -= v;
+		++j;
 	}
+	result[0][0] = vSum.x;
+	result[1][0] = vSum.y;
+	result[2][0] = vSum.z;
 	return result;
 }
 
@@ -112,11 +123,17 @@ CMeshAdapter::InterpCoefs CMeshAdapter::gradX(Label l) const
 	if (fDet*fDet <= eps())
 		throw std::runtime_error("CMeshAdapter::gradX: Determinant is zero!");
 	Vector3DOp vDiff = finDiffDirCov(l);
-	mul(1. / fDet,
-		add(result,
-			add(mul(math::det(Matrix2D{ { m(1,1), m(1,2) },{ m(2,1), m(2,2) } }), vDiff[0]),
-				add(mul(-math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(2,1), m(2,2) } }), vDiff[1]),
-					mul(math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(1,1), m(1,2) } }), vDiff[2])))));
+	double
+		D1 = math::det(Matrix2D{ { m(1,1), m(1,2) },{ m(2,1), m(2,2) } }),
+		D2 = math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(2,1), m(2,2) } }),
+		D3 = math::det(Matrix2D{ { m(0,1), m(0,2) },{ m(1,1), m(1,2) } });
+	result[l] = D1 * vDiff[0][0] - D2 * vDiff[1][0] + D3 * vDiff[2][0];
+	Graph::NodeConnections::const_iterator it = m_meshGraph.neighbor(l).begin();
+
+	for (size_t i = 1; i < vDiff[0].size(); ++i)
+		result[*(it++)] = D1 * vDiff[0][i] - D2 * vDiff[1][i] + D3 * vDiff[2][i];
+	
+	mul(1. / fDet, result);
 	return result;
 }
 
@@ -126,13 +143,20 @@ CMeshAdapter::InterpCoefs CMeshAdapter::gradY(Label l) const
 	Matrix3D m = covarianceOfDirections(l);
 	double fDet = math::det(m);
 	if (fDet*fDet <= eps())
-		throw std::runtime_error("CMeshAdapter::gradY: Determinant is zero!");
+		throw std::runtime_error("CMeshAdapter::gradX: Determinant is zero!");
 	Vector3DOp vDiff = finDiffDirCov(l);
-	mul(1. / fDet,
-		add(result,
-			add(mul(-math::det(Matrix2D{ { m(1,0), m(1,2) },{ m(2,0), m(2,2) } }), vDiff[0]),
-				add(mul(math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(2,0), m(2,2) } }), vDiff[1]),
-					mul(-math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(1,0), m(1,2) } }), vDiff[2])))));
+	double
+		D1 = math::det(Matrix2D{ { m(1,0), m(1,2) },{ m(2,0), m(2,2) } }),
+		D2 = math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(2,0), m(2,2) } }),
+		D3 = math::det(Matrix2D{ { m(0,0), m(0,2) },{ m(1,0), m(1,2) } });
+	result[l] = - D1 * vDiff[0][0] + D2 * vDiff[1][0] - D3 * vDiff[2][0];
+	Graph::NodeConnections::const_iterator it = m_meshGraph.neighbor(l).begin();
+
+	for (size_t i = 1; i < vDiff[0].size(); ++i)
+		result[*(it++)] = - D1 * vDiff[0][i] + D2 * vDiff[1][i] - D3 * vDiff[2][i];
+
+	mul(1. / fDet, result);
+
 	return result;
 }
 
@@ -142,13 +166,20 @@ CMeshAdapter::InterpCoefs CMeshAdapter::gradZ(Label l) const
 	Matrix3D m = covarianceOfDirections(l);
 	double fDet = math::det(m);
 	if (fDet*fDet <= eps())
-		throw std::runtime_error("CMeshAdapter::gradZ: Determinant is zero!");
+		throw std::runtime_error("CMeshAdapter::gradX: Determinant is zero!");
 	Vector3DOp vDiff = finDiffDirCov(l);
-	mul(1. / fDet,
-		add(result,
-			add(mul(math::det(Matrix2D{ { m(1,0), m(1,1) },{ m(2,0), m(2,1) } }), vDiff[0]),
-				add(mul(-math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(2,0), m(2,1) } }), vDiff[1]),
-					mul(math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(1,0), m(1,1) } }), vDiff[2])))));
+	double
+		D1 = math::det(Matrix2D{ { m(1,0), m(1,1) },{ m(2,0), m(2,1) } }),
+		D2 = math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(2,0), m(2,1) } }),
+		D3 = math::det(Matrix2D{ { m(0,0), m(0,1) },{ m(1,0), m(1,1) } });
+	result[l] = D1 * vDiff[0][0] - D2 * vDiff[1][0] + D3 * vDiff[2][0];
+	Graph::NodeConnections::const_iterator it = m_meshGraph.neighbor(l).begin();
+
+	for (size_t i = 1; i < vDiff[0].size(); ++i)
+		result[*(it++)] = D1 * vDiff[0][i] - D2 * vDiff[1][i] + D3 * vDiff[2][i];
+
+	mul(1. / fDet, result);
+
 	return result;
 }
 

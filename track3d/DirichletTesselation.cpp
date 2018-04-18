@@ -19,10 +19,13 @@ namespace EvaporatingParticle
 
 CDirichletCell::CDirichletCell(CNode3D* pNode, bool bBoundNode)
 {
-  nFaceCount = bBoundNode ? pNode->vNbrNodes.size() + 1 : pNode->vNbrNodes.size();
+  UINT nNbrCount = pNode->vNbrNodes.size();
+  nFaceCount = bBoundNode ? nNbrCount + 1 : nNbrCount;
   pFaceSquare = new float[nFaceCount];
   for(UINT i = 0; i < nFaceCount; i++)
     pFaceSquare[i] = 0;
+
+  pNbrDist = new float[nNbrCount];
 
   fVolume = 0;
 }
@@ -30,6 +33,7 @@ CDirichletCell::CDirichletCell(CNode3D* pNode, bool bBoundNode)
 CDirichletCell::~CDirichletCell()
 {
   delete[] pFaceSquare;
+  delete[] pNbrDist;
 }
 
 void CDirichletCell::delete_cell()
@@ -133,6 +137,7 @@ void CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesColle
   vPlanes.reserve(nPlanesCount);
 
   UINT nId;
+  double fDist;
   CNode3D* pNbrNode = NULL;
   Vector3D vC = pNode->pos, vOrg, vNorm, vNbr;  // cell center, plane origin and normal and neighbour cell center, respectively.
   size_t nNbrCount = pNode->vNbrNodes.size();   // for inner nodes nPlanesCount = nNbrCount, but for boundary nodes nPlanesCount = nNbrCount + 1.
@@ -142,7 +147,11 @@ void CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesColle
     pNbrNode = vNodes.at(nId);
     vNbr = pNbrNode->pos;
     vOrg = 0.5 * (vC + vNbr);
-    vNorm = (vNbr - vC).normalized();   // plane normal looks always out of the cell.
+    vNorm = vNbr - vC;          // plane normal looks always out of the cell.
+    fDist = vNorm.length();
+    pCell->pNbrDist[i] = fDist;
+    vNorm /= fDist;
+
     CPlane face(vOrg, vNorm);
     vPlanes.push_back(face);
   }

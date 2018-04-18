@@ -17,8 +17,9 @@ struct CDirichletCell : public BlockAllocator<CDirichletCell>
   CDirichletCell(CNode3D* pNode, bool bBoundNode = false);
   ~CDirichletCell();
 
-  UINT        nFaceCount;     // the count of the neighbouring nodes.
+  UINT        nFaceCount;     // the count of the neighbouring nodes for inner cells; the count of the neighbouring nodes plus one for boundary cells.
   float*      pFaceSquare;    // array of nFaceCount size, contains the squares of polyangle faces, CGS.
+  float*      pNbrDist;       // the distance between the central and neighbor nodes; the size of this array is the count of the neighbouring nodes for all cells.
   float       fVolume;        // volume of the cell, CGS.
 
   void        delete_cell();

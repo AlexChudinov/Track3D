@@ -26,6 +26,7 @@ public:
 
 	PScalFieldOp createOperator(ScalarOperatorType type, const BaseOperatorParams*);
 
+	/*
 	//Calculate gradient at a given node
 	InterpCoefs gradX(Label idx) const;
 	InterpCoefs gradY(Label idx) const;
@@ -35,7 +36,7 @@ public:
 	ScalarFieldOperator gradX() const;
 	ScalarFieldOperator gradY() const;
 	ScalarFieldOperator gradZ() const;
-
+	*/
 	ScalarFieldOperator laplacian() const;
 private:
 	const DirTess& m_tess;

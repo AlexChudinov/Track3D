@@ -36,9 +36,9 @@ void CPropertiesWnd::add_field_ctrls()
     m_wndPropList.AddProperty(pCheckBox);
 
     COleVariant var(CElectricFieldData::get_field_type_name(pData->get_type()));
-    CMFCPropertyGridProperty* pFieldType = new CMFCPropertyGridProperty(_T("Field Type (DC or RF)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency field."), pData->get_type_ptr());
+    CMFCPropertyGridProperty* pFieldType = new CMFCPropertyGridProperty(_T("Field Type (DC, RF or Mirror)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency or Coulomb Mirror field."), pData->get_type_ptr());
     for(int k = CElectricFieldData::typeFieldDC; k < CElectricFieldData::typeCount; k++)
-      pFieldType->AddOption(pData->get_field_type_name(k));
+      pFieldType->AddOption(CElectricFieldData::get_field_type_name(k));
 
     m_wndPropList.AddProperty(pFieldType);
 
@@ -47,6 +47,15 @@ void CPropertiesWnd::add_field_ctrls()
 
     pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pData->get_freq()), _T("Set the frequency of the radio-frequency field."), pData->get_freq_ptr());
     m_wndPropList.AddProperty(pProp);
+
+// Field calculation method:
+    COleVariant varCalc(CElectricFieldData::get_calc_method_name(pData->get_calc_method()));
+    CMFCPropertyGridProperty* pCalcMethod = new CMFCPropertyGridProperty(_T("Field Calc. Method"), varCalc, _T("Specify the field calculation method."), pData->get_calc_method_ptr());
+    for(int j = CElectricFieldData::cmLaplacian3; j < CElectricFieldData::cmCount; j++)
+      pCalcMethod->AddOption(CElectricFieldData::get_calc_method_name(j));
+
+    m_wndPropList.AddProperty(pCalcMethod);
+
 
     CString cDummy(_T(" "));
 // Calculate field button:
@@ -132,15 +141,31 @@ void CPropertiesWnd::set_field_data()
   CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
   if(pData != NULL)
   {
+// Field type:
     CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pData->get_type_ptr());
     if(pProp != NULL)
     {
       CString cFieldType = (CString)pProp->GetValue();
       for(int j = CElectricFieldData::typeFieldDC; j < CElectricFieldData::typeCount; j++)
       {
-        if(cFieldType == pData->get_field_type_name(j))
+        if(cFieldType == CElectricFieldData::get_field_type_name(j))
         {
           pData->set_type(j);
+          break;
+        }
+      }
+    }
+
+// Field calculation method:
+    pProp = m_wndPropList.FindItemByData(pData->get_calc_method_ptr());
+    if(pProp != NULL)
+    {
+      CString cCalcMethod = (CString)pProp->GetValue();
+      for(int j = CElectricFieldData::cmLaplacian3; j < CElectricFieldData::cmCount; j++)
+      {
+        if(cCalcMethod == CElectricFieldData::get_calc_method_name(j))
+        {
+          pData->set_calc_method(j);
           break;
         }
       }

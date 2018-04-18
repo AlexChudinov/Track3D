@@ -97,7 +97,7 @@ public:
 	using Label = uint32_t;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
-	using Vector3DOp = std::array<InterpCoefs, 3>;
+	using Vector3DOp = std::array<std::vector<double>, 3>;
 	using Matrix3D = math::matrix_c<double, 3, 3>;
 	using Matrix2D = math::matrix_c<double, 2, 2>;
 	using Node = EvaporatingParticle::CNode3D;
