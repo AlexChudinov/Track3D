@@ -71,7 +71,7 @@ public:
   Vector3D            get_grad(size_t nNodeId, const std::vector<float>& vScalarField) const;
 
 // For visualization of the Dirichlet cells this function may be called from CTrackDraw::build_norm_array().
-  void                build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes);
+  CDirichletCell*     build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes);
 
   bool                init();
 

@@ -11,6 +11,7 @@
 #include <map>
 #include <algorithm>
 
+#include "../utilities/ParallelFor.h"
 #include "ParticleTracking.h" // for the Dirichlet cells visualization.
 
 
@@ -99,22 +100,21 @@ bool CDirichletTesselation::init()
 
   clear();
 
-  CNodesCollection& vNodes = m_pMesh->get_nodes();
+  const CNodesCollection& vNodes = m_pMesh->get_nodes();
   CNode3D* pNode = NULL;
-  size_t nNodeCount = vNodes.size();
-  for(size_t i = 0; i < nNodeCount; i++)
-  {
-    pNode = vNodes.at(i);
-    build_cell_in_node(pNode, vNodes);
 
-    if(i % 100 == 0)
-      set_progress(int(0.5 + 100 * i / nNodeCount));
-    if(m_bTerminate)
-      return false;
-  }
+  //[AC 19042018] changed to parallel
+  m_Cells.resize(vNodes.size());
+  ThreadPool::splitInPar(vNodes.size(),
+	  [&](size_t i) 
+  {
+	  pNode = vNodes[i];
+	  m_Cells[i] = build_cell_in_node(pNode, vNodes);
+  },
+	  static_cast<CObject*>(this));
 
   m_bReady = true;
-  return true;
+  return true && m_bTerminate;
 }
 
 void CDirichletTesselation::clear()
@@ -126,7 +126,7 @@ void CDirichletTesselation::clear()
   m_Cells.clear();
 }
 
-void CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes)
+CDirichletCell* CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes)
 {
   bool bBoundNode = pNode->vNbrFaces.size() > 0;
   CDirichletCell* pCell = new CDirichletCell(pNode, bBoundNode);
@@ -177,7 +177,7 @@ void CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesColle
     pCell->fVolume += Const_One_Third * fS * (vOrg - vC).length();  // V = 1/3 * S * h, a pyramid volume.
   }
 
-  m_Cells.push_back(pCell);
+  return pCell;
 }
 
 void CDirichletTesselation::collect_cell_vertices(const CPlanesSet& vPlanes, CVertexColl& vCellVert)
