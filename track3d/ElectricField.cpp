@@ -362,7 +362,7 @@ bool CElectricFieldData::calc_lap3(bool bTest)
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
       pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi += (float)field[i];
+      pNode->phi = (float)field[i];
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
@@ -445,7 +445,7 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
       pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi += (float)field[i];
+      pNode->phi = (float)field[i];
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
