@@ -75,6 +75,8 @@ public:
 
   bool                init();
 
+  void                invalidate();
+
 protected:
   void                clear();
 
@@ -168,6 +170,11 @@ inline size_t CDirichletTesselation::get_abs_nbr_node_index(size_t nNodeId, size
 inline double CDirichletTesselation::get_coeff(size_t nNodeId, size_t nNbrId) const
 {
   return get_cell_face_square(nNodeId, nNbrId) / (get_nodes_dist(nNodeId, nNbrId) * get_cell_volume(nNodeId));
+}
+
+inline void CDirichletTesselation::invalidate()
+{
+  m_bReady = false;
 }
 
 };  // namespace EvaporatingParticle

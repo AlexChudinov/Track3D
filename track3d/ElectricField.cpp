@@ -445,7 +445,7 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
       pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi = (float)field[i];
+      pNode->phi += (float)field[i];
 // END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
@@ -638,9 +638,9 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
 
     switch(pBC->nFixedValType)
     {
-      case CPotentialBoundCond::fvPlusUnity: fVal = 1.0;
-      case CPotentialBoundCond::fvMinusUnity: fVal = -1.0;
-      case CPotentialBoundCond::fvStepLike: fVal = step_potential(pBC, pReg->vFaces.at(0)->p0->pos);
+      case CPotentialBoundCond::fvPlusUnity: fVal = 1.0; break;
+      case CPotentialBoundCond::fvMinusUnity: fVal = -1.0; break;
+      case CPotentialBoundCond::fvStepLike: fVal = step_potential(pBC, pReg->vFaces.at(0)->p0->pos); break;
     }
   }
     

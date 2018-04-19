@@ -749,6 +749,9 @@ void CAnsysMesh::load(CArchive& ar)
   ar >> m_nSymPlanes;
 
   m_Transform.load(ar);
+
+  CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
+  pTessObj->invalidate();
 }
 
 //-------------------------------------------------------------------------------------------------
