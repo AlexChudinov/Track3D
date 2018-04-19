@@ -114,7 +114,7 @@ bool CDirichletTesselation::init()
 	  static_cast<CObject*>(this));
 
   m_bReady = true;
-  return true && m_bTerminate;
+  return true && !m_bTerminate;
 }
 
 void CDirichletTesselation::clear()
