@@ -22,24 +22,28 @@ CMeshAdapter::PScalFieldOp DCMeshAdapter::createOperator(ScalarOperatorType type
 	return PScalFieldOp();
 }
 
-/*
+
 #define SET_NODE_GRAD_FUN(X, x)\
 CMeshAdapter::InterpCoefs DCMeshAdapter::grad##X(Label idx) const\
 {\
 	InterpCoefs res;\
 	const Node* pNode = m_nodes[idx];\
-	double fNorm = 0.0;\
-\
-	for (uint32_t nFaceIdx = 0; nFaceIdx < pNode->vNbrNodes.size(); ++nFaceIdx)\
+	if (pNode->vNbrNodes.size() == m_tess.get_cell(idx)->nFaceCount)\
 	{\
-		size_t l = pNode->vNbrNodes[nFaceIdx];\
-		Vector3D n = (m_nodes[l]->pos - m_nodes[idx]->pos); n.normalize();\
-		double fWeight = n.x * m_tess.get_cell(idx)->pFaceSquare[l];\
-		fNorm += fWeight;\
-		res[l] = fWeight;\
+		double fNorm = 0.0;\
+\
+		for (uint32_t nFaceIdx = 0; nFaceIdx < pNode->vNbrNodes.size(); ++nFaceIdx)\
+		{\
+			size_t l = pNode->vNbrNodes[nFaceIdx];\
+			Vector3D n = (m_nodes[l]->pos - m_nodes[idx]->pos); n.normalize();\
+			double fWeight = n.x * m_tess.get_cell(idx)->pFaceSquare[nFaceIdx];\
+			fNorm += fWeight;\
+			res[l] = fWeight;\
+		}\
+		res[idx] = fNorm;\
+		return mul(.5/m_tess.get_cell(idx)->fVolume, res);\
 	}\
-	res[idx] = fNorm;\
-	return mul(.5/m_tess.get_cell(idx)->fVolume, res);\
+	else return CMeshAdapter::grad##X(idx);\
 }
 
 SET_NODE_GRAD_FUN(X,x)
@@ -65,7 +69,7 @@ CMeshAdapter::ScalarFieldOperator DCMeshAdapter::grad##X() const\
 SET_GRAD_FUN(X)
 SET_GRAD_FUN(Y)
 SET_GRAD_FUN(Z)
-*/
+
 
 CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian() const
 {
