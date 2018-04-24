@@ -73,8 +73,6 @@ public:
 
 	friend class CMeshAdapter;
 	friend class DCMeshAdapter;
-	friend CFieldOperator& operator+=(CFieldOperator& op1, const CFieldOperator& op2);
-	friend CFieldOperator& operator*=(CFieldOperator& op1, const CFieldOperator& op2);
 private:
 	Matrix m_matrix;
 
