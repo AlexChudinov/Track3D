@@ -15,6 +15,7 @@ CMeshAdapter::PScalFieldOp DCMeshAdapter::createOperator(ScalarOperatorType type
 	switch (type)
 	{
 	case LaplacianSolver: return PScalFieldOp(new ScalarFieldOperator(laplacian()));
+	case LaplacianSolver1: return PScalFieldOp(new ScalarFieldOperator(laplacian1()));
 	case GradX: return CREATE_GRAD_OP(X);
 	case GradY: return CREATE_GRAD_OP(Y);
 	case GradZ: return CREATE_GRAD_OP(Z);
@@ -73,7 +74,7 @@ SET_GRAD_FUN(Z)
 
 CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian() const
 {
-	progressBar()->set_job_name("Creating laplacian operator...");
+	progressBar()->set_job_name("Creating laplacian #1 operator...");
 	progressBar()->set_progress(0);
 
 	ScalarFieldOperator result;
@@ -123,4 +124,63 @@ CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian() const
 		progressBar());
 
 	return result;
+}
+
+CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian1() const
+{
+	ScalarFieldOperator
+		opGradX = gradX(), opGradY = gradY(), opGradZ = gradZ(), opLaplace;
+	progressBar()->set_job_name("Create laplacian #2 operator");
+	opLaplace.m_matrix.resize(m_nodes.size());
+
+	std::vector<NodeType> vNodeTypes(nodeTypes());
+
+	ThreadPool::splitInPar(m_nodes.size(),
+		[&](size_t nCurNodeIdx)
+	{
+		switch (vNodeTypes[nCurNodeIdx])
+		{
+		case FirstTypeBoundaryNode: //Fixed value BC
+			opLaplace.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
+			break;
+		case SecondTypeBoundaryNode: //Zero gradient
+		{
+			const Vector3D& n = boundaryMesh()->normal(nCurNodeIdx);
+			InterpCoefs coefs = std::move(add(
+				mul(n.x, opGradX.m_matrix[nCurNodeIdx]),
+				add(mul(n.y, opGradY.m_matrix[nCurNodeIdx]),
+					mul(n.z, opGradZ.m_matrix[nCurNodeIdx]))));
+			double fSum = coefs[nCurNodeIdx];
+			coefs.erase(nCurNodeIdx);
+			mul(-1. / fSum, coefs);
+			opLaplace.m_matrix[nCurNodeIdx] = std::move(coefs);
+			break;
+		}
+		default:
+		{
+			InterpCoefs coefsX, coefsY, coefsZ;
+			for (const auto& c : opGradX.m_matrix[nCurNodeIdx])
+			{
+				add(coefsX, mul(c.second, opGradX.m_matrix[c.first]));
+			}
+			for (const auto& c : opGradY.m_matrix[nCurNodeIdx])
+			{
+				add(coefsY, mul(c.second, opGradY.m_matrix[c.first]));
+			}
+			for (const auto& c : opGradZ.m_matrix[nCurNodeIdx])
+			{
+				add(coefsZ, mul(c.second, opGradZ.m_matrix[c.first]));
+			}
+			opLaplace.m_matrix[nCurNodeIdx] = add(coefsX, add(coefsY, coefsZ));
+			double fSum = opLaplace.m_matrix[nCurNodeIdx][nCurNodeIdx];
+			opLaplace.m_matrix[nCurNodeIdx].erase(nCurNodeIdx);
+			mul(-1. / fSum, opLaplace.m_matrix[nCurNodeIdx]);
+		}
+		}
+
+	},
+		progressBar());
+
+
+	return opLaplace;
 }

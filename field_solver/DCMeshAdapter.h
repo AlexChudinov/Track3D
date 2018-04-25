@@ -19,6 +19,7 @@ public:
 	enum ScalarOperatorType
 	{
 		LaplacianSolver,
+		LaplacianSolver1,
 		GradX,
 		GradY,
 		GradZ
@@ -38,6 +39,7 @@ public:
 	ScalarFieldOperator gradZ() const;
 	
 	ScalarFieldOperator laplacian() const;
+	ScalarFieldOperator laplacian1() const;
 private:
 	const DirTess& m_tess;
 };

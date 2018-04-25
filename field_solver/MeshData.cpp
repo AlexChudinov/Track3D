@@ -101,8 +101,7 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
-		double fSqLength = v.sqlength();
-		v /= fSqLength;
+		v /= v.sqlength();
 		result[0][j] = v.x;
 		result[1][j] = v.y;
 		result[2][j] = v.z;
