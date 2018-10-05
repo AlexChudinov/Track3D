@@ -473,7 +473,13 @@ void CRemoveFieldBoundCondButton::OnClickButton(CPoint point)
   EvaporatingParticle::CPotentialBoundCond* pBC = (EvaporatingParticle::CPotentialBoundCond*)m_dwData;
   EvaporatingParticle::CFieldDataColl* pColl = CParticleTrackingApp::Get()->GetFields();
   if(pColl->remove_bound_cond(pBC))
+  {
     m_pWndProp->set_update_all();
+// We need to redraw the scene as some regions belonging to these boundary conditions might have been hidden and
+// after the pColl->remove_bound_cond(pBC) call these regions must re-appear.
+    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->draw();
+  }
 }
 
 //---------------------------------------------------------------------------------------
@@ -823,4 +829,26 @@ void CPlaneYZCalcCheckBox::OnClickButton(CPoint point)
     pDrawObj->invalidate_hidden();
     pDrawObj->draw();
   }
+}
+
+//---------------------------------------------------------------------------------------
+// CHideShowRegsCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CHideShowRegsCheckBox, CCheckBoxButton)
+
+void CHideShowRegsCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+  bool bVisible = *((bool*)GetData());
+
+  CMFCPropertyGridProperty* pParent = GetParent();
+  int nSubCount = pParent->GetSubItemsCount();
+  if(nSubCount != 2 || pParent->GetSubItem(1) != (CMFCPropertyGridProperty*)this)
+    return;
+
+  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)(pParent->GetSubItem(0)->GetData());
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->set_visibility_status(pRegNames, bVisible);
+  pDrawObj->draw();
 }

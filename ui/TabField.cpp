@@ -121,9 +121,17 @@ void CPropertiesWnd::add_field_ctrls()
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
       }
 
+// Select boundary regions group:
+      CMFCPropertyGridProperty* pBoundRegsGroup = new CMFCPropertyGridProperty(_T("Boundary Regions"));
+
       CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
-      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Boundary Regions"), cRegNames, _T("Click to select 2D regions for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
-      pBoundCondGroup->AddSubItem(pSelRegButton);
+      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Select Regions"), cRegNames, _T("Click to select 2D regions in the main view window for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
+      pBoundRegsGroup->AddSubItem(pSelRegButton);
+      
+      CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->bVisible, _T("Change the visibility status of the selected regions"), (DWORD_PTR)&(pBC->bVisible));
+      pBoundRegsGroup->AddSubItem(pHideShowBtn);
+      
+      pBoundCondGroup->AddSubItem(pBoundRegsGroup);
 
 // Remove boundary condition button:
       CRemoveFieldBoundCondButton* pRemBCButton = new CRemoveFieldBoundCondButton(this, _T("Remove Boundary Condition"), cDummy, _T("Click to remove this boundary condition."), (DWORD_PTR)pBC);

@@ -28,7 +28,10 @@ struct CPotentialBoundCond
   };
 
   BoundaryMesh::BoundaryType    nType;
+
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
+  bool                          bVisible;       // visibility status of the selected regions.
+
   int                           nFixedValType;  // the value at the boundary can be +1V, -1V, step-wise potential or Coulomb potential.
   std::string                   sName;
 
@@ -46,6 +49,7 @@ struct CPotentialBoundCond
 
 struct CNode3D;
 struct CRegion;
+class CFiniteVolumesSolver;
 typedef std::vector<CPotentialBoundCond*> CPotentialBoundCondColl;
 //---------------------------------------------------------------------------------------
 // CElectricFieldData - an auxiliary class for simulating scalable electric fields.
@@ -58,7 +62,7 @@ public:
   {
     cmLaplacian3    = 0,
     cmDirTessLap3   = 1,
-    cmFinVolSeidel  = 2,
+    cmFinVolJacobi  = 2,
     cmCount         = 3
   };
 
@@ -137,12 +141,18 @@ protected:
 
   CRegion*                get_region(const std::string& sName) const; // returns a region pointer by its name or NULL if the name is not found.
   bool                    is_selected(CRegion* pReg) const;           // returns true if the region is selected for boundary conditions.
+  CIndexVector            get_reg_nodes(CRegion* pReg) const;         // returns the vector of global indices of the region nodes.
 
   bool                    set_boundary_conditions(CMeshAdapter& mesh);
+  bool                    set_boundary_conditions(CFiniteVolumesSolver& solver);
+
   bool                    set_default_boundary_conditions(CMeshAdapter& mesh);
+  bool                    set_default_boundary_conditions(CFiniteVolumesSolver& solver);
+
   void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
 
   double                  step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const; // step-wise boundary conditions support.
+  bool                    coulomb_potential(const CIndexVector& vNodeIds, std::vector<float>& vPhi) const;  // Coulomb boundary conditions support.
 
   Vector3D                calc_norm(CNode3D* pNode) const;
 
@@ -153,7 +163,7 @@ protected:
 
   bool                    calc_lap3(bool bTest);
   bool                    calc_dirichlet_lap3(bool bTest);
-  bool                    calc_finite_vol_seidel(bool bTest);
+  bool                    calc_finite_vol_jacobi(bool bTest);
 
 private:
   bool                    m_bEnable;
@@ -199,6 +209,9 @@ public:
 
   bool              sel_region_changed(CStringVector* pRegNames);
   bool              remove_bound_cond(CPotentialBoundCond* pBC);
+
+// Visibility of regions support. 
+  void              update_visibility_status(); // set visibility flag to all regions selected for boundary conditions.
 
   void              save(CArchive& ar);
   void              load(CArchive& ar);

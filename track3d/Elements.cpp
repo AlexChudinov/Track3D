@@ -129,6 +129,18 @@ bool CPlane::intersect(const CRay& ray, Vector3D& pnt, double& ksi) const
   return true;
 }
 
+bool CPlane::operator == (const CPlane& plane) const
+{
+  if((norm - plane.norm).sqlength() > Const_Almost_Zero)
+    return false;
+
+  Vector3D vD = pos - plane.pos;
+  if(fabs(vD & norm) > Const_Almost_Zero)
+    return false;
+
+  return true;
+}
+
 //-------------------------------------------------------------------------------------------------
 // CFace - a structure containing some run-time geometrical information in addition to pointers to
 //         the three nodes of the triangle.

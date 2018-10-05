@@ -101,7 +101,8 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	for (Label i : m_meshGraph.neighbor(l))
 	{
 		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
-		v /= v.sqlength();
+		double fSqLength = v.sqlength();
+		v /= fSqLength;
 		result[0][j] = v.x;
 		result[1][j] = v.y;
 		result[2][j] = v.z;
@@ -397,7 +398,46 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 {
-	return laplacian();
+	ScalarFieldOperator solver = laplacian();
+
+	progressBar()->set_job_name("Creating laplacianSolver #2...");
+	progressBar()->set_progress(0);
+
+	//Create boundaries
+	NodeTypes vNodeTypes = nodeTypes();
+
+	ThreadPool::splitInPar(solver.m_matrix.size(),
+		[&](size_t nInd)
+	{
+		switch (vNodeTypes[nInd])
+		{
+		case FirstTypeBoundaryNode:
+			solver.m_matrix[nInd][nInd] = 1.0;
+			break;
+		case SecondTypeBoundaryNode:
+		{
+			const Vector3D& n = boundaryMesh()->normal(nInd);
+			if (isFlatBoundary(nInd, n, vNodeTypes))
+			{
+				add(solver.m_matrix[nInd],
+					add(mul(n.x, gradX(nInd)),
+						add(mul(n.y, gradY(nInd)),
+							mul(n.z, gradZ(nInd)))));
+				double fSum = solver.m_matrix[nInd][nInd];
+				solver.m_matrix[nInd].erase(nInd);
+				mul(-1. / fSum, solver.m_matrix[nInd]);
+			}
+		}
+		default:
+		{
+			double fSum = solver.m_matrix[nInd][nInd];
+			solver.m_matrix[nInd].erase(nInd);
+			mul(-1. / fSum, solver.m_matrix[nInd]);
+		}
+		}
+	}, progressBar());
+
+	return solver;
 }
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
@@ -473,63 +513,13 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 {
-	ScalarFieldOperator
-		opGradX = gradX(), opGradY = gradY(), opGradZ = gradZ(), opLaplace;
-	progressBar()->set_job_name("Create laplacian #2 operator");
-	opLaplace.m_matrix.resize(m_nodes.size());
-
-	std::vector<NodeType> vNodeTypes(nodeTypes());
-
-	ThreadPool::splitInPar(m_nodes.size(),
-		[&](size_t nCurNodeIdx)
-	{
-		switch (vNodeTypes[nCurNodeIdx])
-		{
-		case FirstTypeBoundaryNode: //Fixed value BC
-			opLaplace.m_matrix[nCurNodeIdx][nCurNodeIdx] = 1.0;
-			break;
-		case SecondTypeBoundaryNode: //Zero gradient
-		{
-			const Vector3D& n = boundaryMesh()->normal(nCurNodeIdx);
-			InterpCoefs coefs = std::move(add(
-				mul(n.x, opGradX.m_matrix[nCurNodeIdx]),
-				add(mul(n.y, opGradY.m_matrix[nCurNodeIdx]),
-					mul(n.z, opGradZ.m_matrix[nCurNodeIdx]))));
-			double fSum = coefs[nCurNodeIdx];
-			coefs.erase(nCurNodeIdx);
-			mul(-1. / fSum, coefs);
-			opLaplace.m_matrix[nCurNodeIdx] = std::move(coefs);
-			break;
-		}
-		default:
-		{
-			InterpCoefs coefsX, coefsY, coefsZ;
-			for (const auto& c : opGradX.m_matrix[nCurNodeIdx])
-			{
-				add(coefsX, mul(c.second, opGradX.m_matrix[c.first]));
-			}
-			for (const auto& c : opGradY.m_matrix[nCurNodeIdx])
-			{
-				add(coefsY, mul(c.second, opGradY.m_matrix[c.first]));
-			}
-			for (const auto& c : opGradZ.m_matrix[nCurNodeIdx])
-			{
-				add(coefsZ, mul(c.second, opGradZ.m_matrix[c.first]));
-			}
-			opLaplace.m_matrix[nCurNodeIdx] = add(coefsX, add(coefsY, coefsZ));
-			double fSum = opLaplace.m_matrix[nCurNodeIdx][nCurNodeIdx];
-			opLaplace.m_matrix[nCurNodeIdx].erase(nCurNodeIdx);
-			fSum = 0.0;
-			for (const auto& c : opLaplace.m_matrix[nCurNodeIdx])
-				fSum += c.second;
-			mul(-1. / fSum, opLaplace.m_matrix[nCurNodeIdx]);
-		}
-		}
-
-	},
-		progressBar());
-	
-
+	ScalarFieldOperator opGradComp1 = gradX(), opGradComp2 = opGradComp1, opLaplace;
+	opLaplace.m_matrix.resize(opGradComp1.m_matrix.size());
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradY(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
+	opGradComp1 = gradZ(), opGradComp2 = opGradComp1;
+	opLaplace += (opGradComp1 *= opGradComp2);
 	return opLaplace;
 }
 
@@ -859,4 +849,38 @@ CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
 	});
 
 	return result;
+}
+
+CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)
+{
+	if (op1.m_matrix.size() != op2.m_matrix.size())
+		throw std::runtime_error("operator+=(CFieldOperator&, const CFieldOperator&):"
+			" Operator sizes mismatch!");
+
+	ThreadPool::splitInPar(op1.m_matrix.size(), [&](size_t nInd)
+	{
+		CMeshAdapter::add(op1.m_matrix[nInd], op2.m_matrix[nInd]);
+	});
+
+	return op1;
+}
+
+CFieldOperator& operator*=(CFieldOperator & op1, const CFieldOperator & op2)
+{
+	if (op1.m_matrix.size() != op2.m_matrix.size())
+		throw std::runtime_error("operator*=(CFieldOperator&, const CFieldOperator&):"
+			" Operator sizes mismatch!");
+
+	ThreadPool::splitInPar(op1.m_matrix.size(), [&](size_t nInd)
+	{
+		CFieldOperator::MatrixRow row1;
+		for (const auto& c : op1.m_matrix[nInd])
+		{
+			CFieldOperator::MatrixRow row2 = op2.m_matrix[c.first];
+			CMeshAdapter::add(row1, CMeshAdapter::mul(c.second, row2));
+		}
+		op1.m_matrix[nInd] = row1;
+	});
+
+	return op1;
 }

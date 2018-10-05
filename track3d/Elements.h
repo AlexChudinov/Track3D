@@ -237,6 +237,8 @@ struct CPlane : public BlockAllocator<CPlane>
 
   bool      inside(const Vector3D& p) const;
   bool      intersect(const CRay& ray, Vector3D& pnt, double& ksi) const;
+
+  bool      operator == (const CPlane& plane) const;
 };
 
 typedef std::vector<CPlane> CPlanesSet;

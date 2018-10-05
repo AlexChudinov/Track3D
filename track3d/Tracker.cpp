@@ -525,6 +525,23 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
     return false;
   }
 
+// DEBUG (full pseudo-charges count)
+  COutputEngine& out_engine = get_output_engine();
+  std::string cPath = out_engine.get_full_path(get_filename());
+  std::string cName("Count_of_Charges");
+  std::string cExt(".txt");
+  std::string cFileName = cPath + cName + cExt;
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
+  if((nErr == 0) && (pStream != NULL))
+  {
+    fputs("Count of charges = ", pStream);
+    fprintf(pStream, "%d\n", m_pBarnesHut->get_main_cell()->charges.size());
+    fclose(pStream);
+  }
+// END DEBUG
+
   return true;
 }
 
@@ -1295,6 +1312,7 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
 
   node.pos = vPos;
   node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);  // this is just a container for interpolated data.
+  node.phi = 0;
 
   double w;
   bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm;
@@ -1312,6 +1330,9 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
     node.visc  += w * pNode->visc;
     node.cond  += w * pNode->cond;
     node.cp    += w * pNode->cp;
+// DEBUG (Finite Volume Solver Testing)
+    node.phi    += w * pNode->phi;
+// END DEBUG
 // Vectors:
     node.vel   += w * pNode->vel;
     node.field += w * pNode->field;
@@ -1777,15 +1798,15 @@ void CTracker::load(CArchive& ar)
     INT_PTR nImpRes = dlg.DoModal();
   }
 
+  invalidate_calculators();
+  update_interface();
+
   if(m_bReady)
   {
     CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->set_hidden_reg_names();
     pDrawObj->draw();
   }
-
-  invalidate_calculators();
-  update_interface();
 }
 
 void CTracker::save_track_const(CArchive& ar, const CTrack& track)
@@ -2029,6 +2050,9 @@ void CTracker::update_interface()
 
   CPropertiesWnd* pPropWnd = pMainWnd->GetWndProperties();
   pPropWnd->set_update_all();
+
+  CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
+  pFields->update_visibility_status();
 }
 
 void CTracker::set_data()

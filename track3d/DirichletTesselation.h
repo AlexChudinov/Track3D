@@ -14,13 +14,13 @@ namespace EvaporatingParticle
 //-------------------------------------------------------------------------------------------------
 struct CDirichletCell : public BlockAllocator<CDirichletCell>
 {
-  CDirichletCell(CNode3D* pNode, bool bBoundNode = false);
+  CDirichletCell();
   ~CDirichletCell();
 
-  UINT        nFaceCount;     // the count of the neighbouring nodes for inner cells; the count of the neighbouring nodes plus one for boundary cells.
-  float*      pFaceSquare;    // array of nFaceCount size, contains the squares of polyangle faces, CGS.
-  float*      pNbrDist;       // the distance between the central and neighbor nodes; the size of this array is the count of the neighbouring nodes for all cells.
-  float       fVolume;        // volume of the cell, CGS.
+  UINT        nFaceCount;     // in fact, this is the count of the neighbouring nodes.
+  float*      pFaceSquare;    // for inner cells: array of nFaceCount size, contains the squares of polyangle faces, CGS; for boundary cells array of size 10.
+  float*      pNbrDist;       // the distance between the central and neighbor nodes; the size of this array is nFaceCount for all cells.
+  float       fVolume;        // volume of the inner cell, CGS; zero for boundary cells.
 
   void        delete_cell();
 
@@ -61,8 +61,8 @@ public:
 // Returns normal vector (normalized) at the nNbrId-th face of the nNodeId-th cell.
   Vector3D            get_norm(size_t nNodeId, size_t nNbrId) const;
 
-// Returns normal vector (not normalized) at the nNbrId-th face of the nNodeId-th cell.
-  Vector3D            get_norm_vector(size_t nNodeId, size_t nNbrId) const;
+// Returns a neighbor vector (not normalized) drawn from the nNodeId-th vertex to its nNbrId-th neighbor.
+  Vector3D            get_neighbor_vector(size_t nNodeId, size_t nNbrId) const;
 
   double              get_coeff(size_t nNodeId, size_t nNbrId) const;
 
@@ -73,6 +73,9 @@ public:
 // For visualization of the Dirichlet cells this function may be called from CTrackDraw::build_norm_array().
   CDirichletCell*     build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes);
 
+// The cell is supposed to be a boundary cell.
+  Matrix3D            get_bound_cell_mtx(CDirichletCell* pCell) const;  // returns matrix C of the boundary cell.
+
   bool                init();
 
   void                invalidate();
@@ -80,10 +83,14 @@ public:
 protected:
   void                clear();
 
-  bool                inside(const Vector3D& vPos, const CPlanesSet& vFaces) const;
+// For Dirichlet cells built around inner nodes, i.e. for strongly CONVEX cells.
+// Input for the following two functions: vPos is the result of intersection of these three planes a, b and c.
+  bool                inside(const CPlane& a, const CPlane& b, const CPlane& c, const Vector3D& vPos, const CPlanesSet& vFaces) const;
 
-// Find all vertices of the cell (all possible intersections of the planes forming the cell except for point outside the cell).
-  void                collect_cell_vertices(const CPlanesSet& vPlanes, CVertexColl& vCellVert);
+// Find all vertices of the cell (all possible intersections of the planes forming the cell except for points outside the cell).
+// Input:  vInnerPlanes - collection of planes perpendicular to lines connecting this vertex and neighboring vertices;
+// Output: vCellVert.
+  void                collect_cell_vertices(const CPlanesSet& vInnerPlanes, CVertexColl& vCellVert) const;
 
 // Selects the vertices belonging to the plane (cell's face) and computes the square of the face.
   double              build_polygon_in_plane(const CPlane& plane, const CVertexColl& vCellVert) const;
@@ -99,8 +106,9 @@ protected:
 // Output: Angle between vA and vB counted in the direction from vA to vB counterclockwise.
   double              angle_0_360(const Vector3D& vA, const Vector3D& vB, const Vector3D& vNorm) const;
 
-// Find the normal vector in the node and add one more plane to the planes collection of the boundary Dirichlet cell.
-  void                additional_plane(CPlanesSet& vPlanes, CNode3D* pNode) const;
+  void                init_boundary_cell(CDirichletCell* pCell, CNode3D* pNode, const CNodesCollection& vNodes) const;
+
+  Vector3D            get_bound_cell_grad(CDirichletCell* pCell, CNode3D* pNode, const std::vector<float>& vScalarField) const;
 
   void                cell_visualization(const CVertexColl& poly, const Vector3D& vFaceCenter) const;
 
@@ -154,12 +162,12 @@ inline double CDirichletTesselation::get_cell_face_square(size_t nNodeId, size_t
 
 inline double CDirichletTesselation::get_nodes_dist(size_t nNodeId, size_t nNbrId) const
 {
-  return get_norm_vector(nNodeId, nNbrId).length();
+  return get_neighbor_vector(nNodeId, nNbrId).length();
 }
 
 inline Vector3D CDirichletTesselation::get_norm(size_t nNodeId, size_t nNbrId) const
 {
-  return get_norm_vector(nNodeId, nNbrId).normalized();
+  return get_neighbor_vector(nNodeId, nNbrId).normalized();
 }
 
 inline size_t CDirichletTesselation::get_abs_nbr_node_index(size_t nNodeId, size_t nNbrId) const

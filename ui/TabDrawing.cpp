@@ -273,7 +273,7 @@ void CPropertiesWnd::add_contour_ctrls()
 void CPropertiesWnd::update_draw_ctrls()
 {
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  bool bEnableClr = pDrawObj->get_draw_mode() == EvaporatingParticle::CTrackDraw::dmFlat;
+  bool bEnableClr = pDrawObj->get_draw_mode() == EvaporatingParticle::CTrackDraw::dmFlatAndWire || pDrawObj->get_draw_mode() == EvaporatingParticle::CTrackDraw::dmFlatOnly;
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pDrawObj->get_faces_color_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnableClr);

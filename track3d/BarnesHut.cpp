@@ -161,7 +161,7 @@ void CBarnesHut::prepare(CalcThreadVector& vThreads, CNodesCollection& vNodes, U
     pNode = vNodes.at(i);
     pNode->clmb = nIter == 1 ? coulomb_force(pNode->pos) : (double(nIter - 1) * pNode->clmb + coulomb_force(pNode->pos)) / (double)nIter;
 // DEBUG: Visualization of the Coulomb potential.
-    pNode->phi = coulomb_phi(pNode->pos);
+    pNode->phi = nIter == 1 ? coulomb_phi(pNode->pos) : (double(nIter - 1) * pNode->phi + coulomb_phi(pNode->pos)) / (double)nIter;
 // END DEBUG
   }
 

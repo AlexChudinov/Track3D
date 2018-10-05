@@ -276,6 +276,7 @@
   <ItemGroup>
     <ClCompile Include="field_solver\BoundaryMesh.cpp" />
     <ClCompile Include="field_solver\DCMeshAdapter.cpp" />
+    <ClCompile Include="field_solver\FiniteVolumesSolver.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
     <ClCompile Include="RandomProcess\RandomProcess.cpp" />
     <ClCompile Include="track3d\AnsysMesh.cpp" />

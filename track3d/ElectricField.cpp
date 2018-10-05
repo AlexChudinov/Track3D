@@ -9,6 +9,7 @@
 #include "BarnesHut.h"
 
 #include "../field_solver/DCMeshAdapter.h"
+#include "../field_solver/FiniteVolumesSolver.h"
 
 
 namespace EvaporatingParticle
@@ -18,7 +19,7 @@ namespace EvaporatingParticle
 // CPotentialBoundCond
 //---------------------------------------------------------------------------------------
 CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int val)
-  : nType(type), nFixedValType(val)
+  : nType(type), nFixedValType(val), bVisible(true)
 {
   fStartX = 13.225;
   fStepX = 0.1;
@@ -51,7 +52,7 @@ const char* CPotentialBoundCond::get_fixed_value_name(int nType)
 
 void CPotentialBoundCond::save(CArchive& ar)
 {
-  UINT nVersion = 1;  // step-like potential is supported since version 1.
+  UINT nVersion = 2;  // 2 - hide/show regions; 1 - step-like potential is supported.
   ar << nVersion;
 
   int nIntType = (int)nType;
@@ -71,6 +72,8 @@ void CPotentialBoundCond::save(CArchive& ar)
   ar << fStartX;
   ar << fStepX;
   ar << fEndX;
+
+  ar << bVisible;
 }
 
 void CPotentialBoundCond::load(CArchive& ar)
@@ -102,6 +105,9 @@ void CPotentialBoundCond::load(CArchive& ar)
     ar >> fStepX;
     ar >> fEndX;
   }
+
+  if(nVersion >= 2)
+    ar >> bVisible;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -197,6 +203,8 @@ bool CFieldDataColl::sel_region_changed(CStringVector* pRegNames)
 
 bool CFieldDataColl::remove_bound_cond(CPotentialBoundCond* pBC)
 {
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+
   size_t nCount = size();
   for(size_t i = 0; i < nCount; i++)
   {
@@ -206,6 +214,8 @@ bool CFieldDataColl::remove_bound_cond(CPotentialBoundCond* pBC)
     {
       if(pBC == pData->get_bc(j))
       {
+// Set "true" for the visibility flag of all the regions belonging to this BC before deleting the BC.
+        pDrawObj->set_visibility_status(&(pBC->vRegNames), true);
         pData->remove_bc(j);
         return true;
       }
@@ -213,6 +223,24 @@ bool CFieldDataColl::remove_bound_cond(CPotentialBoundCond* pBC)
   }
 
   return false;
+}
+
+void CFieldDataColl::update_visibility_status()
+{
+  CPotentialBoundCond* pBC = NULL;
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+
+  size_t nCount = size();
+  for(size_t i = 0; i < nCount; i++)
+  {
+    CElectricFieldData* pData = at(i);
+    size_t nBoundCondCount = pData->get_bc_count();
+    for(size_t j = 0; j < nBoundCondCount; j++)
+    {
+      pBC = pData->get_bc(j);
+      pDrawObj->set_visibility_status(&(pBC->vRegNames), pBC->bVisible);
+    }
+  }
 }
 
 void CFieldDataColl::save(CArchive& ar)
@@ -299,7 +327,7 @@ bool CElectricFieldData::calc_field(bool bTest)
   {
     case cmLaplacian3: return calc_lap3(bTest);
     case cmDirTessLap3: return calc_dirichlet_lap3(bTest);
-    case cmFinVolSeidel: return calc_finite_vol_seidel(bTest);
+    case cmFinVolJacobi: return calc_finite_vol_jacobi(bTest);
   }
 
   return false;
@@ -470,11 +498,143 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
   return bRes;
 }
 
-bool CElectricFieldData::calc_finite_vol_seidel(bool bTest)
+bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
 {
+  CAnsysMesh* pMesh = (CAnsysMesh*)CParticleTrackingApp::Get()->GetTracker();
+  CDirichletTesselation* pTess = CParticleTrackingApp::Get()->GetDirichletTess();
+  CFiniteVolumesSolver solver(pMesh, pTess);
+
+  solver.set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
+
+  set_boundary_conditions(solver);
+
+  float fTol = 1e-5;
+
+  CFloatArray vPhi;
+  CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi);
+
+  CNode3D* pNode = NULL;
+  CNodesCollection& vNodes = pMesh->get_nodes();
+  size_t nNodeCount = vNodes.size();
+  m_vField.resize(nNodeCount);
+  Vector3D vGrad;
+  for(size_t k = 0; k < nNodeCount; k++)
+  {
+    pNode = vNodes.at(k);
+    pNode->phi = vPhi.at(k);
+
+    vGrad = pTess->get_grad(k, vPhi);
+    m_vField[k] = Vector3F(-(float)vGrad.x, -(float)vGrad.y, -(float)vGrad.z);
+  }
+
+  m_bNeedRecalc = m_nType == typeMirror;
+  notify_scene();
+
+// DEBUG
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  COutputEngine& out_engine = pObj->get_output_engine();
+  std::string cPath = out_engine.get_full_path(pObj->get_filename());
+  std::string cName("Convergence_Hist");
+  std::string cExt(".csv");
+  std::string cFileName = cPath + cName + cExt;
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
+  if((nErr == 0) && (pStream != NULL))
+  {
+    for(UINT i = 0; i < m_nIterCount; i++)
+      fprintf(pStream, "%d,   %f\n", i, info.vMaxErrHist.at(i));
+
+    fclose(pStream);
+  }
+// END DEBUG
+
+  return get_result(bTest);
+}
+
+bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
+{
+  set_default_boundary_conditions(solver);
+
+  float fVal;
+  CRegion* pReg = NULL;
+  CPotentialBoundCond* pBC = NULL;
+  size_t nCount = m_vBoundCond.size(), nRegCount;
+  for(size_t i = 0; i < nCount; i++)
+  {
+    pBC = m_vBoundCond.at(i);
+    nRegCount = pBC->vRegNames.size();
+    for(size_t j = 0; j < nRegCount; j++)
+    {
+      pReg = get_region(pBC->vRegNames.at(j));
+      CIndexVector vRegNodeInd = get_reg_nodes(pReg);   // global indices of nodes, belonging to region pReg.
+
+      if(pBC->nType == BoundaryMesh::ZERO_GRAD)
+      {
+        solver.set_boundary_conditions(vRegNodeInd);    // boundary conditions of the 2-nd type.
+      }
+      else if(pBC->nType == BoundaryMesh::FIXED_VAL)
+      {
+        switch(pBC->nFixedValType)
+        {
+          case CPotentialBoundCond::fvPlusUnity:
+          {
+            solver.set_boundary_conditions(vRegNodeInd, 1);
+            break;
+          }
+          case CPotentialBoundCond::fvMinusUnity:
+          {
+            solver.set_boundary_conditions(vRegNodeInd, -1);
+            break;
+          }
+          case CPotentialBoundCond::fvStepLike:
+          {
+            fVal = (float)(step_potential(pBC, pReg->vFaces.at(0)->p0->pos));
+            solver.set_boundary_conditions(vRegNodeInd, fVal);
+            break;
+          }
+          case CPotentialBoundCond::fvCoulomb:
+          {
+            CFloatArray vClmbPhi;
+            if(!coulomb_potential(vRegNodeInd, vClmbPhi))
+              break;
+
+            solver.set_boundary_conditions(vRegNodeInd, vClmbPhi);
+            break;
+          }
+        }
+      }
+    }
+  }
+
   return true;
 }
 
+bool CElectricFieldData::set_default_boundary_conditions(CFiniteVolumesSolver& solver)
+{
+  set_job_name("Setting default boundary conditions...");
+  set_progress(0);
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CRegionsCollection& vRegions = pObj->get_regions();
+  size_t nRegCount = vRegions.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    if(m_bTerminate)
+      return false;
+
+    CRegion* pReg = vRegions.at(i);
+    if(is_selected(pReg) || pReg->bCrossSection)
+      continue;
+
+    CIndexVector vRegNodeInd = get_reg_nodes(pReg);
+    solver.set_boundary_conditions(vRegNodeInd, 0);
+
+    set_progress(100 * i / nRegCount);
+  }
+
+  return true;
+}
 
 bool CElectricFieldData::get_result(bool bTest) const
 {
@@ -483,7 +643,9 @@ bool CElectricFieldData::get_result(bool bTest) const
   for(size_t i = 0; i < nNodeCount; i++)
   {
 //    if(bTest)
-//      vNodes.at(i)->phi = m_vField[i].length();
+//    vNodes.at(i)->phi = m_vField[i].length();
+    vNodes.at(i)->clmb = Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z);
+
     if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
     else if(m_nType == typeMirror)
@@ -674,6 +836,27 @@ double CElectricFieldData::step_potential(CPotentialBoundCond* pBC, const Vector
   }
 }
 
+bool CElectricFieldData::coulomb_potential(const CIndexVector& vNodeIds, std::vector<float>& vPhi) const
+{
+  size_t nLocCount = vNodeIds.size();
+  if(nLocCount == 0)
+    return false;
+
+  Vector3D vPos;
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CNodesCollection& vNodes = pObj->get_nodes();
+  CBarnesHut* pBHObj = pObj->get_BH_object();
+  vPhi.assign(nLocCount, 0);
+
+  for(size_t i = 0; i < nLocCount; i++)
+  {
+    vPos = vNodes.at(vNodeIds.at(i))->pos;
+    vPhi[i] = -(float)(pBHObj->coulomb_phi(vPos));
+  }
+
+  return true;
+}
+
 CRegion* CElectricFieldData::get_region(const std::string& sName) const
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
@@ -735,6 +918,25 @@ bool CElectricFieldData::is_selected(CRegion* pReg) const
   return false;
 }
 
+CIndexVector CElectricFieldData::get_reg_nodes(CRegion* pReg) const
+{
+  CIndexVector vInd;
+  CFace* pFace = NULL;
+  size_t nFaceCount = pReg->vFaces.size();
+  for(size_t i = 0; i < nFaceCount; i++)
+  {
+    pFace = pReg->vFaces.at(i);
+    if(std::find(vInd.begin(), vInd.end(), pFace->p0->nInd) == vInd.end())
+      vInd.push_back(pFace->p0->nInd);
+    if(std::find(vInd.begin(), vInd.end(), pFace->p1->nInd) == vInd.end())
+      vInd.push_back(pFace->p1->nInd);
+    if(std::find(vInd.begin(), vInd.end(), pFace->p2->nInd) == vInd.end())
+      vInd.push_back(pFace->p2->nInd);
+  }
+
+  return vInd;
+}
+
 const char* CElectricFieldData::get_field_type_name(int nType)
 {
   switch(nType)
@@ -753,7 +955,7 @@ const char* CElectricFieldData::get_calc_method_name(int nCalcMethod)
   {
     case cmLaplacian3: return _T("Laplacian Solver #3");
     case cmDirTessLap3: return _T("Advanced Laplacian Solver");
-    case cmFinVolSeidel:  return _T("Finite Volume (Gauss-Seidel)");
+    case cmFinVolJacobi:  return _T("Finite Volume (Jacobi)");
   }
 
   return _T("None");

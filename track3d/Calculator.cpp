@@ -766,6 +766,7 @@ void CLineCalculator::assign_result(const CNode3D& node)
     case lcEx:    m_fResult = CGS_to_SI_Voltage * (node.field.x + m_pObj->get_field_ptb().apply(node.pos).x); break;
     case lcEy:    m_fResult = CGS_to_SI_Voltage * (node.field.y + m_pObj->get_field_ptb().apply(node.pos).y); break;
     case lcEz:    m_fResult = CGS_to_SI_Voltage * (node.field.z + m_pObj->get_field_ptb().apply(node.pos).z); break;
+    case lcPhiDC: m_fResult = node.phi; break;
     case lcRFx:
     {
       m_fResult = m_pObj->get_enable_ansys_field() ? m_pObj->get_rf_field(node, 0, Const_Half_PI).x : node.rf.x;
@@ -810,6 +811,7 @@ const char* CLineCalculator::units() const
     case lcRFx:     return _T("RF Ex,  V/cm");
     case lcRFy:     return _T("RF Ey,  V/cm");
     case lcRFz:     return _T("RF Ez,  V/cm");
+    case lcPhiDC:   return _T("Electric Potential, V");
   }
   return _T("");
 }
@@ -829,6 +831,7 @@ const char* CLineCalculator::get_var_name(int nVar) const
     case lcRFx:     return _T("RF Field X");
     case lcRFy:     return _T("RF Field Y");
     case lcRFz:     return _T("RF Field Z");
+    case lcPhiDC:   return _T("Electric Potential");
   }
 
   return _T("");

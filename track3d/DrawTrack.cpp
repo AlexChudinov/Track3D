@@ -28,7 +28,7 @@ CTrackDraw::CTrackDraw()
   : m_pTracker(NULL), m_hWnd(NULL), m_hDC(NULL), m_hRC(NULL), m_Color(clLtGray), m_pRegUnderCursor(NULL)
 {
   m_bDrawTracks = true;
-  m_nDrawMode = dmFlat;
+  m_nDrawMode = dmFlatAndWire;
   m_bDrawNorm = false;
 
   m_bWireframeReady = false;
@@ -400,39 +400,42 @@ void CTrackDraw::build_norm_array()
     return;
 
 // Temporarily interpret m_nDrawnCell as index of a region in the regions collection.
-  const CRegionsCollection& vRegs = m_pTracker->get_regions();
-  if(m_nDrawnCell >= vRegs.size())
-    return;
+//  const CRegionsCollection& vRegs = m_pTracker->get_regions();
+//  if(m_nDrawnCell >= vRegs.size())
+//    return;
 
   const CNodesCollection& vNodes = m_pTracker->get_nodes();
-//  size_t nNodeCount = vNodes.size();
-//  if(m_nDrawnCell >= nNodeCount)
-//    return;
+  size_t nNodeCount = vNodes.size();
+  if(m_nDrawnCell >= nNodeCount)
+    return;
 
-  CRegion* pReg = vRegs.at(m_nDrawnCell);
-  CNode3D* pTestNode = pReg->vFaces.at(pReg->vFaces.size() / 2)->p0;
+//  CRegion* pReg = vRegs.at(m_nDrawnCell);
+//  CNode3D* pTestNode = pReg->vFaces.at(pReg->vFaces.size() / 2)->p0;
+
+  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
+  if(pTestNode->vNbrFaces.size() != 0)
+    return;   // boundary cells are not built as 3D objects.
+
   m_vCenter = pTestNode->pos;
-
-//  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
-//  if(pTestNode->vNbrFaces.size() > 0)
-//    return;
 
   CDirichletTesselation test_obj(true);
   test_obj.set_mesh((CAnsysMesh*)m_pTracker);
-  test_obj.build_cell_in_node(pTestNode, vNodes);
+  CDirichletCell* pCell = test_obj.build_cell_in_node(pTestNode, vNodes);
 
   m_bNormReady = true;
-/*
-  if(m_bNormReady)
-    return;
 
-  m_vAuxLines.clear();
-  if(!m_bDrawNorm)
-    return;
+/*
+//  if(m_bNormReady)
+//    return;
+
+//  m_vAuxLines.clear();
+//  if(!m_bDrawNorm)
+//    return;
 
   const CRegionsCollection& vRegs = m_pTracker->get_regions();
-  const CNodesCollection& vNodes = m_pTracker->get_nodes();
-  size_t nNodeCount = vNodes.size(), nNbrCount, nReg, nFace;
+//  const CNodesCollection& vNodes = m_pTracker->get_nodes();
+//  size_t nNodeCount = vNodes.size();
+  size_t nNbrCount, nReg, nFace;
   CNode3D* pNode = NULL;
   Vector3D vNorm;
   for(size_t i = 0; i < nNodeCount; i++)
@@ -663,7 +666,8 @@ void CTrackDraw::draw_geometry()
   {
     case dmNone: return;
     case dmWire: draw_selected_faces(); draw_wire(); return;
-    case dmFlat: draw_flat(); draw_selected_faces(); draw_wire();  draw_norm(); return;
+    case dmFlatAndWire: draw_flat(); draw_selected_faces(); draw_wire();  draw_norm(); return;
+    case dmFlatOnly: draw_flat(); draw_selected_faces(); draw_norm(); return;
   }
 }
 
@@ -1303,7 +1307,7 @@ void CTrackDraw::load(CArchive& ar)
   {
     bool bDrawFaces;
     ar >> bDrawFaces;
-    m_nDrawMode = bDrawFaces ? dmFlat : dmNone;
+    m_nDrawMode = bDrawFaces ? dmFlatAndWire : dmNone;
   }
 
   ar >> m_fOpacity;
@@ -1463,6 +1467,26 @@ void CTrackDraw::show_all_regions()
   invalidate_hidden();
 }
 
+void CTrackDraw::set_visibility_status(CNamesVector* pRegNames, bool bVisible)
+{
+  if(m_pTracker == NULL || pRegNames == NULL || pRegNames->size() == 0)
+    return;
+
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  for(size_t j = 0; j < nRegCount; j++)
+  {
+    CRegion* pReg = regions.at(j);
+    if(pReg->bCrossSection)
+      continue;
+
+    if(std::find(pRegNames->begin(), pRegNames->end(), pReg->sName) != pRegNames->end())
+      pReg->bEnabled = bVisible;
+  }
+
+  invalidate_hidden();
+}
+
 CRegion* CTrackDraw::intersect(const CRay& ray) const
 {
   if(m_pTracker == NULL)
@@ -1490,7 +1514,8 @@ const char* CTrackDraw::get_draw_mode_name(int nMode) const
   switch(nMode)
   {
     case dmWire: return _T("Wireframe");
-    case dmFlat: return _T("Flat");
+    case dmFlatAndWire: return _T("Flat and Wireframe");
+    case dmFlatOnly: return _T("Flat Only");
   }
 
   return _T("None");

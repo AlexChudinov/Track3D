@@ -78,10 +78,11 @@ public:
 
   enum  // drawing mode.
   {
-    dmNone  = 0,
-    dmWire  = 1,
-    dmFlat  = 2,
-    dmCount = 3
+    dmNone        = 0,
+    dmWire        = 1,
+    dmFlatAndWire = 2,
+    dmFlatOnly    = 3,
+    dmCount       = 4
   };
 
   CTracker*         get_tracker() const;
@@ -190,6 +191,7 @@ public:
   CString           get_hidden_names_str() const;  // merges the names in one single string using ", " as delimiters.
 
   void              show_all_regions(); // this is the only way to show hidden regions.
+  void              set_visibility_status(CNamesVector* pRegNames, bool bVisible);
 
 // Cross-sections of the calculators suppport:
   void              set_cross_sections_array(CExternalFaces* pFaces); // called from Calculator::update().

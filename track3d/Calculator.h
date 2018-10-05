@@ -247,7 +247,8 @@ public:
     lcRFx     = 8,
     lcRFy     = 9,
     lcRFz     = 10,
-    lcCount   = 11
+    lcPhiDC   = 11,
+    lcCount   = 12
   };
 
   virtual void        run();

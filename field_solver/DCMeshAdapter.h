@@ -19,7 +19,6 @@ public:
 	enum ScalarOperatorType
 	{
 		LaplacianSolver,
-		LaplacianSolver1,
 		GradX,
 		GradY,
 		GradZ
@@ -27,7 +26,7 @@ public:
 
 	PScalFieldOp createOperator(ScalarOperatorType type, const BaseOperatorParams*);
 
-	
+	/*
 	//Calculate gradient at a given node
 	InterpCoefs gradX(Label idx) const;
 	InterpCoefs gradY(Label idx) const;
@@ -37,9 +36,8 @@ public:
 	ScalarFieldOperator gradX() const;
 	ScalarFieldOperator gradY() const;
 	ScalarFieldOperator gradZ() const;
-	
+	*/
 	ScalarFieldOperator laplacian() const;
-	ScalarFieldOperator laplacian1() const;
 private:
 	const DirTess& m_tess;
 };

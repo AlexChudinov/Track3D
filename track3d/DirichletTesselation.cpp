@@ -18,16 +18,8 @@
 namespace EvaporatingParticle
 {
 
-CDirichletCell::CDirichletCell(CNode3D* pNode, bool bBoundNode)
+CDirichletCell::CDirichletCell()
 {
-  UINT nNbrCount = pNode->vNbrNodes.size();
-  nFaceCount = bBoundNode ? nNbrCount + 1 : nNbrCount;
-  pFaceSquare = new float[nFaceCount];
-  for(UINT i = 0; i < nFaceCount; i++)
-    pFaceSquare[i] = 0;
-
-  pNbrDist = new float[nNbrCount];
-
   fVolume = 0;
 }
 
@@ -63,21 +55,28 @@ Vector3D CDirichletTesselation::get_grad(size_t nNodeId, const std::vector<float
   if(!bOK)
     return Vector3D(0, 0, 0);
 
+  CDirichletCell* pCell = m_Cells.at(nNodeId);
+
   CNode3D* pNode = vNodes.at(nNodeId);      // the cell's central node.
+  bool bBoundNode = pNode->vNbrFaces.size() != 0;
+  if(bBoundNode)
+    return get_bound_cell_grad(pCell, pNode, vScalarField);
+
   double fPhiC = vScalarField.at(nNodeId);  // the value of the potential at the cell's center.
 
   Vector3D vRes(0, 0, 0);
-  CDirichletCell* pCell = m_Cells.at(nNodeId);
   double fVol = pCell->fVolume, fFaceSqr, fFacePhi;
-  Vector3D vFaceNorm;
+  if(fVol < Const_Almost_Zero)
+    return Vector3D(0, 0, 0);
 
-  size_t nNbrNodeIndex;
+  Vector3D vFaceNorm;
+  size_t nNbrNodeId;
   size_t nNbrCount = vNodes.at(nNodeId)->vNbrNodes.size();
   for(size_t i = 0; i < nNbrCount; i++)
   {
     fFaceSqr = pCell->pFaceSquare[i];
-    nNbrNodeIndex = pNode->vNbrNodes.at(i);
-    fFacePhi = fPhiC + vScalarField.at(nNbrNodeIndex);
+    nNbrNodeId = pNode->vNbrNodes.at(i);
+    fFacePhi = fPhiC + vScalarField.at(nNbrNodeId);
     vFaceNorm = get_norm(nNodeId, i);
 
     vRes += vFaceNorm * (fFacePhi * fFaceSqr);
@@ -128,19 +127,29 @@ void CDirichletTesselation::clear()
 
 CDirichletCell* CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes)
 {
+  CDirichletCell* pCell = new CDirichletCell();
+
   bool bBoundNode = pNode->vNbrFaces.size() > 0;
-  CDirichletCell* pCell = new CDirichletCell(pNode, bBoundNode);
+  if(bBoundNode)
+  {
+    init_boundary_cell(pCell, pNode, vNodes);
+    return pCell;
+  }
 
 // 1. Collect all planes forming the Dirichlet cell around this node.
+  size_t nNbrCount = pNode->vNbrNodes.size();
+  pCell->pNbrDist = new float[nNbrCount];
+  pCell->nFaceCount = nNbrCount;
+
   size_t nPlanesCount = pCell->nFaceCount;
-  CPlanesSet vPlanes;
-  vPlanes.reserve(nPlanesCount);
+  CPlanesSet vInnerPlanes;
+  vInnerPlanes.reserve(nPlanesCount);
 
   UINT nId;
   double fDist;
   CNode3D* pNbrNode = NULL;
   Vector3D vC = pNode->pos, vOrg, vNorm, vNbr;  // cell center, plane origin and normal and neighbour cell center, respectively.
-  size_t nNbrCount = pNode->vNbrNodes.size();   // for inner nodes nPlanesCount = nNbrCount, but for boundary nodes nPlanesCount = nNbrCount + 1.
+
   for(size_t i = 0; i < nNbrCount; i++)
   {
     nId = pNode->vNbrNodes.at(i);
@@ -153,56 +162,54 @@ CDirichletCell* CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const 
     vNorm /= fDist;
 
     CPlane face(vOrg, vNorm);
-    vPlanes.push_back(face);
+    vInnerPlanes.push_back(face);
   }
-
-  if(bBoundNode)
-    additional_plane(vPlanes, pNode);
 
 // 2. Collect all vertices of the Dirichlet cell as all possible intersections of triads of different planes.
 //    Exclude the points lying outside the cell.
   CVertexColl vCellVert;
-  collect_cell_vertices(vPlanes, vCellVert);
+  collect_cell_vertices(vInnerPlanes, vCellVert);
 
 // 3. For each plane select vertices belonging to the plane and build the cell's polygon. Compute the polygon's square.
-  double fS = 0;
+  double fS, fH;
   pCell->fVolume = 0;
-  nPlanesCount = vPlanes.size();
-  for(size_t j = 0; j < nPlanesCount; j++)
+  pCell->pFaceSquare = new float[nNbrCount];
+  for(size_t j = 0; j < nNbrCount; j++)
   {
-    const CPlane& plane = vPlanes.at(j);
+    const CPlane& plane = vInnerPlanes.at(j);
     fS = build_polygon_in_plane(plane, vCellVert); // the square of that face of the cell, which belongs to this plane.
+    fH = 0.5 * pCell->pNbrDist[j];
 
     pCell->pFaceSquare[j] = fS;
-    pCell->fVolume += Const_One_Third * fS * (vOrg - vC).length();  // V = 1/3 * S * h, a pyramid volume.
+    pCell->fVolume += Const_One_Third * fS * fH;  // V = 1/3 * S * H, a pyramid volume.
   }
 
   return pCell;
 }
 
-void CDirichletTesselation::collect_cell_vertices(const CPlanesSet& vPlanes, CVertexColl& vCellVert)
+void CDirichletTesselation::collect_cell_vertices(const CPlanesSet& vInnerPlanes, CVertexColl& vCellVert) const
 {
   Vector3D vVert;
-  size_t nPlanesCount = vPlanes.size();
+  size_t nPlanesCount = vInnerPlanes.size();
   for(size_t i = 0; i < nPlanesCount; i++)
   {
-    const CPlane& PlaneA = vPlanes.at(i);
+    const CPlane& PlaneA = vInnerPlanes.at(i);
     for(size_t j = 0; j < i; j++)
     {
       if(j == i)
         continue;
 
-      const CPlane& PlaneB = vPlanes.at(j);
+      const CPlane& PlaneB = vInnerPlanes.at(j);
       for(size_t k = 0; k < j; k++)
       {
         if(k == j || k == i)
           continue;
 
-        const CPlane& PlaneC = vPlanes.at(k);
+        const CPlane& PlaneC = vInnerPlanes.at(k);
         if(!three_planes_intersect(PlaneA, PlaneB, PlaneC, vVert))
           continue;
 
-        if(!inside(vVert, vPlanes))
+        if(!inside(PlaneA, PlaneB, PlaneC, vVert, vInnerPlanes))
           continue;
 
         vCellVert.push_back(vVert);
@@ -240,9 +247,12 @@ double CDirichletTesselation::build_polygon_in_plane(const CPlane& plane, const 
 
 // When the vertices in the polygon are ordered, the square can be easily found:
   double fSquare = 0;
-  size_t nPolyCount = vPoly.size();
-  for(size_t k = 1; k < nPolyCount; k++)
-    fSquare += 0.5 * (vPoly.at(k - 1) * vPoly.at(k)).length();
+  size_t nPolyCount = vPoly.size(), k1;
+  for(size_t k = 0; k < nPolyCount; k++)
+  {
+    k1 = k < nPolyCount - 1 ? k + 1 : 0;
+    fSquare += 0.5 * (vPoly.at(k) * vPoly.at(k1)).length();
+  }
 
   return fSquare;
 }
@@ -312,14 +322,16 @@ bool CDirichletTesselation::three_planes_intersect(const CPlane& faceA, const CP
   return true;
 }
 
-bool CDirichletTesselation::inside(const Vector3D& vPos, const CPlanesSet& vPlanes) const
+bool CDirichletTesselation::inside(const CPlane& a, const CPlane& b, const CPlane& c, const Vector3D& vPos, const CPlanesSet& vPlanes) const
 {
   size_t nFaceCount = vPlanes.size();
   for(size_t i = 0; i < nFaceCount; i++)
   {
     const CPlane& plane = vPlanes.at(i);
-// The criterion is different from that of CPlane::inside() to make the points belonging to the plane satisfy it.
-    if(((vPos - plane.pos) & plane.norm) > Const_Almost_Zero)
+    if(plane == a || plane == b || plane == c)
+      continue;
+
+    if(!plane.inside(vPos))
       return false;
   }
 
@@ -333,32 +345,82 @@ double CDirichletTesselation::angle_0_360(const Vector3D& vA, const Vector3D& vB
   return fProj > 0 ? fPhi : Const_2PI - fPhi;
 }
 
-void CDirichletTesselation::additional_plane(CPlanesSet& vPlanes, CNode3D* pNode) const
+void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* pNode, const CNodesCollection& vNodes) const
 {
-  Vector3D vNorm(0, 0, 0);
-  const CRegionsCollection& vRegs = m_pMesh->get_regions();
-  size_t nRegCount = vRegs.size(), nReg, nFace;
+  CNode3D* pNbrNode = NULL;
+  Vector3D vC = pNode->pos, e;
+  float Axx = 0, Axy = 0, Axz = 0, Ayy = 0, Ayz = 0, Azz = 0, fDet, fDist;
 
-  size_t nNbrCount = pNode->vNbrFaces.size(); // count of neighboring FACES.
+  size_t nNbrCount = pNode->vNbrNodes.size();
+
+  pCell->nFaceCount = nNbrCount;
+  pCell->pNbrDist = new float[nNbrCount];
+  pCell->pFaceSquare = new float[10];      // Cxx, Cxy, Cxz, Cyy, Cyz, Czz, fDet, nx, ny, nz.
+
   for(size_t i = 0; i < nNbrCount; i++)
   {
-    nReg = pNode->vNbrFaces.at(i).nReg;
-    if(nReg >= nRegCount)
-      continue;
+    pNbrNode = vNodes.at(pNode->vNbrNodes.at(i));
+    e = pNbrNode->pos - vC;
+    fDist = e.length();
+    pCell->pNbrDist[i] = fDist;
+    e /= fDist;
 
-    nFace = pNode->vNbrFaces.at(i).nFace;
-    if(nFace >= vRegs.at(nReg)->vFaces.size())
-      continue;
-
-    vNorm += vRegs.at(nReg)->vFaces.at(nFace)->norm;
+    Axx += e.x * e.x;
+    Axy += e.x * e.y;
+    Axz += e.x * e.z;
+    Ayy += e.y * e.y;
+    Ayz += e.y * e.z;
+    Azz += e.z * e.z;
   }
 
-  vNorm.normalize();
-  CPlane plane(pNode->pos, vNorm);
-  vPlanes.push_back(plane);
+  Matrix3D m(Axx, Axy, Axz, Axy, Ayy, Ayz, Axz, Ayz, Azz);
+  fDet = m.det();
+
+  float Cxx = Ayy * Azz - Ayz * Ayz;
+  float Cxy = Axz * Ayz - Axy * Azz;
+  float Cxz = Axy * Ayz - Axz * Ayy;
+  float Cyy = Axx * Azz - Axz * Axz;
+  float Cyz = Axy * Axz - Axx * Ayz;
+  float Czz = Axx * Ayy - Axy * Axy;
+
+  pCell->pFaceSquare[0] = Cxx;
+  pCell->pFaceSquare[1] = Cxy;
+  pCell->pFaceSquare[2] = Cxz;
+  pCell->pFaceSquare[3] = Cyy;
+  pCell->pFaceSquare[4] = Cyz;
+  pCell->pFaceSquare[5] = Czz;
+  pCell->pFaceSquare[6] = fDet;
 }
 
-Vector3D CDirichletTesselation::get_norm_vector(size_t nNodeId, size_t nNbrId) const
+Matrix3D CDirichletTesselation::get_bound_cell_mtx(CDirichletCell* pCell) const
+{
+  Matrix3D m(pCell->pFaceSquare[0], pCell->pFaceSquare[1], pCell->pFaceSquare[2],
+             pCell->pFaceSquare[1], pCell->pFaceSquare[3], pCell->pFaceSquare[4],
+             pCell->pFaceSquare[2], pCell->pFaceSquare[4], pCell->pFaceSquare[5]);
+
+  return m;
+}
+
+Vector3D CDirichletTesselation::get_bound_cell_grad(CDirichletCell* pCell, CNode3D* pNode, const std::vector<float>& vScalarField) const
+{
+  float fPhi, fPhiC = vScalarField.at(pNode->nInd);
+  Vector3D b(0, 0, 0), e;
+  for(size_t i = 0; i < pCell->nFaceCount; i++)
+  {
+    fPhi = vScalarField.at(pNode->vNbrNodes.at(i));
+
+    e = get_neighbor_vector(pNode->nInd, i) / pCell->pNbrDist[i];
+
+    b += e * ((fPhi - fPhiC) / pCell->pNbrDist[i]);
+  }
+
+  Matrix3D m = get_bound_cell_mtx(pCell); // matrix C.
+  Vector3D vG = m * b;
+  vG /= pCell->pFaceSquare[6];  // determinant of matrix A.
+  return vG;
+}
+
+Vector3D CDirichletTesselation::get_neighbor_vector(size_t nNodeId, size_t nNbrId) const
 {
   CNodesCollection& vNodes = m_pMesh->get_nodes();
   CNode3D* pNode = vNodes.at(nNodeId);
