@@ -105,23 +105,20 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
 
   if(bMultiThread)
   {
-    CNode3D* pNode;
-    CDirichletCell* pCell;
-    float fDiagCoeff;
     for(UINT k = 0; k < nIterCount; k++)
     {
-// Following [AC] in CDirichletTesselation::init() make the calculations parallel:
+		set_progress(100 * (k + 1) / nIterCount);
+
       ThreadPool::splitInPar(vNodes.size(),
 	      [&](size_t i) 
         {
-	        pNode = vNodes[i];
-          pCell = m_pTess->get_cell(i);
-          fDiagCoeff = m_vDiagCoeff.at(i);
-          nType = m_vRes.at(i).nType;
+		  CNode3D* pNode = vNodes[i];
+		  CDirichletCell* pCell = m_pTess->get_cell(i);
+          float fDiagCoeff = m_vDiagCoeff.at(i);
+          int nType = m_vRes.at(i).nType;
           if(nType != 1)
 	          m_vRes[i].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
-        },
-	        static_cast<CObject*>(this));
+        });
 
       fMaxRelErr = get_max_relative_error();
 
@@ -137,16 +134,25 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
   {
     for(UINT i = 0; i < nIterCount; i++)
     {
-      set_progress(100 * (i + 1) / nIterCount);
+		set_progress(100 * (i + 1) / nIterCount);
+		for (size_t j = 0; j < vNodes.size(); ++j)
+		{
+			CNode3D* pNode = vNodes[j];
+			CDirichletCell * pCell = m_pTess->get_cell(j);
+			double fDiagCoeff = m_vDiagCoeff.at(j);
+			nType = m_vRes.at(j).nType;
+			if (nType != 1)
+				m_vRes[j].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+		}
 
-      fMaxRelErr = one_iter();
+		fMaxRelErr = get_max_relative_error();
 
-      info.vMaxErrHist.at(i) = fMaxRelErr;
-      if(fMaxRelErr <= fTol)
-      {
-        info.bSuccess = true;
-        break;
-      }
+		info.vMaxErrHist.at(i) = fMaxRelErr;
+		if (fMaxRelErr <= fTol)
+		{
+			info.bSuccess = true;
+			break;
+		}
     }
   }
 
