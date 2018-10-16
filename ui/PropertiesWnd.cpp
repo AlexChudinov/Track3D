@@ -667,6 +667,11 @@ void CPropertiesWnd::OnTabSelChange(NMHDR* pNMHDR, LRESULT* pLResult)
     int nSel = m_wndTabCtrl.GetCurSel();
     m_wndTabCtrl.HighlightItem(nSel, TRUE);
     set_update_all();
+
+    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->hide_selected();
+    pDrawObj->clear_selected_faces();
+    pDrawObj->draw();
   }
 }
 

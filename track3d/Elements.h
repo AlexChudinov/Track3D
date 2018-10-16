@@ -53,17 +53,17 @@ typedef std::vector<UINT> CIndexVector;
 struct CNode3D : public BlockAllocator<CNode3D>
 {
   CNode3D()
-    : dens(0), press(0), temp(0), visc(0), cond(0), cp(0), nInd(0)
+    : nInd(0), dens(0), press(0), temp(0), visc(0), cond(0), cp(0), phi(0)
   {
   }
 
   CNode3D(const Vector3D& p)
-    : pos(p), dens(0), press(0), temp(0), visc(0), cond(0), cp(0), nInd(0)
+    : nInd(0), pos(p), dens(0), press(0), temp(0), visc(0), cond(0), cp(0), phi(0)
   {
   }
 
   CNode3D(const Vector3D& p, const Vector3D& v, const Vector3D& dcE, const Vector3D& rfE, float den, float pres, float tmp, float vis, float con, float hcp)
-    : pos(p), vel(v), field(dcE), rf(rfE), dens(den), press(pres), temp(tmp), visc(vis), cond(con), cp(hcp), nInd(0)
+    : nInd(0), pos(p), vel(v), field(dcE), rf(rfE), dens(den), press(pres), temp(tmp), visc(vis), cond(con), cp(hcp), phi(0)
   {
   }
 
@@ -81,9 +81,8 @@ struct CNode3D : public BlockAllocator<CNode3D>
             visc,   // dynamic viscosity.
             cond,   // thermal conductivity.
             cp;     // specific heat capacity at constant pressure.
-// DEBUG
+
   float     phi;    // electric potential.
-// END DEBUG
 
   void      set_data(float fPress, float fDens, float fTemp, float fVisc, float fCond, float fCp,
               const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField, const Vector3D& vClmb = Vector3D(0, 0, 0));

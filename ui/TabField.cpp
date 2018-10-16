@@ -36,7 +36,7 @@ void CPropertiesWnd::add_field_ctrls()
     m_wndPropList.AddProperty(pCheckBox);
 
     COleVariant var(CElectricFieldData::get_field_type_name(pData->get_type()));
-    CMFCPropertyGridProperty* pFieldType = new CMFCPropertyGridProperty(_T("Field Type (DC, RF or Mirror)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency or Coulomb Mirror field."), pData->get_type_ptr());
+    CGeneralResponseProperty* pFieldType = new CGeneralResponseProperty(this, _T("Field Type (DC, RF or Mirror)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency or Coulomb Mirror field."), pData->get_type_ptr());
     for(int k = CElectricFieldData::typeFieldDC; k < CElectricFieldData::typeCount; k++)
       pFieldType->AddOption(CElectricFieldData::get_field_type_name(k));
 
@@ -62,29 +62,48 @@ void CPropertiesWnd::add_field_ctrls()
     CCalcFieldButton* pCalcField = new CCalcFieldButton(this, _T("Calculate Field"), cDummy, _T("Click this button to start field calculation."), (DWORD_PTR)pData);
     m_wndPropList.AddProperty(pCalcField);
 
-    pProp = new CMFCPropertyGridProperty(_T("Iterations Count"), COleVariant((long)pData->get_iter_count()), _T("Set the count of iterations for the Laplacian Soilver."), pData->get_iter_count_ptr());
-    m_wndPropList.AddProperty(pProp);
+// Solver parameters (iterations count, tolerance, multithreading):
+    CMFCPropertyGridProperty* pSolverParamGroup = new CMFCPropertyGridProperty(_T("Solver Parameters"));
+
+    pProp = new CMFCPropertyGridProperty(_T("Max. Iterations Count"), COleVariant((long)pData->get_iter_count()), _T("Set the maximal count of iterations for the Laplacian Solver."), pData->get_iter_count_ptr());
+    pSolverParamGroup->AddSubItem(pProp);
+
+    pProp = new CMFCPropertyGridProperty(_T("Tolerance"), COleVariant(pData->get_tol()), _T("Specify tolerance for the Laplacian Solver. Note: if the maxinal relative error becomes less than the tolerance, the solution terminates."), pData->get_tol_ptr());
+    pSolverParamGroup->AddSubItem(pProp);
+
+// Enable / disable multithreading during field calculation.
+    CCheckBoxButton* pEnableMultiThread = new CCheckBoxButton(this, _T("Enable Multithreading"), (_variant_t)pData->get_enable_multithread(), _T("Click this check-box to enable / disable multithreading during calculation of this field."), pData->get_enable_multithread_ptr());
+    pSolverParamGroup->AddSubItem(pEnableMultiThread);
+
+    m_wndPropList.AddProperty(pSolverParamGroup);
 
 // An attempt to simulate analytic RF field in the flatapole. Alpha version.
-    CMFCPropertyGridProperty* pAnalytGroup = new CMFCPropertyGridProperty(_T("Analytic RF Field"));
-    CCheckBoxButton* pEnableAnalytCheck = new CCheckBoxButton(this, _T("Enable Analyt RF Field"), (_variant_t)pData->get_analyt_field(), _T("Enable / disable the analytic expression of RF field (in flatapole). This is the alpha version."), pData->get_analyt_field_ptr());
-    pAnalytGroup->AddSubItem(pEnableAnalytCheck);
+    if(pData->get_type() == CElectricFieldData::typeFieldRF)
+    {
+      CMFCPropertyGridProperty* pAnalytGroup = new CMFCPropertyGridProperty(_T("Analytic RF Field"));
+      CCheckBoxButton* pEnableAnalytCheck = new CCheckBoxButton(this, _T("Enable Analyt RF Field"), (_variant_t)pData->get_analyt_field(), _T("Enable / disable the analytic expression of RF field (in flatapole). This is the alpha version."), pData->get_analyt_field_ptr());
+      pAnalytGroup->AddSubItem(pEnableAnalytCheck);
 
-    pProp = new CMFCPropertyGridProperty(_T("Low X Limit, mm"), COleVariant(10 * pData->get_low_analyt_lim()), _T("Currently the analytic model of the RF field is applied when X is greater than this value."), pData->get_low_analyt_lim_ptr());
-    pAnalytGroup->AddSubItem(pProp);
+      pProp = new CMFCPropertyGridProperty(_T("Low X Limit, mm"), COleVariant(10 * pData->get_low_analyt_lim()), _T("Currently the analytic model of the RF field is applied when X is greater than this value."), pData->get_low_analyt_lim_ptr());
+      pAnalytGroup->AddSubItem(pProp);
 
-    pProp = new CMFCPropertyGridProperty(_T("Inscribed Radius, mm"), COleVariant(10 * pData->get_inscr_radius()), _T("Currently the analytic model of the RF field simulates an ideal quadrupole field. This is the radius of an inscribed circle between the electrodes."), pData->get_inscr_radius_ptr());
-    pAnalytGroup->AddSubItem(pProp);
+      pProp = new CMFCPropertyGridProperty(_T("Inscribed Radius, mm"), COleVariant(10 * pData->get_inscr_radius()), _T("Currently the analytic model of the RF field simulates an ideal quadrupole field. This is the radius of an inscribed circle between the electrodes."), pData->get_inscr_radius_ptr());
+      pAnalytGroup->AddSubItem(pProp);
 
-    m_wndPropList.AddProperty(pAnalytGroup);
+      m_wndPropList.AddProperty(pAnalytGroup);
+    }
+
+    CMFCPropertyGridProperty* pButtonsGroup = new CMFCPropertyGridProperty(_T("Actions"));
 
 // Remove field button:
     CRemoveFieldButton* pRemField = new CRemoveFieldButton(this, _T("Remove this Field"), cDummy, _T("Click this button to remove the field from the scene."), (DWORD_PTR)pData);
-    m_wndPropList.AddProperty(pRemField);
+    pButtonsGroup->AddSubItem(pRemField);
 
 // Add boundary conditions button:
     CAddFieldBoundCondButton* pAddBCButon = new CAddFieldBoundCondButton(this, _T("Add Boundary Conditions"), cDummy, _T("Click to add boundary conditions for this field."), (DWORD_PTR)pData);
-    m_wndPropList.AddProperty(pAddBCButon);
+    pButtonsGroup->AddSubItem(pAddBCButon);
+
+    m_wndPropList.AddProperty(pButtonsGroup);
 
 // Boundary conditions themselves:
     size_t nBoundCondCount = pData->get_bc_count();
@@ -94,28 +113,80 @@ void CPropertiesWnd::add_field_ctrls()
       CMFCPropertyGridProperty* pBoundCondGroup = new CMFCPropertyGridProperty(pBC->sName.c_str());
 
       COleVariant var1(CPotentialBoundCond::get_bc_type_name(pBC->nType));
-      CMFCPropertyGridProperty* pBCType = new CMFCPropertyGridProperty(_T("Boundary Conditions Type"), var1, _T("Set the boundary conditions type."), (DWORD_PTR)&(pBC->nType));
+      CGeneralResponseProperty* pBCType = new CGeneralResponseProperty(this, _T("Boundary Conditions Type"), var1, _T("Set the boundary conditions type (fixed value or zero normal derivative)."), (DWORD_PTR)&(pBC->nType));
       pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::FIXED_VAL));
       pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD));
       pBoundCondGroup->AddSubItem(pBCType);
 
-      COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
-//      CMFCPropertyGridProperty* pBCValue = new CMFCPropertyGridProperty(_T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
-      CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
-      for(int k = CPotentialBoundCond::fvPlusUnity; k < CPotentialBoundCond::fvCount; k++)
-        pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(k));
-
-      pBoundCondGroup->AddSubItem(pBCValue);
-
-      if(pBC->nFixedValType == CPotentialBoundCond::fvStepLike)
+      if(pBC->nType == BoundaryMesh::FIXED_VAL)
       {
-        CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Step-Wise Boundary Conditions"));
+        COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
+        CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
+        for(int k = CPotentialBoundCond::fvPlusUnity; k < CPotentialBoundCond::fvCount; k++)
+          pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(k));
 
-        pProp = new CMFCPropertyGridProperty(_T("Start X, mm"), COleVariant(10 * pBC->fStartX), _T("Specify the X-coordinate of beginning of the first step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fStartX));
+        pBoundCondGroup->AddSubItem(pBCValue);
+      }
+
+      if(pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsX || pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsY)
+      {
+        CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Linear Step-Wise Potential"));
+
+        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
+        CString cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStartX), cHint, (DWORD_PTR)&(pBC->fStartX));
         pStepWiseGroup->AddSubItem(pProp);
-        pProp = new CMFCPropertyGridProperty(_T("Step X, mm"), COleVariant(10 * pBC->fStepX), _T("Specify the width of the X-step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fStepX));
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
         pStepWiseGroup->AddSubItem(pProp);
-        pProp = new CMFCPropertyGridProperty(_T("End X, mm"), COleVariant(10 * pBC->fEndX), _T("Specify the X-coordinate of end of the last step in the step-wise potentials set."), (DWORD_PTR)&(pBC->fEndX));
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fEndX), cHint, (DWORD_PTR)&(pBC->fEndX));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fEndPhi), cHint, (DWORD_PTR)&(pBC->fEndPhi));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        pBoundCondGroup->AddSubItem(pStepWiseGroup);
+      }
+
+      if(pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsX || pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsY)
+      {
+        CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Quadric Step-Wise Potential"));
+
+        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
+        CString cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStartX), cHint, (DWORD_PTR)&(pBC->fStartX));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fEndX), cHint, (DWORD_PTR)&(pBC->fEndX));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fStartPhi), cHint, (DWORD_PTR)&(pBC->fStartPhi));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitFirstStepPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitFirstStepPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fFirstStepPhi), cHint, (DWORD_PTR)&(pBC->fFirstStepPhi));
+        pStepWiseGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitLastStepPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitLastStepPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fLastStepPhi), cHint, (DWORD_PTR)&(pBC->fLastStepPhi));
         pStepWiseGroup->AddSubItem(pProp);
 
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
@@ -191,6 +262,10 @@ void CPropertiesWnd::set_field_data()
     if(pProp != NULL)
       pData->set_iter_count(pProp->GetValue().lVal);
 
+    pProp = m_wndPropList.FindItemByData(pData->get_tol_ptr());
+    if(pProp != NULL)
+      pData->set_tol(pProp->GetValue().dblVal);
+
     pProp = m_wndPropList.FindItemByData(pData->get_low_analyt_lim_ptr());
     if(pProp != NULL)
       pData->set_low_analyt_lim(0.1 * pProp->GetValue().dblVal);
@@ -208,11 +283,15 @@ void CPropertiesWnd::set_field_data()
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nType));
       if(pProp != NULL)
       {
+        bool bRecalc = false;
         CString cBCType = (CString)pProp->GetValue();
         if(cBCType == CPotentialBoundCond::get_bc_type_name(BoundaryMesh::FIXED_VAL))
-          pBC->nType = BoundaryMesh::FIXED_VAL;
+          bRecalc = pBC->set_bc_type(BoundaryMesh::FIXED_VAL);
         if(cBCType == CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD))
-          pBC->nType = BoundaryMesh::ZERO_GRAD;
+          bRecalc = pBC->set_bc_type(BoundaryMesh::ZERO_GRAD);
+
+        if(bRecalc)
+          pData->invalidate();
       }
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nFixedValType));
@@ -223,7 +302,8 @@ void CPropertiesWnd::set_field_data()
         {
           if(cBCValue == CPotentialBoundCond::get_fixed_value_name(i))
           {
-            pBC->nFixedValType = i;
+            if(pBC->set_fixed_val_type(i))
+              pData->invalidate();
             break;
           }
         }
@@ -231,15 +311,52 @@ void CPropertiesWnd::set_field_data()
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartX));
       if(pProp != NULL)
-        pBC->fStartX = 0.1 * pProp->GetValue().dblVal;
+      {
+        if(pBC->set_start_coord(0.1 * pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStepX));
       if(pProp != NULL)
-        pBC->fStepX = 0.1 * pProp->GetValue().dblVal;
+      {
+        if(pBC->set_step_coord(0.1 * pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
 
       pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fEndX));
       if(pProp != NULL)
-        pBC->fEndX = 0.1 * pProp->GetValue().dblVal;
+      {
+        if(pBC->set_end_coord(0.1 * pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fEndPhi));
+      if(pProp != NULL)
+      {
+        if(pBC->set_end_phi(pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartPhi));
+      if(pProp != NULL)
+      {
+        if(pBC->set_start_phi(pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fFirstStepPhi));
+      if(pProp != NULL)
+      {
+        if(pBC->set_first_dphi(pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fLastStepPhi));
+      if(pProp != NULL)
+      {
+        if(pBC->set_last_dphi(pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
     }
   }
 }

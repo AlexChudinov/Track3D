@@ -418,6 +418,8 @@ IMPLEMENT_DYNAMIC(CAddFieldBoundCondButton, CProprtyListButton)
 
 void CAddFieldBoundCondButton::OnClickButton(CPoint point)
 {
+  m_pWndProp->set_data_to_model();
+
   EvaporatingParticle::CElectricFieldData* pData = (EvaporatingParticle::CElectricFieldData*)m_dwData;
   pData->add_bc();
 

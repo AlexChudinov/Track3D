@@ -180,6 +180,7 @@ public:
   bool              get_sel_flag() const;
   void              enter_sel_context(CNamesVector* pRegNames, bool bAllowSel = true);
   void              exit_sel_context(CNamesVector* pRegNames);
+  void              clear_selected_faces();
   void              hide_selected();
 
   bool              get_ctrl_pressed() const;
@@ -601,6 +602,11 @@ inline void CTrackDraw::invalidate_contours()
 inline bool CTrackDraw::is_busy()
 {
   return m_bBusy;
+}
+
+inline void CTrackDraw::clear_selected_faces()
+{
+  m_vSelFaceVert.clear();
 }
 
 };  // namespace EvaporatingParticle

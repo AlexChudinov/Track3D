@@ -537,7 +537,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
   if((nErr == 0) && (pStream != NULL))
   {
     fputs("Count of charges = ", pStream);
-    fprintf(pStream, "%d\n", m_pBarnesHut->get_main_cell()->charges.size());
+    fprintf(pStream, "%zd\n", m_pBarnesHut->get_main_cell()->charges.size());
     fclose(pStream);
   }
 // END DEBUG

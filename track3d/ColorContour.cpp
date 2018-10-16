@@ -241,7 +241,7 @@ void CColorContour::draw()
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
 
-    glColor3ub(0, 0, 64);
+    glColor3ub(255, 255, 255);
     UINT nStride = 3 * sizeof(GLdouble);
     glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vIsolines[0].x));
 

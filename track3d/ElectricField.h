@@ -20,11 +20,14 @@ struct CPotentialBoundCond
 
   enum  // fixed value types:
   {
-    fvPlusUnity   = 0,
-    fvMinusUnity  = 1,
-    fvStepLike    = 2,
-    fvCoulomb     = 3,    // attempt to calculate a mirror Coulomb field.
-    fvCount       = 4
+    fvPlusUnity     = 0,
+    fvMinusUnity    = 1,
+    fvLinearStepsX  = 2,
+    fvLinearStepsY  = 3,
+    fvQuadricStepsX = 4,
+    fvQuadricStepsY = 5,
+    fvCoulomb       = 6,    // attempt to calculate a mirror Coulomb field.
+    fvCount         = 7
   };
 
   BoundaryMesh::BoundaryType    nType;
@@ -38,21 +41,147 @@ struct CPotentialBoundCond
 // Step-like potential:
   double                        fStartX,
                                 fStepX,
-                                fEndX;
+                                fEndX,
+// Dimensionless value of potential at the end of the interval. Corresponding "fStartPhi" is assumed always to be unity. Linear potential only.
+                                fEndPhi;
+
+// Step-like potential (quadric):
+  double                        fStartPhi,      // absolute value of the potential on the first electrode.
+                                fFirstStepPhi,  // absolute value of the potential gradient between the centers of the first and second steps.
+                                fLastStepPhi;   // absolute value of the potential gradient between the centers of the last but one and last steps.
+
+// All changes in boundary conditions MUST result in the field re-calculation. The following functions return "true" if something changes.
+  bool                          set_bc_type(BoundaryMesh::BoundaryType nNewType);
+  bool                          set_fixed_val_type(int nNewType);
+
+  bool                          set_start_coord(double fNewCoord);
+  bool                          set_end_coord(double fNewCoord);
+  bool                          set_step_coord(double fNewStep);
+
+  bool                          set_start_phi(double fNewPhi);
+  bool                          set_end_phi(double fNewPhi);
+
+  bool                          set_first_dphi(double fNewdPhi);
+  bool                          set_last_dphi(double fNewdPhi);
+
 
   static const char*            get_bc_type_name(BoundaryMesh::BoundaryType nType);
   static const char*            get_fixed_value_name(int nType);
 
+  enum // user interface control type.
+  {
+    uitStartX       = 0,
+    uitStepX        = 1,
+    uitEndX         = 2,
+    uitStartPhi     = 3,
+    uitEndPhi       = 4,
+    uitFirstStepPhi = 5,
+    uitLastStepPhi  = 6
+  };
+
+  static const char*            get_control_title(int nFixedValType, int nCtrlType);
+  static const char*            get_hint(int nFixedValType, int nCtrlType);
+
   void                          save(CArchive& ar);
   void                          load(CArchive& ar);
 };
+
+inline bool CPotentialBoundCond::set_bc_type(BoundaryMesh::BoundaryType nNewType)
+{
+  if(nType != nNewType)
+  {
+    nType = nNewType;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_fixed_val_type(int nNewType)
+{
+  if(nFixedValType != nNewType)
+  {
+    nFixedValType = nNewType;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_start_coord(double fNewCoord)
+{
+  if(fStartX != fNewCoord)
+  {
+    fStartX = fNewCoord;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_end_coord(double fNewCoord)
+{
+  if(fEndX != fNewCoord)
+  {
+    fEndX = fNewCoord;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_step_coord(double fNewStep)
+{
+  if(fStepX != fNewStep)
+  {
+    fStepX = fNewStep;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_start_phi(double fNewPhi)
+{
+  if(fStartPhi != fNewPhi)
+  {
+    fStartPhi = fNewPhi;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_end_phi(double fNewPhi)
+{
+  if(fEndPhi != fNewPhi)
+  {
+    fEndPhi = fNewPhi;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_first_dphi(double fNewdPhi)
+{
+  if(fFirstStepPhi != fNewdPhi)
+  {
+    fFirstStepPhi = fNewdPhi;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_last_dphi(double fNewdPhi)
+{
+  if(fLastStepPhi != fNewdPhi)
+  {
+    fLastStepPhi = fNewdPhi;
+    return true;
+  }
+  return false;
+}
 
 struct CNode3D;
 struct CRegion;
 class CFiniteVolumesSolver;
 typedef std::vector<CPotentialBoundCond*> CPotentialBoundCondColl;
 //---------------------------------------------------------------------------------------
-// CElectricFieldData - an auxiliary class for simulating scalable electric fields.
+// CElectricFieldData - a class for simulating scalable electric fields.
 //---------------------------------------------------------------------------------------
 class CElectricFieldData : public CObject
 {
@@ -79,6 +208,13 @@ public:
 
   bool                    get_enable_field() const;
   DWORD_PTR               get_enable_field_ptr() const;
+
+  bool                    get_enable_multithread() const;
+  DWORD_PTR               get_enable_multithread_ptr() const;
+
+  double                  get_tol() const;
+  DWORD_PTR               get_tol_ptr() const;
+  void                    set_tol(double fTol);
 
   int                     get_calc_method() const;
   DWORD_PTR               get_calc_method_ptr() const;
@@ -137,6 +273,7 @@ public:
 
 protected:
   void                    set_default();
+  CString                 default_name();
   void                    clear_bc();
 
   CRegion*                get_region(const std::string& sName) const; // returns a region pointer by its name or NULL if the name is not found.
@@ -151,7 +288,8 @@ protected:
 
   void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
 
-  double                  step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const; // step-wise boundary conditions support.
+  double                  linear_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const;  // linear step-wise boundary conditions support.
+  double                  quadric_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const; // parabolic step-wise boundary conditions support.
   bool                    coulomb_potential(const CIndexVector& vNodeIds, std::vector<float>& vPhi) const;  // Coulomb boundary conditions support.
 
   Vector3D                calc_norm(CNode3D* pNode) const;
@@ -166,7 +304,9 @@ protected:
   bool                    calc_finite_vol_jacobi(bool bTest);
 
 private:
-  bool                    m_bEnable;
+  bool                    m_bEnable,
+                          m_bMultiThread; // for tests, never saved to the stream.
+
   int                     m_nCalcMethod,
                           m_nType;
 
@@ -174,6 +314,7 @@ private:
                           m_fOmega;       // circular frequency, for radio-frequency fields only.
 
   UINT                    m_nIterCount;
+  double                  m_fTol;       // tolerance: if the maxinal relative error becomes less than m_fTol, the solution terminates.
 
   CPotentialBoundCondColl m_vBoundCond;
 
@@ -258,6 +399,35 @@ inline bool CElectricFieldData::get_enable_field() const
 inline DWORD_PTR CElectricFieldData::get_enable_field_ptr() const
 {
   return (DWORD_PTR)&m_bEnable;
+}
+
+inline bool CElectricFieldData::get_enable_multithread() const
+{
+  return m_bMultiThread;
+}
+
+inline DWORD_PTR CElectricFieldData::get_enable_multithread_ptr() const
+{
+  return (DWORD_PTR)&m_bMultiThread;
+}
+
+inline double CElectricFieldData::get_tol() const
+{
+  return m_fTol;
+}
+
+inline DWORD_PTR CElectricFieldData::get_tol_ptr() const
+{
+  return (DWORD_PTR)&m_fTol;
+}
+
+inline void CElectricFieldData::set_tol(double fTol)
+{
+  if(m_fTol != fTol)
+  {
+    m_fTol = fTol;
+    m_bNeedRecalc = true;
+  }
 }
 
 inline int CElectricFieldData::get_type() const

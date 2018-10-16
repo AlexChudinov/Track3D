@@ -21,9 +21,15 @@ namespace EvaporatingParticle
 CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int val)
   : nType(type), nFixedValType(val), bVisible(true)
 {
-  fStartX = 13.225;
+  fStartX = 6.0;
   fStepX = 0.1;
-  fEndX = 5.825;
+  fEndX = 12.0;
+// Linear potential function:
+  fEndPhi = 0;
+// Parabolic potential function:
+  fStartPhi = 130;    // V.
+  fFirstStepPhi = 2;  // V.
+  fLastStepPhi = 4.7; // V.
 }
 
 const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nType)
@@ -31,7 +37,7 @@ const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nTy
   switch(nType)
   {
     case BoundaryMesh::FIXED_VAL: return _T("Fixed Value");
-    case BoundaryMesh::ZERO_GRAD: return _T("Zero Gradient");
+    case BoundaryMesh::ZERO_GRAD: return _T("Zero Normal Derivative");
   }
 
   return _T("None");
@@ -41,18 +47,56 @@ const char* CPotentialBoundCond::get_fixed_value_name(int nType)
 {
   switch(nType)
   {
-    case fvPlusUnity:   return _T("+1");
-    case fvMinusUnity:  return _T("-1");
-    case fvStepLike:    return _T("Stepwise Potential");
-    case fvCoulomb:     return _T("Coulomb Potential");
+    case fvPlusUnity:     return _T("+1");
+    case fvMinusUnity:    return _T("-1");
+    case fvLinearStepsX:  return _T("Linear X Stepwise Potential");
+    case fvLinearStepsY:  return _T("Linear Y Stepwise Potential");
+    case fvQuadricStepsX: return _T("Quadric X Stepwise Potential");
+    case fvQuadricStepsY: return _T("Quadric Y Stepwise Potential");
+    case fvCoulomb:       return _T("Coulomb Potential");
   }
 
   return _T("0");
 }
 
+const char* CPotentialBoundCond::get_control_title(int nFixedValType, int nCtrlType)
+{
+  bool bX = nFixedValType == fvLinearStepsX || nFixedValType == fvQuadricStepsX;
+  switch(nCtrlType)
+  {
+    case uitStartX:       return bX ? _T("Start X, mm") : _T("Start Y, mm");
+    case uitStepX:        return bX ? _T("Step X, mm") : _T("Step Y, mm");
+    case uitEndX:         return bX ? _T("End X, mm") : _T("End Y, mm");
+    case uitStartPhi:     return _T("Start Potential, V");
+    case uitEndPhi:       return _T("Dimensionless End Potential");
+    case uitFirstStepPhi: return _T("Potential Diff First, V");
+    case uitLastStepPhi:  return _T("Potential Diff Last, V");
+  }
+
+  return _T("");
+}
+
+const char* CPotentialBoundCond::get_hint(int nFixedValType, int nCtrlType)
+{
+  bool bX = nFixedValType == fvLinearStepsX || nFixedValType == fvQuadricStepsX;
+  CString csXY = bX ? _T("X") : _T("Y");
+  switch(nCtrlType)
+  {
+    case uitStartX:       return CString(_T("Specify the ")) + csXY + CString(_T("-coordinate (in mm) of the first electrode center in the step-wise potentials set."));
+    case uitStepX:        return CString(_T("Specify the ")) + csXY + CString(_T("-step (in mm) between centers of the electrodes."));
+    case uitEndX:         return CString(_T("Specify the ")) + csXY + CString(_T("-coordinate (in mm) of the last electrode center in the step-wise potentials set."));
+    case uitStartPhi:     return _T("Specify the start potential value in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
+    case uitEndPhi:       return _T("Dimensionless End Potential");
+    case uitFirstStepPhi: return _T("Set the potential difference between the second and first electrodes in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
+    case uitLastStepPhi:  return _T("Set the potential difference between the last and last but one electrodes in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
+  }
+
+  return _T("");
+}
+
 void CPotentialBoundCond::save(CArchive& ar)
 {
-  UINT nVersion = 2;  // 2 - hide/show regions; 1 - step-like potential is supported.
+  UINT nVersion = 3;  // 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
   ar << nVersion;
 
   int nIntType = (int)nType;
@@ -72,6 +116,11 @@ void CPotentialBoundCond::save(CArchive& ar)
   ar << fStartX;
   ar << fStepX;
   ar << fEndX;
+
+  ar << fStartPhi;
+  ar << fEndPhi;
+  ar << fFirstStepPhi;
+  ar << fLastStepPhi;
 
   ar << bVisible;
 }
@@ -104,6 +153,14 @@ void CPotentialBoundCond::load(CArchive& ar)
     ar >> fStartX;
     ar >> fStepX;
     ar >> fEndX;
+  }
+
+  if(nVersion >= 3)
+  {
+    ar >> fStartPhi;
+    ar >> fEndPhi;
+    ar >> fFirstStepPhi;
+    ar >> fLastStepPhi;
   }
 
   if(nVersion >= 2)
@@ -295,13 +352,15 @@ CElectricFieldData::~CElectricFieldData()
 void CElectricFieldData::set_default()
 {
   m_bEnable = true;
+  m_bMultiThread = true;  // for tests only, it is never saved to the stream.
   m_nCalcMethod = cmLaplacian3;   // the oldest and most tested method so far.
 
   m_fScale = 10 * SI_to_CGS_Voltage;  // 10 V in CGS.
   set_freq(1.0e+6);                   // 1 MHz by default.
 
   m_bNeedRecalc = true;
-  m_nIterCount = 100;
+  m_nIterCount = 3000;
+  m_fTol = 1e-5;
 
 // An attempt to get analytic field in the flatapole. Alpha version.
   m_bAnalytField = false;
@@ -309,10 +368,7 @@ void CElectricFieldData::set_default()
   m_fLowLimX = 14.7;  // cm, an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
   m_fHighLimX = 1e+5;
 
-// Default name of the field:
-  char buff[4];
-  int nFieldsCount = CParticleTrackingApp::Get()->GetFields()->size();
-  m_sName = CString("Electric Field # ") + CString(itoa(nFieldsCount + 1, buff, 10));
+  m_sName = default_name();
 }
 
 bool CElectricFieldData::calc_field(bool bTest)
@@ -320,7 +376,9 @@ bool CElectricFieldData::calc_field(bool bTest)
   if(!m_bEnable)
     return true;
 
-  if(!m_bNeedRecalc)
+  bool bOK = m_vField.size() == CParticleTrackingApp::Get()->GetTracker()->get_nodes().size();
+
+  if(!m_bNeedRecalc && bOK)
     return get_result(bTest);
 
   switch(m_nCalcMethod)
@@ -508,10 +566,9 @@ bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
 
   set_boundary_conditions(solver);
 
-  float fTol = 1e-5;
-
   CFloatArray vPhi;
-  CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi);
+  float fTol = (float)m_fTol;
+  CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi, m_bMultiThread);
 
   CNode3D* pNode = NULL;
   CNodesCollection& vNodes = pMesh->get_nodes();
@@ -587,9 +644,17 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
             solver.set_boundary_conditions(vRegNodeInd, -1);
             break;
           }
-          case CPotentialBoundCond::fvStepLike:
+          case CPotentialBoundCond::fvLinearStepsX:
+          case CPotentialBoundCond::fvLinearStepsY:
           {
-            fVal = (float)(step_potential(pBC, pReg->vFaces.at(0)->p0->pos));
+            fVal = (float)(linear_step_potential(pBC, pReg->vFaces.at(0)->p0->pos));
+            solver.set_boundary_conditions(vRegNodeInd, fVal);
+            break;
+          }
+          case CPotentialBoundCond::fvQuadricStepsX:
+          case CPotentialBoundCond::fvQuadricStepsY:
+          {
+            fVal = (float)(quadric_step_potential(pBC, pReg->vFaces.at(0)->p0->pos));
             solver.set_boundary_conditions(vRegNodeInd, fVal);
             break;
           }
@@ -642,10 +707,6 @@ bool CElectricFieldData::get_result(bool bTest) const
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-//    if(bTest)
-//    vNodes.at(i)->phi = m_vField[i].length();
-    vNodes.at(i)->clmb = Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z);
-
     if(m_nType == typeFieldDC)
       vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
     else if(m_nType == typeMirror)
@@ -802,7 +863,10 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
     {
       case CPotentialBoundCond::fvPlusUnity: fVal = 1.0; break;
       case CPotentialBoundCond::fvMinusUnity: fVal = -1.0; break;
-      case CPotentialBoundCond::fvStepLike: fVal = step_potential(pBC, pReg->vFaces.at(0)->p0->pos); break;
+      case CPotentialBoundCond::fvLinearStepsX:
+      case CPotentialBoundCond::fvLinearStepsY: fVal = linear_step_potential(pBC, pReg->vFaces.at(0)->p0->pos); break;
+      case CPotentialBoundCond::fvQuadricStepsX:
+      case CPotentialBoundCond::fvQuadricStepsY: fVal = quadric_step_potential(pBC, pReg->vFaces.at(0)->p0->pos); break;
     }
   }
     
@@ -811,29 +875,62 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
 	  std::vector<double>(mesh.boundaryMesh()->patchSize(sName), fVal));
 }
 
-double CElectricFieldData::step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
+double CElectricFieldData::linear_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
 {
-  double fX = vPos.x;
-  int nStepsCount = int(fabs(pBC->fEndX - pBC->fStartX) / pBC->fStepX);
-  double fPhiStep = 1. / nStepsCount;
-  if(pBC->fStartX < pBC->fEndX)
-  {
-    if(fX <= pBC->fStartX)
-      return 0;
-    else if(fX <= pBC->fEndX)
-      return fPhiStep * int((fX - pBC->fStartX) / pBC->fStepX);
-    else
-      return 1;
-  }
-  else
-  {
-    if(fX >= pBC->fStartX)
-      return 0;
-    else if(fX >= pBC->fEndX)
-      return fPhiStep * int((pBC->fStartX - fX) / pBC->fStepX);
-    else
-      return 1;
-  }
+  double x = pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsX ? vPos.x : vPos.y;
+
+  bool bCorrect = pBC->fStartX < pBC->fEndX;
+
+  double x0 = bCorrect ? pBC->fStartX : pBC->fEndX;
+  double x1 = bCorrect ? pBC->fEndX : pBC->fStartX;
+  if(fabs(x1 - x0) < Const_Almost_Zero)
+    return 0;
+
+  double phi0 = bCorrect ? 1.0 : pBC->fEndPhi;
+  double phi1 = bCorrect ? pBC->fEndPhi : 1.0;
+  double grad = (phi1 - phi0) / (x1 - x0);
+  double dx = fabs(pBC->fStepX);
+  if(dx < Const_Almost_Zero)
+    return 0;
+
+  if(x <= x0)
+    return phi0;
+  else if(x <= x1)
+    return phi0 + grad * floor((x - x0) / dx + 0.5)* dx;
+
+  return phi1;
+}
+
+double CElectricFieldData::quadric_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
+{
+  double x = pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsX ? vPos.x : vPos.y;
+
+  bool bCorrect = pBC->fStartX < pBC->fEndX;
+  if(!bCorrect)
+    return 0;
+
+  double x0 = pBC->fStartX;
+  double x1 = pBC->fEndX;
+  if(fabs(x1 - x0) < Const_Almost_Zero)
+    return 0;
+
+  double dx = fabs(pBC->fStepX);
+  if(dx < Const_Almost_Zero)
+    return 0;
+
+  double hdx = 0.5 * dx;
+  if(x < x0 - hdx || x > x1 + hdx)
+    return 0;
+
+  double dPhi0 = pBC->fFirstStepPhi / dx; // V/cm.
+  double dPhi1 = pBC->fLastStepPhi / dx;
+
+  double A = 0.5 * (dPhi1 - dPhi0) / (x1 - x0);
+  double B = (x1 * dPhi0 - x0 * dPhi1) / (x1 - x0);
+  double C = pBC->fStartPhi - A * x0 * x0 - B * x0;
+
+  double xs = x0 + floor((x - x0) / dx + 0.5) * dx;
+  return A * xs * xs + B * xs + C;
 }
 
 bool CElectricFieldData::coulomb_potential(const CIndexVector& vNodeIds, std::vector<float>& vPhi) const
@@ -1001,9 +1098,34 @@ void CElectricFieldData::notify_scene()
     pColl->at(i)->invalidate();
 }
 
+CString CElectricFieldData::default_name()
+{
+  CString sName;
+  char buff[4];
+  size_t nFieldsCount = CParticleTrackingApp::Get()->GetFields()->size();
+  bool bNameExists = true;
+  int nNmbr = 0;
+  while(bNameExists)
+  {
+    nNmbr++;
+    sName = CString("Electric Field # ") + CString(itoa(nNmbr, buff, 10));
+    bool bFound = false;
+    for(size_t i = 0; i < nFieldsCount; i++)
+    {
+      bFound = CParticleTrackingApp::Get()->GetFields()->at(i)->get_field_name() == sName;
+      if(bFound)
+        break;
+    }
+
+    bNameExists = bFound;
+  }
+
+  return sName;
+}
+
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 3;  // 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
+  UINT nVersion = 4;  // 4 - Tolerance; 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
   ar << nVersion;
 
   ar << m_bEnable;
@@ -1036,6 +1158,8 @@ void CElectricFieldData::save(CArchive& ar)
   ar << m_fLowLimX;     // an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
   ar << m_fHighLimX;
   ar << m_sName;
+
+  ar << m_fTol;
 }
 
 void CElectricFieldData::load(CArchive& ar)
@@ -1092,6 +1216,9 @@ void CElectricFieldData::load(CArchive& ar)
     ar >> m_fHighLimX;
     ar >> m_sName;
   }
+
+  if(nVersion >= 4)
+    ar >> m_fTol;
 }
 
 };  // namespace EvaporatingParticle.

@@ -165,9 +165,12 @@ void CTrackDraw::set_view(int nViewDir)
     {
       fSizeX = box.vMax.x - box.vMin.x;
       fSizeY = box.vMax.y - box.vMin.y;
-      fRotX = -70;
-      fRotY = 0;
-      fRotZ = -135;
+//      fRotX = -70;
+//      fRotY = 0;
+//      fRotZ = -135;
+      fRotX = 20;
+      fRotY = -150;
+      fRotZ = 0;
       break;
     }
     case dirPlusX:
@@ -727,6 +730,7 @@ void CTrackDraw::draw_flat()
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].x));
   glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].nx));
 
+  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 128.0f);
   glColor4ub(GetRValue(m_Color), GetGValue(m_Color), GetBValue(m_Color), (unsigned char)(255 * m_fOpacity));
   glDrawArrays(GL_TRIANGLES, 0, m_vFaceVert.size());
 
@@ -746,7 +750,8 @@ void CTrackDraw::draw_selected_faces()
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].x));
   glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].nx));
 
-  glColor4ub(130, 200, 130, (unsigned char)(255 * m_fOpacity));
+//  glColor4ub(130, 200, 130, (unsigned char)(255 * m_fOpacity)); // pale green.
+  glColor4ub(0, 200, 200, (unsigned char)(255 * m_fOpacity)); // bright cyan.
   glDrawArrays(GL_TRIANGLES, 0, m_vSelFaceVert.size());
 
   glDisableClientState(GL_NORMAL_ARRAY);
@@ -760,13 +765,12 @@ void CTrackDraw::set_global()
 void CTrackDraw::set_lights()
 {
   glEnable(GL_LIGHTING);
-
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
 
   float pLight_0_Dir[4] = { -0.5f, -1.0f, -1.0f, 0.0f };  // this is direction of the parallel type of light.
-  float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.2f, 1.0f };
+  float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.3f, 1.0f };
   float pLight_0_Diffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-  float pLight_0_Spec[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+  float pLight_0_Spec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
   glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
   glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
@@ -776,9 +780,9 @@ void CTrackDraw::set_lights()
   glEnable(GL_LIGHT0);
 
   float pLight_1_Dir[4] = { 0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
-  float pLight_1_Ambient[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+  float pLight_1_Ambient[4] = { 0.12f, 0.1f, 0.1f, 1.0f };
   float pLight_1_Diffuse[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-  float pLight_1_Spec[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+  float pLight_1_Spec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
   glLightfv(GL_LIGHT1, GL_POSITION, pLight_1_Dir);
   glLightfv(GL_LIGHT1, GL_AMBIENT, pLight_1_Ambient);
@@ -791,13 +795,10 @@ void CTrackDraw::set_lights()
 void CTrackDraw::set_materials()
 {
   glEnable(GL_COLOR_MATERIAL);
+    
   glDisable(GL_CULL_FACE);
   glDisable(GL_NORMALIZE);
 
-/*
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_FRONT);
-*/
   glEnable(GL_ALPHA_TEST);
 
   glEnable(GL_BLEND);
@@ -857,6 +858,8 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
 
   Vector3D w;
   screen_to_world(point, w);
+
+/*
   CBox& box = m_pTracker->get_box();
   bool bIntersect = (w.x >= box.vMin.x) && (w.x <= box.vMax.x)
                  && (w.y >= box.vMin.y) && (w.y <= box.vMax.y)
@@ -865,6 +868,10 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
   std::string cTextX = bIntersect ? "X = " + dbl_to_str(10 * w.x) : "";
   std::string cTextY = bIntersect ? "Y = " + dbl_to_str(10 * w.y) : "";
   std::string cTextZ = bIntersect ? "Z = " + dbl_to_str(10 * w.z) : "";
+*/
+  std::string cTextX = "X = " + dbl_to_str(10 * w.x);
+  std::string cTextY = "Y = " + dbl_to_str(10 * w.y);
+  std::string cTextZ = "Z = " + dbl_to_str(10 * w.z);
 
   CMainFrame* pMainWnd = (CMainFrame*)(CParticleTrackingApp::Get()->m_pMainWnd);
   if(pMainWnd == NULL)
