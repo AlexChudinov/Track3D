@@ -1,5 +1,6 @@
-#include "stdafx.h"
 #include <queue>
+#include <cassert>
+#include "stdafx.h"
 #include "MeshData.h"
 
 double CMeshAdapter::s_fEpsilon;
@@ -835,22 +836,42 @@ const CMeshConnectivity::NodeConnections& CMeshConnectivity::neighbor(Label i) c
 	return m_graph.at(i);
 }
 
-CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
+void CFieldOperator::applyToField(Field & f0, double * tol) const
 {
-	if (m_matrix.size() != f.size())
-		throw std::runtime_error("CFieldOperator::applyToField:"
-			" Matrix and field sizes are different!");
-	static Field result;
-	result.resize(f.size());
+	
+	assert(m_matrix.size() == f0.size());
+	static Field f1;
+	f1.resize(f0.size());
 
-	ThreadPool::splitInPar(f.size(), [&](size_t n)
+	if (tol)
 	{
-		result[n] = 0.0;
-		for (const MatrixCoef& c : m_matrix[n])
-			result[n] += f[c.first] * c.second;
-	});
+		static ThreadPool::Mutex mutex;
+		ThreadPool::splitInPar(f0.size(), [&](size_t n)
+		{
+			f1[n] = 0.0;
+			for (MatrixRow::const_reference c : m_matrix[n])
+				f1[n] += f0[c.first] * c.second;
 
-	return result;
+			double U = max(::fabs(f0[n]), ::fabs(f1[n]));
+			double dU = ::fabs(f0[n] - f1[n]);
+			ThreadPool::Locker lock(mutex);
+			*tol = max(*tol, dU / U);
+		});
+	}
+	else
+	{
+		ThreadPool::splitInPar(f0.size(), [&](size_t n)
+		{
+			f1[n] = 0.0;
+			for (MatrixRow::const_reference c : m_matrix[n])
+				f1[n] += f0[c.first] * c.second;
+		});
+	}
+
+	ThreadPool::splitInPar(f0.size(), [&](size_t n)
+	{
+		f0[n] = f1[n];
+	});
 }
 
 CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)

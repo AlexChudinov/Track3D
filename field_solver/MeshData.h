@@ -57,7 +57,7 @@ class COperator
 public:
 	using Field = std::vector<double>;
 
-	virtual Field applyToField(const Field& f) const = 0;
+	virtual void applyToField(Field& f, double * tol = nullptr) const = 0;
 
 	//It's important!!!
 	virtual ~COperator() {}
@@ -81,7 +81,7 @@ private:
 public:
 
 	//Applies operator to a field
-	Field applyToField(const Field& f) const;
+	void applyToField(Field& f, double * tol = nullptr) const;
 };
 
 // Addapts mesh to an external usage

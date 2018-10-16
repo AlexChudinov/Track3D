@@ -419,22 +419,22 @@ bool CElectricFieldData::calc_lap3(bool bTest)
       if(m_bTerminate)
         return false;
 
-      field = pOp->applyToField(field);
+      pOp->applyToField(field);
       set_progress(100 * i / m_nIterCount);
     }
 
 // Gradient calculation:
     CMeshAdapter::PScalFieldOp pGrad = mesh.createOperator(CMeshAdapter::GradX);
-    std::vector<double> dPhiDx(nNodesCount, 0.0);
-    dPhiDx = pGrad->applyToField(field);
+    std::vector<double> dPhiDx(field);
+    pGrad->applyToField(dPhiDx);
 
     pGrad = mesh.createOperator(CMeshAdapter::GradY);
-    std::vector<double> dPhiDy(nNodesCount, 0.0);
-    dPhiDy = pGrad->applyToField(field);
+    std::vector<double> dPhiDy(field);
+    pGrad->applyToField(dPhiDy);
 
     pGrad = mesh.createOperator(CMeshAdapter::GradZ);
-    std::vector<double> dPhiDz(nNodesCount, 0.0);
-    dPhiDz = pGrad->applyToField(field);
+    std::vector<double> dPhiDz(field);
+    pGrad->applyToField(dPhiDz);
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
     CBarnesHut* pBHObj = pObj->get_BH_object();
@@ -502,22 +502,22 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
       if(m_bTerminate)
         return false;
 
-      field = pOp->applyToField(field);
+      pOp->applyToField(field);
       set_progress(100 * i / m_nIterCount);
     }
 
 // Gradient calculation:
     DCMeshAdapter::PScalFieldOp pGrad = mesh.createOperator(DCMeshAdapter::GradX, NULL);
-    std::vector<double> dPhiDx(nNodesCount, 0.0);
-    dPhiDx = pGrad->applyToField(field);
+    std::vector<double> dPhiDx(field);
+    pGrad->applyToField(dPhiDx);
 
     pGrad = mesh.createOperator(DCMeshAdapter::GradY, NULL);
-    std::vector<double> dPhiDy(nNodesCount, 0.0);
-    dPhiDy = pGrad->applyToField(field);
+    std::vector<double> dPhiDy(field);
+    pGrad->applyToField(dPhiDy);
 
     pGrad = mesh.createOperator(DCMeshAdapter::GradZ, NULL);
-    std::vector<double> dPhiDz(nNodesCount, 0.0);
-    dPhiDz = pGrad->applyToField(field);
+    std::vector<double> dPhiDz(field);
+    pGrad->applyToField(dPhiDz);
 
 // DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
     CBarnesHut* pBHObj = pObj->get_BH_object();
