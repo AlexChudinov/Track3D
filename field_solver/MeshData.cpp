@@ -840,10 +840,12 @@ CFieldOperator::Field CFieldOperator::applyToField(const Field & f) const
 	if (m_matrix.size() != f.size())
 		throw std::runtime_error("CFieldOperator::applyToField:"
 			" Matrix and field sizes are different!");
-	Field result(f.size(), 0.0);
+	static Field result;
+	result.resize(f.size());
 
 	ThreadPool::splitInPar(f.size(), [&](size_t n)
 	{
+		result[n] = 0.0;
 		for (const MatrixCoef& c : m_matrix[n])
 			result[n] += f[c.first] * c.second;
 	});
