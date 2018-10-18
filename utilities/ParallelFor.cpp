@@ -22,15 +22,17 @@ ThreadPool& ThreadPool::getInstance()
 
 ThreadPool::Future ThreadPool::addTask(Fun&& task)
 {
-	Locker lock(getInstance().m_globalLock);
+	Locker lock(getInstance().m_startMutex);
 	getInstance().m_tasks.push(Task(task));
+	Future future = std::make_shared<std::future<void>>(getInstance().m_tasks.back().get_future());
+	lock.unlock();
 	getInstance().m_startCondition.notify_one();
-	return getInstance().m_tasks.back().get_future();
+	return future;
 }
 
 ThreadPool::Task ThreadPool::getTask()
 {
-	Locker lock(getInstance().m_globalLock);
+	Locker lock(getInstance().m_startMutex);
 	Task task(std::move(getInstance().m_tasks.front()));
 	getInstance().m_tasks.pop();
 	return task;
@@ -57,7 +59,7 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 		}));
 	}
 	std::for_each(vFutures.begin(), vFutures.end(), 
-		[](Future& future) { future.wait(); });
+		[](Future& future) { future->wait(); });
 }
 
 void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress, size_t nThreads)
@@ -96,7 +98,7 @@ void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Pr
 			}
 		}));
 	}
-	std::for_each(vFutures.begin(), vFutures.end(), [&](Future& future) { future.wait(); });
+	std::for_each(vFutures.begin(), vFutures.end(), [&](Future& future) { future->wait(); });
 }
 
 std::string ThreadPool::error()
@@ -111,7 +113,7 @@ void ThreadPool::threadEvtLoop()
 	{
 		while (!m_bStopFlag)
 		{
-			Locker lock(m_startMutex);
+			Locker lock(m_globalLock);
 			m_startCondition.wait(lock, [&]()->bool { return !m_tasks.empty() || m_bStopFlag; });
 
 			if (m_bStopFlag) break;

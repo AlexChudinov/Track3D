@@ -18,7 +18,7 @@ public:
 	using Fun = std::function<void()>;
 	using Task = std::packaged_task<void()>;
 	using Tasks = std::queue<Task>;
-	using Future = std::future<void>;
+	using Future = std::shared_ptr<std::future<void>>;
 	using Thread = std::thread;
 	using Threads = std::vector<Thread>;
 	using Mutex = std::mutex;
