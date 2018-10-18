@@ -24,7 +24,8 @@ ThreadPool::Future ThreadPool::addTask(Fun&& task)
 {
 	Locker lock(getInstance().m_startMutex);
 	getInstance().m_tasks.push(Task(task));
-	Future future = std::make_shared<std::future<void>>(getInstance().m_tasks.back().get_future());
+	Future future = 
+		std::make_shared<std::future<void>>(getInstance().m_tasks.back().get_future());
 	lock.unlock();
 	getInstance().m_startCondition.notify_one();
 	return future;
