@@ -268,6 +268,8 @@ public:
   bool                    need_recalc() const;
   void                    invalidate();
 
+  void                    output_convergence_history(const std::vector<float>& vMaxRelErr);
+
   void                    save(CArchive& ar);
   void                    load(CArchive& ar);
 
@@ -276,9 +278,10 @@ protected:
   CString                 default_name();
   void                    clear_bc();
 
-  CRegion*                get_region(const std::string& sName) const; // returns a region pointer by its name or NULL if the name is not found.
   bool                    is_selected(CRegion* pReg) const;           // returns true if the region is selected for boundary conditions.
   CIndexVector            get_reg_nodes(CRegion* pReg) const;         // returns the vector of global indices of the region nodes.
+
+  void                    check_regions();  // run over all boundary conditions and check if all region names correspond to relevant regions.
 
   bool                    set_boundary_conditions(CMeshAdapter& mesh);
   bool                    set_boundary_conditions(CFiniteVolumesSolver& solver);
@@ -297,7 +300,7 @@ protected:
   bool                    get_result(bool bTest) const;
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
-  void                    apply_analytic_field(const Vector3D& vPos, Vector3F& vField);
+  void                    apply_analytic_field(const Vector3D& vPos, Vector3F& vField, float& fPhi);
 
   bool                    calc_lap3(bool bTest);
   bool                    calc_dirichlet_lap3(bool bTest);

@@ -783,6 +783,21 @@ CRegionsCollection& CAnsysMesh::get_regions()
   return m_vExtRegions;
 }
 
+CRegion* CAnsysMesh::get_region(const std::string& sName)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CRegionsCollection& vRegions = pObj->get_regions();
+  size_t nRegCount = vRegions.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    CRegion* pReg = vRegions.at(i);
+    if(sName == pReg->sName)
+      return pReg;
+  }
+
+  return NULL;
+}
+
 void CAnsysMesh::invalidate_calculators()
 {
   CParticleTrackingApp::Get()->GetCalcs()->invalidate_calcs();

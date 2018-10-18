@@ -401,6 +401,7 @@ bool CElectricFieldData::calc_lap3(bool bTest)
     CMeshAdapter mesh(pObj->get_elems(), vNodes);
     mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
+    check_regions();
     if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
       return false;
 
@@ -453,7 +454,7 @@ bool CElectricFieldData::calc_lap3(bool bTest)
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i]);
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], pNode->phi);
     }
 
     m_bNeedRecalc = m_nType == typeMirror;  // false;
@@ -484,6 +485,7 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
     DCMeshAdapter mesh(pObj->get_elems(), vNodes, *pTessObj);
     mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
+    check_regions();
     if(!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
       return false;
 
@@ -497,13 +499,20 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
       return false;
 
     set_job_name("Field calculation...");
+    CFloatArray vMaxRelErr;
+    vMaxRelErr.assign(m_nIterCount, 0);
+    double fErr;
     for(int i = 0; i < m_nIterCount; ++i)
     {
       if(m_bTerminate)
         return false;
 
-      pOp->applyToField(field);
+      fErr = 0;
+      pOp->applyToField(field, &fErr);
+      vMaxRelErr[i] = (float)fErr;
       set_progress(100 * i / m_nIterCount);
+      if(fErr < m_fTol)
+        break;
     }
 
 // Gradient calculation:
@@ -536,10 +545,12 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i]);
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], pNode->phi);
     }
 
     m_bNeedRecalc = m_nType == typeMirror;  // false;
+
+    output_convergence_history(vMaxRelErr);
 	}
   catch (const std::exception& ex)
   {
@@ -560,34 +571,53 @@ bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
 {
   CAnsysMesh* pMesh = (CAnsysMesh*)CParticleTrackingApp::Get()->GetTracker();
   CDirichletTesselation* pTess = CParticleTrackingApp::Get()->GetDirichletTess();
-  CFiniteVolumesSolver solver(pMesh, pTess);
 
-  solver.set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
-
-  set_boundary_conditions(solver);
-
-  CFloatArray vPhi;
-  float fTol = (float)m_fTol;
-  CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi, m_bMultiThread);
-
-  CNode3D* pNode = NULL;
-  CNodesCollection& vNodes = pMesh->get_nodes();
-  size_t nNodeCount = vNodes.size();
-  m_vField.resize(nNodeCount);
-  Vector3D vGrad;
-  for(size_t k = 0; k < nNodeCount; k++)
+  try
   {
-    pNode = vNodes.at(k);
-    pNode->phi = vPhi.at(k);
+    CFiniteVolumesSolver solver(pMesh, pTess);
 
-    vGrad = pTess->get_grad(k, vPhi);
-    m_vField[k] = Vector3F(-(float)vGrad.x, -(float)vGrad.y, -(float)vGrad.z);
+    solver.set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
+
+    check_regions();
+    set_boundary_conditions(solver);
+
+    CFloatArray vPhi;
+    float fTol = (float)m_fTol;
+    CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi, m_bMultiThread);
+
+    CNode3D* pNode = NULL;
+    CNodesCollection& vNodes = pMesh->get_nodes();
+    size_t nNodeCount = vNodes.size();
+    m_vField.resize(nNodeCount);
+    Vector3D vGrad;
+    for(size_t k = 0; k < nNodeCount; k++)
+    {
+      pNode = vNodes.at(k);
+      pNode->phi = vPhi.at(k);
+
+      vGrad = pTess->get_grad(k, vPhi);
+      m_vField[k] = Vector3F(-(float)vGrad.x, -(float)vGrad.y, -(float)vGrad.z);
+
+// An attempt to get analytic field in the flatapole. Alpha version.
+      if(m_bAnalytField && (m_nType == typeFieldRF))
+        apply_analytic_field(vNodes.at(k)->pos, m_vField[k], pNode->phi);
+    }
+
+    output_convergence_history(info.vMaxErrHist);
+  }
+  catch(const std::exception& ex)
+  {
+    AfxMessageBox(ex.what());
   }
 
   m_bNeedRecalc = m_nType == typeMirror;
   notify_scene();
 
-// DEBUG
+  return get_result(bTest);
+}
+
+void CElectricFieldData::output_convergence_history(const std::vector<float>& vMaxRelErr)
+{
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   COutputEngine& out_engine = pObj->get_output_engine();
   std::string cPath = out_engine.get_full_path(pObj->get_filename());
@@ -599,14 +629,12 @@ bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
   errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
   if((nErr == 0) && (pStream != NULL))
   {
-    for(UINT i = 0; i < m_nIterCount; i++)
-      fprintf(pStream, "%d,   %f\n", i, info.vMaxErrHist.at(i));
+    UINT nIterCount = vMaxRelErr.size();
+    for(UINT i = 0; i < nIterCount; i++)
+      fprintf(pStream, "%d,   %f\n", i, vMaxRelErr.at(i));
 
     fclose(pStream);
   }
-// END DEBUG
-
-  return get_result(bTest);
 }
 
 bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
@@ -623,7 +651,10 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
     nRegCount = pBC->vRegNames.size();
     for(size_t j = 0; j < nRegCount; j++)
     {
-      pReg = get_region(pBC->vRegNames.at(j));
+      pReg = CAnsysMesh::get_region(pBC->vRegNames.at(j));
+      if(pReg == NULL)  // if the geometry file has been changed in the project, some region names can be not relevant.
+        continue;
+
       CIndexVector vRegNodeInd = get_reg_nodes(pReg);   // global indices of nodes, belonging to region pReg.
 
       if(pBC->nType == BoundaryMesh::ZERO_GRAD)
@@ -716,7 +747,7 @@ bool CElectricFieldData::get_result(bool bTest) const
   return true;
 }
 
-void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vField)
+void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vField, float& fPhi)
 {
   if(vPos.x < m_fLowLimX || vPos.x > m_fHighLimX)
     return;
@@ -727,6 +758,7 @@ void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vF
 
   double fCoeff = 2. / (m_fRadius * m_fRadius);
   Vector3F vAnalytRF(0, -fCoeff * vPos.y, fCoeff * vPos.z);
+  double fAnalytePhi = 0.5 * (vPos.y * vPos.y - vPos.z * vPos.z) * fCoeff;
 
   const double scfTransWidth = 0.2;
   double fLowLimMax = m_fLowLimX + scfTransWidth; // the field changes gradually from numeric to analytic; transition interval is 2 mm long.
@@ -734,9 +766,12 @@ void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vF
   {
     float fKsi = float((vPos.x - m_fLowLimX) / scfTransWidth);
     vField = vAnalytRF * fKsi + vField * (1 - fKsi);
+    fPhi = float(fAnalytePhi) * fKsi + fPhi * (1 - fKsi);
+    return;
   }
 
   vField = vAnalytRF;
+  fPhi = fAnalytePhi;
 }
 
 bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
@@ -761,7 +796,7 @@ bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 
       k++;
       const std::string& sName = pBC->vRegNames.at(j);
-      pReg = get_region(sName);
+      pReg = CAnsysMesh::get_region(sName);
       if(pReg == NULL)
         continue;
 
@@ -954,21 +989,6 @@ bool CElectricFieldData::coulomb_potential(const CIndexVector& vNodeIds, std::ve
   return true;
 }
 
-CRegion* CElectricFieldData::get_region(const std::string& sName) const
-{
-  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CRegionsCollection& vRegions = pObj->get_regions();
-  size_t nRegCount = vRegions.size();
-  for(size_t i = 0; i < nRegCount; i++)
-  {
-    CRegion* pReg = vRegions.at(i);
-    if(sName == pReg->sName)
-      return pReg;
-  }
-
-  return NULL;
-}
-
 Vector3D CElectricFieldData::calc_norm(CNode3D* pNode) const
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
@@ -1121,6 +1141,26 @@ CString CElectricFieldData::default_name()
   }
 
   return sName;
+}
+
+void CElectricFieldData::check_regions()
+{
+  CRegion* pReg = NULL;
+  CPotentialBoundCond* pBC = NULL;
+  size_t nBndCondCount = m_vBoundCond.size(), nRegCount;
+  for(size_t i = 0; i < nBndCondCount; i++)
+  {
+    pBC = m_vBoundCond.at(i);
+    nRegCount = pBC->vRegNames.size();
+    for(int j = nRegCount - 1; j >= 0; j--)
+    {
+      pReg = CAnsysMesh::get_region(pBC->vRegNames.at(j));
+      if(pReg == NULL)
+      {
+        pBC->vRegNames.erase(pBC->vRegNames.begin() + j);
+      }
+    }
+  }
 }
 
 void CElectricFieldData::save(CArchive& ar)

@@ -70,6 +70,8 @@ public:
 // Mesh transformation:
   CTransform&             get_transform();
 
+  static CRegion*         get_region(const std::string& sName); // returns a region pointer by its name or NULL if the name is not found.
+
 //-------------------------------------------------------------------------------------------------
 // Streaming:
 //-------------------------------------------------------------------------------------------------

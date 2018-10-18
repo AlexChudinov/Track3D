@@ -295,6 +295,7 @@ void CTrack::get_track_item(size_t nInd, CTrackItem& item) const
       item.tempinf = 0;
       item.unfragm = 1;
       item.mob = 0;
+      break;
     }
     case ptIon:
     {
@@ -304,6 +305,7 @@ void CTrack::get_track_item(size_t nInd, CTrackItem& item) const
       item.unfragm = pIonItem->unfragm;
       item.mass = 0;
       item.mob = pIonItem->mob;
+      break;
     }
   }
 }
