@@ -311,11 +311,18 @@ public:
 
   enum  // calculated variable.
   {
-    clcIonTemp    = 0,
-    clcCurrent    = 1,
-    clcFragment   = 2,
-    clcTime       = 3,
-    clcTrackCount = 4
+// Ion parameters
+    clcIonTemp = 0,
+    clcCurrent,
+    clcFragment,
+// Droplet parameters
+    clcDropDiameter,  // average and maximal droplet diameters and average Rayleigh criterion at a given cross-section.
+    clcDropTemp,      // average, minimal and maximal droplet temperature at a given cross-section.
+    clcTerminated,    // percentage of terminated droplet tracks at a given cross-section: ended at a wall, evaporated, Rayleigh criterion achieved.
+// Common parameters
+    clcTime,
+
+    clcTrackCount
   };
 
   virtual void        run();
@@ -373,17 +380,34 @@ protected:
   bool                calc_fragmentation();
   bool                get_fragm_probability(CIonTrackItem* pItem, double& fFragmProb); // probability to be fragmented in a unit time.
 
+// Droplet tracks termination:
+  double              calc_term_tracks(); // returns the percent of terminated tracks at a given cross-section.
+
 private:
+// User-defined:
   std::string         m_sOutputFile;
 
   double              m_fPosCS,   // current cross-section position.
                       m_fStartPos,
-                      m_fEndPos,
-                      
-                      m_fIonTempEq, // for the ion temperature the secondary result is the equlibrium ion temperature.
-                      m_fGasTemp;
+                      m_fEndPos;
 
   UINT                m_nCrossSectCount;
+                
+// Run-time:
+  double              m_fIonTempEq,   // for the ion temperature the secondary result is the equlibrium ion temperature.
+                      m_fGasTemp,
+
+                      m_fMaxDropDiam,
+                      m_fMinDropTemp,
+                      m_fMaxDropTemp,
+                      m_fRayleigh,    // cross-section averaged Rayleigh criterion computed as m_fCharge / m_pObj->get_max_charge(T, D).
+
+                      m_fPartEvapor,
+                      m_fPartRayleigh,
+                      m_fPartHitWall,
+                      m_fPartOvertime;
+
+  UINT                m_nIntersectCount;
 
 // Run-time, for acceleration of the ion temperature calculation from scratch.
   CElementsCollection m_vElements;

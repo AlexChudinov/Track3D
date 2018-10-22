@@ -352,7 +352,7 @@ void CTracker::do_track()
         if(nStep % nOutFreq == 0)
           track.push_back(pItem->copy());
 
-        if(track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp()))
+        if(track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp(), track.get_term_reason()))
           break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
 
         nStep++;
@@ -405,7 +405,7 @@ void CTracker::do_track()
 
         fTemp = pState[6];
         fMass = m_nType == CTrack::ptDroplet ? pState[7] : 0;
-        if(track_is_over(fTime, fMass, fTemp))
+        if(track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
           break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
 
         fTime += m_fTimeStep;
@@ -680,7 +680,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
         if(nStep % nOutFreq == 0)
           track.push_back(pItem->copy());
 
-        if(pObj->track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp()))
+        if(pObj->track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp(), track.get_term_reason()))
           break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
 
         nStep++;
@@ -733,7 +733,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
 
         fTemp = pState[6];
         fMass = pObj->m_nType == CTrack::ptDroplet ? pState[7] : 0;
-        if(pObj->track_is_over(fTime, fMass, fTemp))
+        if(pObj->track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
           break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
 
         fTime += pObj->m_fTimeStep;
@@ -975,17 +975,32 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
 //-------------------------------------------------------------------------------------------------
 // Track limitations.
 //-------------------------------------------------------------------------------------------------
-bool CTracker::track_is_over(double fTime, double fMass, double fTemp) const
+bool CTracker::track_is_over(double fTime, double fMass, double fTemp, int& nReason) const
 {
+  nReason = CTrack::ttrNone;
   if(fTime >= m_fMaxIntegrTime)
+  {
+    nReason = CTrack::ttrOvrTime;
     return true;
+  }
 
   if(m_nType == CTrack::ptIon)
     return false;
 
   double fD = get_particle_diameter(fMass);
 
-  return fD <= m_fMinD || limit_of_Rayleigh(fTemp, fD);
+  if(fD <= m_fMinD)
+  {
+    nReason = CTrack::ttrFullyEvapor;
+    return true;
+  }
+  else if(limit_of_Rayleigh(fTemp, fD))
+  {
+    nReason = CTrack::ttrRayleighLim;
+    return true;
+  }
+
+  return false;
 }
 
 double CTracker::get_max_charge(double fT, double fD) const

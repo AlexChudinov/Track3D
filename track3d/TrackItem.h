@@ -183,7 +183,7 @@ class CTrack : public std::vector<CBaseTrackItem*>
 {
 public:
   CTrack(int nType = ptIon, UINT nInd = 0, double fPhase = 0., double fCurr = 0.)
-    : m_nType(nType), m_nIndex(nInd), m_fPhase(fPhase), m_fCurr(fCurr), m_nRandSeed(0)
+    : m_nType(nType), m_nIndex(nInd), m_fPhase(fPhase), m_fCurr(fCurr), m_nRandSeed(0), m_nTermReason(ttrNone)
   {
   }
 
@@ -191,6 +191,14 @@ public:
   {
     ptDroplet = 0,
     ptIon     = 1
+  };
+
+  enum // Track termination reason
+  {
+    ttrNone         = 0,
+    ttrOvrTime      = 1,
+    ttrRayleighLim  = 2,
+    ttrFullyEvapor  = 3
   };
 
   int         get_type() const;
@@ -208,6 +216,9 @@ public:
   UINT        get_rand_seed() const;
   void        set_rand_seed(UINT nSeed);
 
+  int&        get_term_reason();
+  int         get_term_reason() const;
+
   void        get_track_item(size_t nInd, CTrackItem& item) const;  // no range control inside!
 
 private:
@@ -217,7 +228,8 @@ private:
   double      m_fPhase,
               m_fCurr;
 
-  UINT        m_nRandSeed;  // random diffusion support.
+  UINT        m_nRandSeed;    // random diffusion support.
+  int         m_nTermReason;  // track termination reason.
 };
 
 typedef std::vector<CTrack> CTrackVector;
@@ -273,6 +285,16 @@ inline UINT CTrack::get_rand_seed() const
 inline void CTrack::set_rand_seed(UINT nSeed)
 {
   m_nRandSeed = nSeed;
+}
+
+inline int& CTrack::get_term_reason()
+{
+  return m_nTermReason;
+}
+
+inline int CTrack::get_term_reason() const
+{
+  return m_nTermReason;
 }
 
 } //namespace EvaporatingParticle

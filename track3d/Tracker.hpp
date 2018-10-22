@@ -384,16 +384,19 @@ protected:
 //-------------------------------------------------------------------------------------------------
 // Droplet-type specific:
 //-------------------------------------------------------------------------------------------------
+public:
   double                  get_particle_mass(double fD) const;
   double                  get_particle_diameter(double fMass) const;
 
   void                    create_evapor_model();
 
 // Track limitations:
-  bool                    track_is_over(double fTime, double fMass, double fTemp) const;
+  bool                    track_is_over(double fTime, double fMass, double fTemp, int& nReason) const;
   bool                    limit_of_Rayleigh(double fT, double fD) const;  // input: particle's temperature (K) and diameter (cm).
   double                  get_max_charge(double fT, double fD) const;
+  double                  get_min_D() const;
 
+protected:
 //-------------------------------------------------------------------------------------------------
 // Multi-threading support:
 //-------------------------------------------------------------------------------------------------
@@ -728,6 +731,11 @@ inline void CTracker::set_init_diameter(double fD)
 {
   m_fInitD = fD;
   m_fInitMass = get_particle_mass(fD);
+}
+
+inline double CTracker::get_min_D() const
+{
+  return m_fMinD;
 }
 
 // Ion type of particles:

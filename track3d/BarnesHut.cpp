@@ -162,6 +162,7 @@ void CBarnesHut::prepare(CalcThreadVector& vThreads, CNodesCollection& vNodes, U
     pNode->clmb = nIter == 1 ? coulomb_force(pNode->pos) : (double(nIter - 1) * pNode->clmb + coulomb_force(pNode->pos)) / (double)nIter;
 // DEBUG: Visualization of the Coulomb potential.
     pNode->phi = nIter == 1 ? coulomb_phi(pNode->pos) : (double(nIter - 1) * pNode->phi + coulomb_phi(pNode->pos)) / (double)nIter;
+    pNode->phi *= CGS_to_SI_Voltage;
 // END DEBUG
   }
 

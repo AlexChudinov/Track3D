@@ -137,7 +137,7 @@ const char* CCalculator::calc_name(int nType)
     case ctPlaneYZ: return _T("Calculator at YZ Plane");
     case ctSelRegions: return _T("Calculator at Selected Regions");
     case ctAlongLine: return _T("Line Calculator");
-    case ctTrackCalc: return _T("Ion Track Calculator");
+    case ctTrackCalc: return _T("Ion/Droplet Track Calculator");
     case ctTrackCrossSect: return _T("Track's Cross-Section Calculator");
   }
 
@@ -915,6 +915,19 @@ void CTrackCalculator::set_default()
   m_fPosCS = 0;
   m_fStartPos = 0;
   m_fEndPos = 1;
+
+// Run-time:
+  m_fIonTempEq = 0;
+  m_fGasTemp = 0;
+
+  m_fMaxDropDiam = 0;
+  m_fMinDropTemp = 0;
+  m_fMaxDropTemp = 0;
+  m_fRayleigh = 0;
+
+  m_fPartEvapor = 0;
+  m_fPartRayleigh = 0;
+  m_fPartHitWall = 0;
 }
 
 void CTrackCalculator::do_calculate()
@@ -923,28 +936,33 @@ void CTrackCalculator::do_calculate()
     return;
 
   CTrackVector& vTracks = m_pObj->get_tracks();
-  bool bOldIntegr = m_pObj->get_use_old_integrator();
   if(m_nClcVar == clcIonTemp)
     collect_elements();
   if((m_nClcVar == clcFragment) && !calc_fragmentation())
     return;
 
-  m_fResult = m_fIonTempEq = m_fGasTemp = 0;
+  m_fResult = m_fIonTempEq = m_fGasTemp = m_fMaxDropDiam = m_fMaxDropTemp = m_fRayleigh = 0;
+  m_fMinDropTemp = FLT_MAX;
+  m_nIntersectCount = 0;
 
   Vector3D vPos, vIonVel;
-  size_t nIntersectCount = 0;
   size_t nTrackCount = vTracks.size();
   if(nTrackCount < 1)
     return;
 
+  if(m_nClcVar == clcTerminated)
+  {
+    m_fResult = calc_term_tracks(); // part of terminated tracks.
+    return;
+  }
+
   CTrackItem curr, prev;
-  double fKsi, fdX, fIonT, fGasT;
+  double fKsi, fdX, fIonT, fGasT, fDropMass, fDropD, fDropTemp, fCrit;
   double fCurrIncr = m_pObj->get_full_current() / nTrackCount;
   for(size_t i = 0; i < nTrackCount; i++)
   {
-    bool bCalcTime = m_vReachedLastCS.size() == nTrackCount ? m_vReachedLastCS.at(i) : true;  // for time calculation only.
-
     const CTrack& track = vTracks.at(i);
+    bool bCalcTime = track.get_type() == CTrack::ptDroplet ? true : (m_vReachedLastCS.size() == nTrackCount ? m_vReachedLastCS.at(i) : true);
     size_t nItemCount = track.size();
 
     for(size_t j = 1; j < nItemCount; j++)
@@ -958,31 +976,73 @@ void CTrackCalculator::do_calculate()
           continue;
 
         fKsi = (m_fPosCS - prev.pos.x) / fdX;
+        m_nIntersectCount++;
 
         switch(m_nClcVar)
         {
+// Ion parameters:
           case clcIonTemp:
           {
+            if(track.get_type() != CTrack::ptIon)
+              break;
+
             vPos = prev.pos + fKsi * (curr.pos - prev.pos);
             if(calc_gas_temp(vPos, fGasT))
             {
               m_fResult += prev.temp + fKsi * (curr.temp - prev.temp);
               m_fIonTempEq += prev.tempinf + fKsi * (curr.tempinf - prev.tempinf);
               m_fGasTemp += fGasT;
-              nIntersectCount++;
             }
 
             break;
           }
           case clcCurrent:
           {
+            if(track.get_type() != CTrack::ptIon)
+              break;
+
             m_fResult += fCurrIncr;
             break;
           }
           case clcFragment:
           {
+            if(track.get_type() != CTrack::ptIon)
+              break;
+
             m_fResult += prev.unfragm + fKsi * (curr.unfragm - prev.unfragm);
-            nIntersectCount++;
+            break;
+          }
+// Droplet parameters:
+          case clcDropDiameter:
+          {
+            if(track.get_type() != CTrack::ptDroplet)
+              break;
+
+            fDropMass = prev.mass + fKsi * (curr.mass - prev.mass);
+            fDropD = m_pObj->get_particle_diameter(fDropMass);
+            if(m_fMaxDropDiam < fDropD)
+              m_fMaxDropDiam = fDropD;
+
+            m_fResult += fDropD;
+
+            fDropTemp = prev.temp + fKsi * (curr.temp - prev.temp);
+            fCrit = m_pObj->get_particle_charge() / m_pObj->get_max_charge(fDropTemp, fDropD);
+            m_fRayleigh += fCrit;
+            break;
+          }
+          case clcDropTemp:
+          {
+            if(track.get_type() != CTrack::ptDroplet)
+              break;
+
+            fDropTemp = prev.temp + fKsi * (curr.temp - prev.temp);
+            m_fResult += fDropTemp;
+
+            if(m_fMinDropTemp > fDropTemp)
+              m_fMinDropTemp = fDropTemp;
+            if(m_fMaxDropTemp < fDropTemp)
+              m_fMaxDropTemp = fDropTemp;
+
             break;
           }
           case clcTime:
@@ -992,7 +1052,6 @@ void CTrackCalculator::do_calculate()
             if(bCalcTime)
             {
               m_fResult += prev.time + fKsi * (curr.time - prev.time);
-              nIntersectCount++;
               break;
             }
           }
@@ -1007,15 +1066,16 @@ void CTrackCalculator::do_calculate()
   if(m_nClcVar == clcCurrent)
     return;
 
-  if(nIntersectCount != 0)
+  if(m_nIntersectCount != 0)
   {
-    double fNormCoeff = 1. / nIntersectCount;
+    double fNormCoeff = 1. / m_nIntersectCount;
     m_fResult *= fNormCoeff;
     if(m_nClcVar == clcFragment)
       m_fResult = 100 * (1.- m_fResult);
 
     m_fIonTempEq *= fNormCoeff;
     m_fGasTemp *= fNormCoeff;
+    m_fRayleigh *= fNormCoeff;
   }
 }
 
@@ -1029,7 +1089,7 @@ void CTrackCalculator::do_sequence_calc()
   if(nErr != 0 || pStream == 0)
     return;
 
-  std::string cAction(_T("Calculation "));
+  std::string cAction(_T("Calculating "));
   cAction += std::string(get_var_name(m_nClcVar));
   set_job_name(cAction.c_str());
 
@@ -1039,6 +1099,9 @@ void CTrackCalculator::do_sequence_calc()
     case clcIonTemp:  sHeader = _T("  x(mm),      TI(K),      TIeq(K),    Tgas(K)"); break;
     case clcCurrent:  sHeader = _T("  x(mm),   current(nA),   trans(percent)"); break;
     case clcFragment: sHeader = _T("  x(mm),   fragmented(percent)"); break;
+    case clcDropDiameter: sHeader = _T("  x(mm),  DropD(mcm),  MaxDropD(mcm), Raylegh(%)"); break;
+    case clcDropTemp: sHeader = _T("  x(mm), AverDropletTemp(K), Tmin(K),  Tmax(K)"); break;
+    case clcTerminated: sHeader = _T("  x(mm), Term(%), OvrTime(%), Evapor(%), Rayleigh(%), HitWall(%)"); break;
     case clcTime:     sHeader = _T("  x(mm),   time(ms)"); break;
   }
 
@@ -1059,12 +1122,17 @@ void CTrackCalculator::do_sequence_calc()
 
     m_fPosCS = m_fStartPos + i * fStep;
     do_calculate();
+    if(m_nIntersectCount == 0)
+      continue;
 
     switch(m_nClcVar)
     {
       case clcIonTemp:  fprintf(pStream, "%f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fIonTempEq, m_fGasTemp); break;
       case clcCurrent:  fprintf(pStream, "%f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, 100 * m_fResult / fFullCurr); break;
       case clcFragment: fprintf(pStream, "%f,  %f\n", 10 * m_fPosCS, m_fResult); break;
+      case clcDropDiameter: fprintf(pStream, "%f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fMaxDropDiam, 100 * m_fRayleigh); break;
+      case clcDropTemp: fprintf(pStream, "%f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fMinDropTemp, m_fMaxDropTemp); break;
+      case clcTerminated: fprintf(pStream, "%f,  %f,  %f,  %f,  %f,  %f\n", 10 * m_fPosCS, m_fResult, m_fPartOvertime, m_fPartEvapor, m_fPartRayleigh, m_fPartHitWall); break;
       case clcTime:     fprintf(pStream, "%f,  %f\n", 10 * m_fPosCS, m_fResult); break;
     }
   }
@@ -1087,26 +1155,22 @@ void CTrackCalculator::find_reached_last_cs()
   m_vReachedLastCS.clear();
   CTrackVector& vTracks = m_pObj->get_tracks();
   size_t nTrackCount = vTracks.size();
-  m_vReachedLastCS.reserve(nTrackCount);
+  m_vReachedLastCS.assign(nTrackCount, false);
 
   CTrackItem item;
   for(size_t i = 0; i < nTrackCount; i++)
   {
     const CTrack& track = vTracks.at(i);
     size_t nItemCount = track.size();
-
-    bool bReached = false;
     for(size_t j = 1; j < nItemCount; j++)
     {
       track.get_track_item(j, item);
       if(item.pos.x >= m_fEndPos)
       {
-        bReached = true;
+        m_vReachedLastCS[j] = true;
         break;
       }
     }
-
-    m_vReachedLastCS.push_back(bReached);
   }
 }
 
@@ -1123,9 +1187,12 @@ const char* CTrackCalculator::units() const
 {
   switch(m_nClcVar)
   {
-    case clcIonTemp:  return _T("Average Ion Temperature,  K");
+    case clcIonTemp:  return _T("Aver. Ion Temperature,  K");
     case clcCurrent:  return _T("Ion Current,  nA");
     case clcFragment: return _T("Part of fragmented Ions, %");
+    case clcDropDiameter: return _T("Aver. Droplet Diameter, mcm");
+    case clcDropTemp: return _T("Aver. Droplet Temperature, K");
+    case clcTerminated: return _T("Part of Terminated Tracks, %");
     case clcTime:     return _T("Moving Time, ms");
   }
 
@@ -1139,6 +1206,9 @@ const char* CTrackCalculator::get_var_name(int nVar) const
     case clcIonTemp:  return _T("Average Ion Temperature");
     case clcCurrent:  return _T("Ion Current");
     case clcFragment: return _T("Part of fragmented Ions");
+    case clcDropDiameter: return _T("Average Droplet Diameter");
+    case clcDropTemp: return _T("Average Droplet Temperature");
+    case clcTerminated: return _T("Part of Terminated Tracks");
     case clcTime:     return _T("Moving Time");
   }
 
@@ -1150,6 +1220,7 @@ void CTrackCalculator::convert_result()
   switch(m_nClcVar)
   {
     case clcCurrent:  m_fResult /= Const_nA_to_CGSE; break;   // nA.
+    case clcDropDiameter: m_fResult *= 10000; m_fMaxDropDiam *= 10000; break; // droplet diameter in mcm;
     case clcTime:     m_fResult *= 1000; break;               // milliseconds.
   }
 }
@@ -1309,6 +1380,50 @@ bool CTrackCalculator::get_fragm_probability(CIonTrackItem* pItem, double& fFrag
   fFragmProb = fIonNeutrFreq * fProbInt;
 
   return true;
+}
+
+double CTrackCalculator::calc_term_tracks()
+{
+  CTrackItem item;
+  CTrackVector& vTracks = m_pObj->get_tracks();
+  size_t nTrackCount = vTracks.size();
+  if(nTrackCount == 0)
+    return 0;
+
+  double fT, fD, fCrit;
+  UINT nEvapor = 0, nRayleigh = 0, nHitWall = 0, nOvrTime = 0;
+
+  for(size_t i = 0; i < nTrackCount; i++)
+  {
+    const CTrack& track = vTracks.at(i);
+    bool bIsDroplet = track.get_type() == CTrack::ptDroplet;
+
+    size_t nItemCount = track.size();
+    if(nItemCount < 1)
+      continue;
+
+    size_t nLast = nItemCount - 1;
+    track.get_track_item(nLast, item);
+    if(item.pos.x > m_fPosCS)
+      continue;   // we are not interested in tracks that have reached the current cross-section.
+
+    int nTermReason = track.get_term_reason();
+    switch(nTermReason)
+    {
+      case CTrack::ttrOvrTime: nOvrTime++; break;
+      case CTrack::ttrFullyEvapor: nEvapor++; break;
+      case CTrack::ttrRayleighLim: nRayleigh++; break;
+      case CTrack::ttrNone: nHitWall++; break;
+    }
+  }
+
+  double fNrmCoeff = 1. / nTrackCount;
+  m_fPartOvertime = 100 * nOvrTime * fNrmCoeff;
+  m_fPartEvapor = 100 * nEvapor * fNrmCoeff;
+  m_fPartRayleigh = 100 * nRayleigh * fNrmCoeff;
+  m_fPartHitWall = 100 * nHitWall * fNrmCoeff;
+  m_nIntersectCount = 1;  // arbitrary non-zero number, this value is not used for terminated tracks calculation.
+  return m_fPartOvertime + m_fPartEvapor + m_fPartRayleigh + m_fPartHitWall;
 }
 
 void CTrackCalculator::save(CArchive& ar)
