@@ -222,8 +222,8 @@ void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTime
       pObj->sym_corr(vPos, vVel, vAccel, true);
 
     CEvaporationModel* pEvaporModel = pObj->get_evapor_model();
-    pTimeDeriv[6] = pEvaporModel->get_cooling_rate(node, fTemp, fD, fRe);
-    pTimeDeriv[7] = pEvaporModel->get_evaporation_rate(node, fTemp, fD, fRe);
+    pTimeDeriv[6] = -pEvaporModel->get_cooling_rate(node, fTemp, fD, fRe);
+    pTimeDeriv[7] = -pEvaporModel->get_evaporation_rate(node, fTemp, fD, fRe);
   }
 
   pTimeDeriv[0] = vVel.x;
@@ -1405,8 +1405,18 @@ double CTracker::get_full_current_at(UINT nIter)
 //-------------------------------------------------------------------------------------------------
 void CTracker::create_evapor_model()
 {
+  double fEnvHumid = 0.5;
+  int nMassTransMdl = CEvaporationModel::mtmRanzMarshall;
+  bool bEnableSurfTens = true, bSetParams = false;
   if(m_pEvaporModel != NULL)
+  {
+    fEnvHumid = m_pEvaporModel->get_env_humidity();
+    nMassTransMdl = m_pEvaporModel->get_mass_trans_model();
+    bEnableSurfTens = m_pEvaporModel->get_enable_surf_tens();
+    bSetParams = true;
+
     delete m_pEvaporModel;
+  }
 
   switch(m_nEvaporModelType)
   {
@@ -1414,6 +1424,13 @@ void CTracker::create_evapor_model()
     case emMaxwell: m_pEvaporModel = new CMaxwellModel(); break;
     case emSteadyDiffusive: m_pEvaporModel = new CSteadyDiffusiveModel(); break;
     case emDiffusive: m_pEvaporModel = new CDiffusiveModel(); break;
+  }
+
+  if(bSetParams)
+  {
+    m_pEvaporModel->set_env_humidity(fEnvHumid);
+    m_pEvaporModel->set_mass_trans_model(nMassTransMdl);
+    m_pEvaporModel->set_enable_surf_tens(bEnableSurfTens);
   }
 }
 

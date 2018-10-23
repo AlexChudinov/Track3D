@@ -708,8 +708,11 @@ inline DWORD_PTR CTracker::get_evapor_model_type_ptr() const
 
 inline void CTracker::set_evapor_model_type(int nModelType)
 {
-  m_nEvaporModelType = nModelType;
-  create_evapor_model();
+  if(m_nEvaporModelType != nModelType)
+  {
+    m_nEvaporModelType = nModelType;
+    create_evapor_model();
+  }
 }
 
 inline CEvaporationModel* CTracker::get_evapor_model() const
