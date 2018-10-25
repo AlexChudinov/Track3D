@@ -299,6 +299,73 @@ inline int CTrack::get_term_reason() const
 
 } //namespace EvaporatingParticle
 
+namespace EvaporatingParticle
+{
+	class CTracker;
+}
+namespace _new_version
+{
+	using EvaporatingParticle::Vector3D;
+	using EvaporatingParticle::CTracker;
+
+	enum TrackItemType
+	{
+		Droplet,
+		Ion
+	};
+
+	struct TrackItemParams
+	{
+		virtual TrackItemType type() const = 0;
+
+		//Particle position
+		Vector3D mPos;
+		//Particle velocity
+		Vector3D mVel;
+		//Calculation time
+		double mTime;
+	};
+
+	class CBaseTrackItem
+	{
+	public:
+		using ParamsPtr = std::unique_ptr<TrackItemParams>;
+		using ItemPtr = std::unique_ptr<CBaseTrackItem>;
+
+		static ItemPtr create(const TrackItemParams * params);
+
+		virtual void do_step(CTracker * tracker) = 0;
+
+		virtual ItemPtr clone() const = 0;
+
+		static void operator delete(void* ptr, size_t n);
+		virtual void deleteObj() = 0;
+	};
+
+	class CDropletTrackItem : public CBaseTrackItem, public ::BlockAllocator<CDropletTrackItem>
+	{
+	public:
+		using CBaseTrackItem::operator delete;
+
+		struct DropletParams : public TrackItemParams
+		{
+			virtual TrackItemType type() const;
+		};
+
+		CDropletTrackItem(const TrackItemParams * params);
+
+		virtual void do_step(CTracker * tracker);
+
+		virtual ItemPtr clone() const;
+
+		virtual void deleteObj();
+
+	private:
+
+		DropletParams mParams;
+	};
+} //namespace new version
+
 #endif // !_TRACKITEM_
 
 

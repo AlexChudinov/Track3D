@@ -40,5 +40,4 @@
 #include <afx.h>
 
 #include <string>
-
-
+#include <cassert>

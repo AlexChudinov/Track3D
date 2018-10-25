@@ -4,7 +4,7 @@
 //#include "Integrators.hpp"
 //#include "BarnesHut.h"
 //#include "StochasticGasDynamic.hpp"
-//#include "Tracker.hpp"
+#include "Tracker.hpp"
 //#include "ParticleTracking.h"
 //#include <algorithm>
 
@@ -311,3 +311,50 @@ void CTrack::get_track_item(size_t nInd, CTrackItem& item) const
 }
 
 };  // namespace EvaporatingParticle
+
+_new_version::CBaseTrackItem::ItemPtr _new_version::CBaseTrackItem::create
+(
+	const _new_version::TrackItemParams * params
+)
+{
+	switch (params->type())
+	{
+	case _new_version::Droplet: return ItemPtr(new _new_version::CDropletTrackItem(params));
+	}
+	return ItemPtr();
+}
+
+void _new_version::CBaseTrackItem::operator delete(void * p, size_t n)
+{
+	reinterpret_cast<CBaseTrackItem*>(p)->deleteObj();
+}
+
+_new_version::CDropletTrackItem::CDropletTrackItem(const _new_version::TrackItemParams * params)
+{
+	assert(params->type() == _new_version::Droplet);
+	const DropletParams * localPars = dynamic_cast<const DropletParams*>(params);
+	mParams.mPos = localPars->mPos;
+	mParams.mTime = localPars->mTime;
+	mParams.mVel = localPars->mVel;
+}
+
+void _new_version::CDropletTrackItem::do_step(CTracker * tracker)
+{
+	double h = tracker->get_time_step();
+
+}
+
+_new_version::CDropletTrackItem::ItemPtr _new_version::CDropletTrackItem::clone() const
+{
+	return ItemPtr(new CDropletTrackItem(&mParams));
+}
+
+void _new_version::CDropletTrackItem::deleteObj()
+{
+	BlockPool<_new_version::CDropletTrackItem>::freeBlock(this);
+}
+
+_new_version::TrackItemType _new_version::CDropletTrackItem::DropletParams::type() const
+{
+	return _new_version::Droplet;
+}
