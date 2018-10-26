@@ -1441,7 +1441,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 27;  // 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 28;  // 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
   CAnsysMesh::save(ar);
@@ -1541,6 +1541,12 @@ void CTracker::save(CArchive& ar)
   ar << m_nRandomSeed;
   ar << m_bEnableCollisions;
   ar << m_fDiffSwitchCond;
+
+  int nRndDiffType = (int)m_nRndDiffType;
+  int nRndCollisionType = (int)m_nRndCollisionType;
+  ar << nRndDiffType;
+  ar << nRndCollisionType;
+  ar << m_fCrossSection;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1812,6 +1818,16 @@ void CTracker::load(CArchive& ar)
   {
     ar >> m_bEnableCollisions;
     ar >> m_fDiffSwitchCond;
+  }
+
+  if(nVersion >= 28)
+  {
+    int nRndDiffType, nRndCollisionType;
+    ar >> nRndDiffType;
+    m_nRndDiffType = (CRandomProcType)nRndDiffType;
+    ar >> nRndCollisionType;
+    m_nRndCollisionType = (CRandomProcType)nRndCollisionType;
+    ar >> m_fCrossSection;
   }
   
 // Derived variables:

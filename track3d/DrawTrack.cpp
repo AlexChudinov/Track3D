@@ -730,7 +730,7 @@ void CTrackDraw::draw_flat()
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].x));
   glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].nx));
 
-  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 128.0f);
+  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 200.0f);
   glColor4ub(GetRValue(m_Color), GetGValue(m_Color), GetBValue(m_Color), (unsigned char)(255 * m_fOpacity));
   glDrawArrays(GL_TRIANGLES, 0, m_vFaceVert.size());
 
@@ -770,7 +770,7 @@ void CTrackDraw::set_lights()
   float pLight_0_Dir[4] = { -0.5f, -1.0f, -1.0f, 0.0f };  // this is direction of the parallel type of light.
   float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.3f, 1.0f };
   float pLight_0_Diffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-  float pLight_0_Spec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+  float pLight_0_Spec[4] = { 1.8f, 1.8f, 1.8f, 1.0f };
 
   glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
   glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
@@ -782,7 +782,7 @@ void CTrackDraw::set_lights()
   float pLight_1_Dir[4] = { 0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
   float pLight_1_Ambient[4] = { 0.12f, 0.1f, 0.1f, 1.0f };
   float pLight_1_Diffuse[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-  float pLight_1_Spec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+  float pLight_1_Spec[4] = { 1.8f, 1.8f, 1.8f, 1.0f };
 
   glLightfv(GL_LIGHT1, GL_POSITION, pLight_1_Dir);
   glLightfv(GL_LIGHT1, GL_AMBIENT, pLight_1_Ambient);

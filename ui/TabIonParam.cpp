@@ -17,7 +17,7 @@ void CPropertiesWnd::add_ion_ctrls()
   CMFCPropertyGridProperty* pProp = NULL;
 
   CMFCPropertyGridProperty* pMassGroup = new CMFCPropertyGridProperty(_T("Mass, a.m.u."));
-  pProp = new CMFCPropertyGridProperty(_T("Mass"), COleVariant(long(pObj->get_ion_mass() / Const_AMU_CGS)), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("Mass"), COleVariant(pObj->get_ion_mass() / Const_AMU_CGS), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
   pMassGroup->AddSubItem(pProp);
   m_wndPropList.AddProperty(pMassGroup);
 
@@ -147,7 +147,7 @@ void CPropertiesWnd::set_ion_data()
 
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_ion_mass_ptr());
   if(pProp != NULL)
-    pObj->set_ion_mass(Const_AMU_CGS * pProp->GetValue().lVal);
+    pObj->set_ion_mass(Const_AMU_CGS * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_ion_mobility_ptr());
   if(pProp != NULL)
