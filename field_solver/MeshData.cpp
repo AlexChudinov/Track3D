@@ -846,6 +846,7 @@ void CFieldOperator::applyToField(Field & f0, double * tol) const
 	if (tol)
 	{
 		static ThreadPool::Mutex mutex;
+		*tol = std::numeric_limits<double>::lowest();
 		ThreadPool::splitInPar(f0.size(), [&](size_t n)
 		{
 			f1[n] = 0.0;
@@ -872,6 +873,54 @@ void CFieldOperator::applyToField(Field & f0, double * tol) const
 	{
 		f0[n] = f1[n];
 	});
+}
+
+CFieldOperator::Hist CFieldOperator::applyToFieldNTimes
+(
+	Field & f0, 
+	size_t N,
+	ThreadPool::Progress * p
+) const
+{
+	assert(m_matrix.size() = f0.size());
+
+	Hist res(N, std::numeric_limits<double>::lowest());
+
+	Field f1(f0.size());
+
+	ThreadPool::Mutex mutex;
+
+	for (size_t i = 0; i < N; ++i)
+	{
+		ThreadPool::splitInPar(f0.size(),
+			[&](size_t j)
+		{
+			f1[j] = 0.;
+			for (MatrixRow::const_reference c : m_matrix[j])
+				f1[j] += f0[c.first] * c.second;
+			double U = max(::fabs(f0[j]), ::fabs(f1[j]));
+			double dU = ::fabs(f0[j] - f1[j]);
+			if (U > std::numeric_limits<double>::epsilon())
+			{
+				ThreadPool::Locker lock(mutex);
+				res[i] = max(res[i], dU / U);
+			}
+		});
+
+		ThreadPool::splitInPar(f0.size(), [&](size_t j)
+		{
+			f0[j] = f1[j];
+		});
+
+		size_t k = 100 * i;
+		if (k % N == 0) p->set_progress(k / N);
+		else
+		{
+			if (p->get_terminate_flag()) return Hist();
+		}
+	}
+
+	return res;
 }
 
 CFieldOperator& operator+=(CFieldOperator & op1, const CFieldOperator & op2)

@@ -56,8 +56,11 @@ class COperator
 {
 public:
 	using Field = std::vector<double>;
+	using Hist = std::vector<float>;
 
 	virtual void applyToField(Field& f, double * tol = nullptr) const = 0;
+
+	virtual Hist applyToFieldNTimes(Field& f0, size_t N, ThreadPool::Progress * p) const = 0;
 
 	//It's important!!!
 	virtual ~COperator() {}
@@ -82,6 +85,8 @@ public:
 
 	//Applies operator to a field
 	void applyToField(Field& f, double * tol = nullptr) const;
+
+	Hist applyToFieldNTimes(Field& f0, size_t N, ThreadPool::Progress * p) const;
 };
 
 // Addapts mesh to an external usage
