@@ -41,3 +41,5 @@
 
 #include <string>
 #include <cassert>
+#include <algorithm>
+#include <iterator>

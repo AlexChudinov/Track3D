@@ -7,7 +7,6 @@
 #include <thread>
 #include <vector>
 #include <future>
-#include <algorithm>
 #include "../track3d/CObject.h"
 
 //A pool of threads
@@ -69,6 +68,12 @@ public:
 	//Returns error string from a thread pool
 	static String error();
 
+	//Oarallel computation of max element
+	template<class Iterator> static Iterator max_element(Iterator _First, Iterator _Last, 
+		std::random_access_iterator_tag);
+
+	template<class Iterator> static Iterator max_element(Iterator _First, Iterator _Last);
+
 private:
 	void threadEvtLoop();
 
@@ -89,3 +94,45 @@ private:
 };
 
 #endif // !_PAR_FOR_
+
+template<class Iterator>
+inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last, 
+	std::random_access_iterator_tag)
+{
+	size_t dist = static_cast<size_t>(std::distance(_First, _Last));
+	size_t n = dist / ThreadPool::threadNumber() + 1;
+	std::vector<Iterator> results(ThreadPool::threadNumber());
+	std::vector<ThreadPool::Future> futures(ThreadPool::threadNumber());
+
+	for (size_t i = 0; i < futures.size(); ++i)
+	{
+		Iterator _Next = _First + n;
+		_Next = _Next < _Last ? _Next : _Last;
+		futures[i] = ThreadPool::addTask([&results, i, _First, _Next]()
+		{
+			results[i] = std::max_element(_First, _Next);
+		});
+		_First = _Next;
+	}
+
+	for (auto f : futures) f->wait();
+
+	std::vector<Iterator>::iterator pRes = std::max_element
+	(
+		results.begin(),
+		results.end(),
+		[](Iterator a, Iterator b)->bool
+	{
+		return *a < *b;
+	}
+	);
+
+	return *pRes;
+}
+
+template<class Iterator>
+inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last)
+{
+	typedef std::iterator_traits<Iterator>::iterator_category category;
+	return max_element(_First, _Last, category());
+}
