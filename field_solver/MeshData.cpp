@@ -208,6 +208,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradX() const
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradX(nNodeIdx); },
 		m_pProgressBar.get());
 
+	result.calcFastMatrix();
+
 	return result;
 }
 
@@ -223,6 +225,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradY() const
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradY(nNodeIdx); },
 		m_pProgressBar.get());
 
+	result.calcFastMatrix();
+
 	return result;
 }
 
@@ -237,6 +241,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::gradZ() const
 	ThreadPool::splitInPar(m_nodes.size(),
 		[&](size_t nNodeIdx)->void { result.m_matrix[nNodeIdx] = gradZ(nNodeIdx); },
 		m_pProgressBar.get());
+
+	result.calcFastMatrix();
 
 	return result;
 }
@@ -317,6 +323,9 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0() const
 			result.m_matrix[nNodeIdx] = std::move(coefs);
 		}
 	}
+
+	result.calcFastMatrix();
+
 	return result;
 }
 
@@ -394,6 +403,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 		}
 	}, progressBar());
 
+	result.calcFastMatrix();
+
 	return result;
 }
 
@@ -437,6 +448,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver2() const
 		}
 		}
 	}, progressBar());
+
+	solver.calcFastMatrix();
 
 	return solver;
 }
@@ -509,6 +522,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 		}
 	}, progressBar());
 
+	result.calcFastMatrix();
+
 	return result;
 }
 
@@ -521,6 +536,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 	opLaplace += (opGradComp1 *= opGradComp2);
 	opGradComp1 = gradZ(), opGradComp2 = opGradComp1;
 	opLaplace += (opGradComp1 *= opGradComp2);
+	opLaplace.calcFastMatrix();
 	return opLaplace;
 }
 
@@ -836,6 +852,18 @@ const CMeshConnectivity::NodeConnections& CMeshConnectivity::neighbor(Label i) c
 	return m_graph.at(i);
 }
 
+void CFieldOperator::calcFastMatrix()
+{
+	mFastMatrix.resize(m_matrix.size());
+	ThreadPool::splitInPar(m_matrix.size(),
+		[&](size_t i)
+	{
+		mFastMatrix[i].clear();
+		mFastMatrix[i].reserve(m_matrix[i].size());
+		std::copy(m_matrix[i].begin(), m_matrix[i].end(), std::back_inserter(mFastMatrix[i]));
+	});
+}
+
 void CFieldOperator::applyToField(Field & f0, double * tol) const
 {
 	
@@ -846,25 +874,30 @@ void CFieldOperator::applyToField(Field & f0, double * tol) const
 	if (tol)
 	{
 		static ThreadPool::Mutex mutex;
-		*tol = std::numeric_limits<double>::lowest();
+		static Field errs;
+		errs.resize(f1.size());
 		ThreadPool::splitInPar(f0.size(), [&](size_t n)
 		{
 			f1[n] = 0.0;
-			for (MatrixRow::const_reference c : m_matrix[n])
+			errs[n] = 0.0;
+			for (MatrixRow::const_reference c : mFastMatrix[n])
 				f1[n] += f0[c.first] * c.second;
 
 			double U = max(::fabs(f0[n]), ::fabs(f1[n]));
-			double dU = ::fabs(f0[n] - f1[n]);
-			ThreadPool::Locker lock(mutex);
-			*tol = max(*tol, dU / U);
+			if (U > Const_Almost_Zero)
+			{
+				double dU = ::fabs(f0[n] - f1[n]);
+				errs[n] = dU / U;
+			}
 		});
+		*tol = *std::max_element(errs.begin(), errs.end());
 	}
 	else
 	{
 		ThreadPool::splitInPar(f0.size(), [&](size_t n)
 		{
 			f1[n] = 0.0;
-			for (MatrixRow::const_reference c : m_matrix[n])
+			for (MatrixRow::const_reference c : mFastMatrix[n])
 				f1[n] += f0[c.first] * c.second;
 		});
 	}

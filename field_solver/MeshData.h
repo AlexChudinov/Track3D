@@ -74,6 +74,9 @@ public:
 		std::less<uint32_t>, Allocator<std::pair<uint32_t, double>>>;
 	using Matrix = std::vector<MatrixRow>;
 
+	using PairIdxDouble = std::pair<uint32_t, double>;
+	using PairIdxVector = std::vector<PairIdxDouble>;
+
 	friend class CMeshAdapter;
 	friend class DCMeshAdapter;
 	friend CFieldOperator& operator+=(CFieldOperator& op1, const CFieldOperator& op2);
@@ -81,12 +84,16 @@ public:
 private:
 	Matrix m_matrix;
 
+	std::vector<PairIdxVector> mFastMatrix;
+
 public:
 
 	//Applies operator to a field
 	void applyToField(Field& f, double * tol = nullptr) const;
 
 	Hist applyToFieldNTimes(Field& f0, size_t N, ThreadPool::Progress * p) const;
+
+	void calcFastMatrix();
 };
 
 // Addapts mesh to an external usage

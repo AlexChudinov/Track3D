@@ -118,5 +118,7 @@ CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian() const
 	},
 		progressBar());
 
+	result.calcFastMatrix();
+
 	return result;
 }
