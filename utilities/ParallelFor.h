@@ -100,34 +100,41 @@ inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last,
 	std::random_access_iterator_tag)
 {
 	size_t dist = static_cast<size_t>(std::distance(_First, _Last));
-	size_t n = dist / ThreadPool::threadNumber() + 1;
-	std::vector<Iterator> results(ThreadPool::threadNumber());
-	std::vector<ThreadPool::Future> futures(ThreadPool::threadNumber());
-
-	for (size_t i = 0; i < futures.size(); ++i)
+	if (dist > ThreadPool::threadNumber())
 	{
-		Iterator _Next = _First + n;
-		_Next = _Next < _Last ? _Next : _Last;
-		futures[i] = ThreadPool::addTask([&results, i, _First, _Next]()
+		size_t n = dist / ThreadPool::threadNumber() + 1;
+		std::vector<Iterator> results(ThreadPool::threadNumber());
+		std::vector<ThreadPool::Future> futures(ThreadPool::threadNumber());
+
+		for (size_t i = 0; i < futures.size(); ++i)
 		{
-			results[i] = std::max_element(_First, _Next);
-		});
-		_First = _Next;
+			Iterator _Next = _First + n;
+			_Next = _Next < _Last ? _Next : _Last;
+			futures[i] = ThreadPool::addTask([&results, i, _First, _Next]()
+			{
+				results[i] = std::max_element(_First, _Next);
+			});
+			_First = _Next;
+		}
+
+		for (auto f : futures) f->wait();
+
+		std::vector<Iterator>::iterator pRes = std::max_element
+		(
+			results.begin(),
+			results.end(),
+			[](Iterator a, Iterator b)->bool
+		{
+			return *a < *b;
+		}
+		);
+
+		return *pRes;
 	}
-
-	for (auto f : futures) f->wait();
-
-	std::vector<Iterator>::iterator pRes = std::max_element
-	(
-		results.begin(),
-		results.end(),
-		[](Iterator a, Iterator b)->bool
+	else
 	{
-		return *a < *b;
+		return std::max_element(_First, _Last);
 	}
-	);
-
-	return *pRes;
 }
 
 template<class Iterator>

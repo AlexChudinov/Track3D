@@ -890,7 +890,7 @@ void CFieldOperator::applyToField(Field & f0, double * tol) const
 				errs[n] = dU / U;
 			}
 		});
-		*tol = *std::max_element(errs.begin(), errs.end());
+		*tol = *ThreadPool::max_element(errs.begin(), errs.end());
 	}
 	else
 	{
