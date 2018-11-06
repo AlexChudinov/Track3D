@@ -93,8 +93,6 @@ private:
 	void init();
 };
 
-#endif // !_PAR_FOR_
-
 template<class Iterator>
 inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last, 
 	std::random_access_iterator_tag)
@@ -143,3 +141,5 @@ inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last)
 	typedef std::iterator_traits<Iterator>::iterator_category category;
 	return max_element(_First, _Last, category());
 }
+
+#endif // !_PAR_FOR_
