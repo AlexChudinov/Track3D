@@ -151,7 +151,7 @@ private:
   UINT                m_nPlanesCount; // count of x = const planes subdividing the domain into elliptical volumes.
 
   double              m_fMeshStep,    // the pseudo-charges are placed into the nodes of a constant cubical mesh.
-                      m_fTimeStep;    // the pseudo-charges are placed along the trajectories separated by a constant time step.
+                      m_fTimeStep;    // NOTE: this variable is never used so far; the pseudo-charges are placed along the trajectories separated by a constant time step.
 
   double              m_fMinX,
                       m_fMaxX,

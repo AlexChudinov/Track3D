@@ -373,6 +373,9 @@ protected:
   bool                    create_BH_object(CalcThreadVector& vThreads, UINT nIter);
   void                    get_BH_cube(Vector3D& c, double& edge, double& fMinX, double& fMaxX) const;
 
+// The Coulomb field is accumulated in the nodes from iteration to iteration to provide better stability.
+  void                    accumulate_clmb_field(UINT nIter);
+
   double                  get_full_current_at(UINT nIter);  // the full current is gradually increasing with iteration number.
   bool                    capture_save_image(UINT nIter);   // capture and save screenshot with tracks after nIter-th iteration.
 

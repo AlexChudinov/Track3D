@@ -520,12 +520,26 @@ bool CSpaceChargeDistrib::set_charges_from_tracks()
     set_progress(int(0.5 + 100. * (i + 1) / nTracksCount));
 
     const CTrack& track = vTracks.at(i);
+
+// Randomization of pseudo-charge positions. Track-specific coefficient based on the track.get_phase():
+    double fKsi = track.get_phase() / Const_2PI;  // must be in the range from 0 to 1.
+
+    CBaseTrackItem* pItem = NULL;
+    CBaseTrackItem* pNext = NULL;
     size_t nItemsCount = track.size();
     for(size_t j = 0; j < nItemsCount; j++)
     {
-      CBaseTrackItem* pItem = track.at(j);
+      pItem = track.at(j);
+      if(j < nItemsCount - 1)
+      {
+        pNext = track.at(j + 1);
+        vPos = pItem->pos * (1 - fKsi) + pNext->pos * fKsi;
+      }
+      else
+      {
+        continue;
+      }
 
-      vPos = pItem->pos;
 // Correction for symmetry:
       if((vPos.z < 0) && bCorrZ)
         vPos.z = -vPos.z;

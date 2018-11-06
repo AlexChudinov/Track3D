@@ -91,7 +91,7 @@ public:
   void            add_particle(const Vector3D& pos, double charge); // both in CGS.
 
 // In multi-threading applications this function must be called before start of the threads.
-  void            prepare(CalcThreadVector& vThreads, CNodesCollection& vNodes, UINT nIter);
+  void            prepare(CalcThreadVector& vThreads);
 
   Vector3D        get_center() const;
   OctoTreeCell*   get_main_cell() const;

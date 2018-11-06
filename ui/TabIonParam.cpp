@@ -102,8 +102,8 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * distrib.get_space_charge_step()), _T("Distance between pseudo-charges placed into nodes of a constant cubical mesh."), distrib.get_space_charge_step_ptr());
   pDistribGroup->AddSubItem(pProp);
 
-  pProp = new CMFCPropertyGridProperty(_T("Space Charge Time Step, mcs"), COleVariant(1e+6 * distrib.get_charge_time_step()), _T("Distance between pseudo-charges placed along the trajectories."), distrib.get_charge_time_step_ptr());
-  pDistribGroup->AddSubItem(pProp);
+//  pProp = new CMFCPropertyGridProperty(_T("Space Charge Time Step, mcs"), COleVariant(1e+6 * distrib.get_charge_time_step()), _T("Distance between pseudo-charges placed along the trajectories."), distrib.get_charge_time_step_ptr());
+//  pDistribGroup->AddSubItem(pProp);
 
   pCoulombGroup->AddSubItem(pDistribGroup);
   m_wndPropList.AddProperty(pCoulombGroup);
@@ -195,9 +195,9 @@ void CPropertiesWnd::set_ion_data()
   if(pProp != NULL)
     distrib.set_space_charge_step(0.1 * pProp->GetValue().dblVal);
 
-  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
-  if(pProp != NULL)
-    distrib.set_charge_time_step(1e-6 * pProp->GetValue().dblVal);
+//  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
+//  if(pProp != NULL)
+//    distrib.set_charge_time_step(1e-6 * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_use_radial_coulomb_ptr());
   if(pProp != NULL)
@@ -360,9 +360,9 @@ void CPropertiesWnd::update_ion_ctrls()
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject && !bPreCalcClmb);
 
-  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject && !bPreCalcClmb);
+//  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
+//  if(pProp != NULL)
+//    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject && !bPreCalcClmb);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_BH_dist_par_ptr());
   if(pProp != NULL)

@@ -514,7 +514,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
     return false;
   }
   
-  m_pBarnesHut->prepare(vThreads, m_vNodes, nIter);
+  m_pBarnesHut->prepare(vThreads);
 
   m_SpaceChargeDist.set_handlers(NULL, NULL);
 
@@ -525,24 +525,50 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
     return false;
   }
 
-// DEBUG (full pseudo-charges count)
-  COutputEngine& out_engine = get_output_engine();
-  std::string cPath = out_engine.get_full_path(get_filename());
-  std::string cName("Count_of_Charges");
-  std::string cExt(".txt");
-  std::string cFileName = cPath + cName + cExt;
-
-  FILE* pStream;
-  errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
-  if((nErr == 0) && (pStream != NULL))
-  {
-    fputs("Count of charges = ", pStream);
-    fprintf(pStream, "%zd\n", m_pBarnesHut->get_main_cell()->charges.size());
-    fclose(pStream);
-  }
-// END DEBUG
+// Calculate the full Coulomb field at every node and accumulate it in the nodes.
+  accumulate_clmb_field(nIter);
 
   return true;
+}
+
+void CTracker::accumulate_clmb_field(UINT nIter)
+{
+  CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
+  size_t nFieldCount = pAllFields->size();
+  for(size_t k = 0; k < nFieldCount; k++)
+  {
+    CElectricFieldData* pData = pAllFields->at(k);
+    if(pData->get_type() != CElectricFieldData::typeMirror)
+      continue;
+
+    size_t nNodesCount = m_vNodes.size();
+// For visualization purposes initialize the m_vClmbPhi member of the mirror field:
+    if(nIter == 1)
+      pData->init_clmb_phi(nNodesCount);
+
+    CNode3D* pNode = NULL;
+    Vector3D vMirrField;
+    double fCoeff = 1. / nIter, fClmbPhi, fMirrPhi;
+    bool bMirrEnabled = pData->get_enable_field();
+    for(size_t i = 0; i < nNodesCount; i++)
+    {
+      vMirrField = bMirrEnabled? pData->get_field(i) : vNull;
+      pNode = m_vNodes.at(i);
+      pNode->clmb = nIter == 1 ? 
+        m_pBarnesHut->coulomb_force(pNode->pos) + vMirrField :
+        (double(nIter - 1) * pNode->clmb + m_pBarnesHut->coulomb_force(pNode->pos) + vMirrField) * fCoeff;
+
+// Visualization of the Coulomb potential.
+      fMirrPhi = bMirrEnabled ? pData->get_phi(i) : 0.0f;
+      fClmbPhi = nIter == 1 ?
+        CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi) :
+        (double(nIter - 1) * pData->get_clmb_phi(i) + CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi)) * fCoeff;
+
+      pData->set_clmb_phi(i, fClmbPhi);
+    }
+
+    break;  // the only field of Mirror type is assumed to present in the pAllFields collection.
+  }
 }
 
 int CTracker::get_symmetry_type() const

@@ -135,12 +135,12 @@ void CImportOpenFOAM::convert_to_cgs(float& fN, float& fVx, float& fVy, float& f
 
 void CImportOpenFOAM::convert_to_si(float& fPress, float& fDens, float& fVx, float& fVy, float& fVz) const
 {
-  fPress *= CGS_to_SI_Press;
-  fDens *= CGS_to_SI_Dens;
+  fPress *= (float)CGS_to_SI_Press;
+  fDens *= (float)CGS_to_SI_Dens;
 
-  fVx *= CGS_to_SI_Vel;
-  fVy *= CGS_to_SI_Vel;
-  fVz *= CGS_to_SI_Vel;
+  fVx *= (float)CGS_to_SI_Vel;
+  fVy *= (float)CGS_to_SI_Vel;
+  fVz *= (float)CGS_to_SI_Vel;
 }
 
 static const double scfTol = 0.0001; // tolerance, cm.

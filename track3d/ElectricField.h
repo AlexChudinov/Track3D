@@ -212,6 +212,9 @@ public:
   bool                    get_enable_multithread() const;
   DWORD_PTR               get_enable_multithread_ptr() const;
 
+  bool                    get_enable_vis() const;
+  DWORD_PTR               get_enable_vis_ptr() const;
+
   double                  get_tol() const;
   DWORD_PTR               get_tol_ptr() const;
   void                    set_tol(double fTol);
@@ -254,7 +257,15 @@ public:
   size_t                  get_bc_count() const;
   CPotentialBoundCond*    get_bc(size_t nId) const;
 
+  float                   get_phi(size_t nInd) const;
+
+// For Coulomb potential visualization only. These functions must be called only from CTracker::average_clmb_field(UINT nIter).
+  void                    init_clmb_phi(size_t nNodeCount);      // here m_vClmbPhi is initialized ...
+  void                    set_clmb_phi(size_t nInd, float fPhi); // ... and modified at every iteration.
+  float                   get_clmb_phi(size_t nInd) const;
+
   Vector3D                get_field(size_t nInd) const;
+
   double                  get_omega() const;
   double                  get_ampl() const;   // returns the scale in CGS units.
 
@@ -264,7 +275,7 @@ public:
   static const char*      get_field_type_name(int nType);
   static const char*      get_calc_method_name(int nCalcMethod);
 
-  bool                    calc_field(bool bTest = false);
+  bool                    calc_field();
   bool                    need_recalc() const;
   void                    invalidate();
 
@@ -291,24 +302,27 @@ protected:
 
   void                    set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, CPotentialBoundCond* pBC = NULL);
 
+public:
   double                  linear_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const;  // linear step-wise boundary conditions support.
   double                  quadric_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const; // parabolic step-wise boundary conditions support.
+protected:
   bool                    coulomb_potential(const CIndexVector& vNodeIds, std::vector<float>& vPhi) const;  // Coulomb boundary conditions support.
 
   Vector3D                calc_norm(CNode3D* pNode) const;
 
-  bool                    get_result(bool bTest) const;
+  bool                    get_result() const;
   void                    notify_scene(); // let the scene objects know that the potential field has been changed.
 
   void                    apply_analytic_field(const Vector3D& vPos, Vector3F& vField, float& fPhi);
 
-  bool                    calc_lap3(bool bTest);
-  bool                    calc_dirichlet_lap3(bool bTest);
-  bool                    calc_finite_vol_jacobi(bool bTest);
+  bool                    calc_lap3();
+  bool                    calc_dirichlet_lap3();
+  bool                    calc_finite_vol_jacobi();
 
 private:
   bool                    m_bEnable,
-                          m_bMultiThread; // for tests, never saved to the stream.
+                          m_bMultiThread, // for tests, never saved to the stream.
+                          m_bEnableVis;   // for visualization; if true, the potential of this field will be added to node.phi for every node in the mesh. 
 
   int                     m_nCalcMethod,
                           m_nType;
@@ -328,6 +342,8 @@ private:
                           m_fLowLimX,   // an analytic formula will be used if m_fLowLimX < x < m_fHighLimX;
                           m_fHighLimX;
 
+  std::vector<float>      m_vPhi;       // for field visualization and test purposes.
+  std::vector<float>      m_vClmbPhi;   // for visualization of the Coulomb potential, which is accumulated at every iteration.
   std::vector<Vector3F>   m_vField;
   CString                 m_sName;
 
@@ -412,6 +428,16 @@ inline bool CElectricFieldData::get_enable_multithread() const
 inline DWORD_PTR CElectricFieldData::get_enable_multithread_ptr() const
 {
   return (DWORD_PTR)&m_bMultiThread;
+}
+
+inline bool CElectricFieldData::get_enable_vis() const
+{
+  return m_bEnableVis;
+}
+
+inline DWORD_PTR CElectricFieldData::get_enable_vis_ptr() const
+{
+  return (DWORD_PTR)&m_bEnableVis;
 }
 
 inline double CElectricFieldData::get_tol() const
@@ -598,9 +624,43 @@ inline void CElectricFieldData::invalidate()
   m_bNeedRecalc = true;
 }
 
+inline float CElectricFieldData::get_phi(size_t nInd) const
+{
+  if(nInd >= m_vPhi.size())
+    return 0.0f;
+
+  return m_nType == typeMirror ? m_vPhi[nInd] : (m_bNeedRecalc ? 0.0f : m_vPhi[nInd]);
+}
+
+inline void CElectricFieldData::init_clmb_phi(size_t nNodeCount)
+{
+  if(m_nType != typeMirror)
+    return;
+
+  m_vClmbPhi.resize(nNodeCount, 0.0f);
+}
+
+inline float CElectricFieldData::get_clmb_phi(size_t nInd) const
+{
+  if(nInd >= m_vClmbPhi.size())
+    return 0.0f;
+
+  return m_nType == typeMirror ? m_vClmbPhi[nInd] : 0.0f;
+}
+
+inline void CElectricFieldData::set_clmb_phi(size_t nInd, float fPhi)
+{
+  if(m_nType != typeMirror)
+    return;
+
+  m_vClmbPhi[nInd] = fPhi;
+}
+
 inline Vector3D CElectricFieldData::get_field(size_t nInd) const
 {
-  return m_bNeedRecalc ? Vector3D(0, 0, 0) : Vector3D(m_vField[nInd].x, m_vField[nInd].y, m_vField[nInd].z);
+  return m_nType == typeMirror ? 
+    Vector3D(m_vField[nInd].x, m_vField[nInd].y, m_vField[nInd].z) : 
+    (m_bNeedRecalc ? Vector3D(0, 0, 0) : Vector3D(m_vField[nInd].x, m_vField[nInd].y, m_vField[nInd].z));
 }
 
 inline double CElectricFieldData::get_omega() const

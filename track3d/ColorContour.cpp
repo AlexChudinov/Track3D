@@ -39,11 +39,12 @@ bool CColorContour::build_draw_array()
   m_vIsolines.clear();
   m_vFaceColors.clear();
   m_vFaceVert.clear();
+  get_phi();  // the electric potential visualization requires summation over all enabled fields.
 
   if(m_nLevelsCount < 2)
     return false;
 
-  get_min_max();  // minimum and maximum of the contoured parameter values over all vRegions.
+  get_glob_min_max();  // minimum and maximum of the contoured parameter values over all simulation domain.
   
   get_values_array();
   if(m_vValues.size() == 0)
@@ -283,6 +284,31 @@ void CColorContour::get_min_max()
   }
 }
 
+void CColorContour::get_glob_min_max()
+{
+  if(m_bUserDefRange)
+    return;
+
+  m_fMinVal = FLT_MAX;
+  m_fMaxVal = -FLT_MAX;
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CNodesCollection& vNodes = pObj->get_nodes();
+  CNode3D* pNode = NULL;
+  double fVal = 0;
+
+  size_t nNodeCount = vNodes.size();
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = vNodes.at(i);
+    fVal = get_node_value(pNode);
+    if(m_fMinVal > fVal)
+      m_fMinVal = fVal;
+    if(m_fMaxVal < fVal)
+      m_fMaxVal = fVal;
+  }
+}
+
 void CColorContour::reorder_vertices(CFace* pFace, Vector3D* pFaceVert, double* pVal) const
 {
   double pValTmp[3];
@@ -333,84 +359,61 @@ void CColorContour::reorder_vertices(CFace* pFace, Vector3D* pFaceVert, double* 
 void CColorContour::get_face_values_array(CFace* pFace, double* pVal) const
 {
   CNode3D* pNodes[3] = { pFace->p0, pFace->p1, pFace->p2 };
+  for(UINT i = 0; i < 3; i++)
+    pVal[i] = get_node_value(pNodes[i]);
+}
 
+double CColorContour::get_node_value(CNode3D* pNode) const
+{
   switch(m_nVar)
   {
-    case varPress:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->press;
-      break;
-    }
-    case varDens:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->dens; 
-      break;
-    }
-    case varTemp:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->temp; 
-      break;
-    }
-    case varAbsVel:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->vel.length(); 
-      break;
-    }
-    case varVelX:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->vel.x; 
-      break;
-    }
-    case varVelY:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->vel.y; 
-      break;
-    }
-    case varVelZ:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->vel.z; 
-      break;
-    }
-    case varAbsClmb:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->clmb.length(); 
-      break;
-    }
-    case varClmbX:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->clmb.x; 
-      break;
-    }
-    case varClmbY:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->clmb.y; 
-      break;
-    }
-    case varClmbZ:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->clmb.z; 
-      break;
-    }
-// DEBUG
-    case varPhi:
-    {
-      for(UINT i = 0; i < 3; i++)
-        pVal[i] = pNodes[i]->phi; 
-      break;
-    }
-// END DEBUG
+    case varPress:   return pNode->press;
+    case varDens:    return pNode->dens;
+    case varTemp:    return pNode->temp;
+    case varAbsVel:  return pNode->vel.length();
+    case varVelX:    return pNode->vel.x;
+    case varVelY:    return pNode->vel.y;
+    case varVelZ:    return pNode->vel.z;
+    case varAbsClmb: return pNode->clmb.length();
+    case varClmbX:   return pNode->clmb.x;
+    case varClmbY:   return pNode->clmb.y;
+    case varClmbZ:   return pNode->clmb.z;
+    case varPhi:     return pNode->phi;
   }
+
+  return 0;
+}
+
+bool CColorContour::get_phi() const
+{
+  CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
+  size_t nFieldCount = pAllFields->size();
+  if(nFieldCount == 0)
+    return false;
+
+  CNode3D* pNode = NULL;
+  CElectricFieldData* pField = NULL;
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CNodesCollection& vNodes = pObj->get_nodes();
+  size_t nNodeCount = vNodes.size();
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = vNodes.at(i);
+    pNode->phi = 0;
+    for(size_t j = 0; j < nFieldCount; j++)
+    {
+      pField = pAllFields->at(j);
+      if(pField->get_enable_vis())
+      {  
+        if(pField->get_type() != CElectricFieldData::typeMirror)
+          pNode->phi += pField->get_phi(i) * pField->get_scale(); // Note that if the j-th field is not ready, its get_phi(i) returns 0.
+        else
+          pNode->phi += pField->get_clmb_phi(i);
+      }
+    }
+  }
+
+  return true;
 }
 
 void CColorContour::save(CArchive& ar)

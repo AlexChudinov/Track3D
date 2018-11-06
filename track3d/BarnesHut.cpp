@@ -150,22 +150,9 @@ void CBarnesHut::create_main_cell(const Vector3D& cube_center, double cube_edge)
   m_vCells.push_back(m_pTree);
 }
 
-void CBarnesHut::prepare(CalcThreadVector& vThreads, CNodesCollection& vNodes, UINT nIter)
+void CBarnesHut::prepare(CalcThreadVector& vThreads)
 {
   compute_moments(vThreads);
-
-  CNode3D* pNode = NULL;
-  size_t nNodesCount = vNodes.size();
-  for(size_t i = 0; i < nNodesCount; i++)
-  {
-    pNode = vNodes.at(i);
-    pNode->clmb = nIter == 1 ? coulomb_force(pNode->pos) : (double(nIter - 1) * pNode->clmb + coulomb_force(pNode->pos)) / (double)nIter;
-// DEBUG: Visualization of the Coulomb potential.
-    pNode->phi = nIter == 1 ? CGS_to_SI_Voltage * coulomb_phi(pNode->pos) :
-      (double(nIter - 1) * pNode->phi + CGS_to_SI_Voltage * coulomb_phi(pNode->pos)) / (double)nIter;
-// END DEBUG
-  }
-
   m_bReady = true;
 }
 

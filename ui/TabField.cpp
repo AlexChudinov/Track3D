@@ -32,21 +32,30 @@ void CPropertiesWnd::add_field_ctrls()
   CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
   if(pData != NULL)
   {
+    CMFCPropertyGridProperty* pGenGroup = new CMFCPropertyGridProperty(_T("General Field Properties"));
+
     CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable Field"), (_variant_t)pData->get_enable_field(), _T("Click this check-box to enable / disable this field."), pData->get_enable_field_ptr());
-    m_wndPropList.AddProperty(pCheckBox);
+    pGenGroup->AddSubItem(pCheckBox);
 
     COleVariant var(CElectricFieldData::get_field_type_name(pData->get_type()));
     CGeneralResponseProperty* pFieldType = new CGeneralResponseProperty(this, _T("Field Type (DC, RF or Mirror)"), var, _T("Specify the electric field type. It can be either Direct Current or Radio-Frequency or Coulomb Mirror field."), pData->get_type_ptr());
     for(int k = CElectricFieldData::typeFieldDC; k < CElectricFieldData::typeCount; k++)
       pFieldType->AddOption(CElectricFieldData::get_field_type_name(k));
 
-    m_wndPropList.AddProperty(pFieldType);
+    pGenGroup->AddSubItem(pFieldType);
 
     CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
-    m_wndPropList.AddProperty(pProp);
+    pGenGroup->AddSubItem(pProp);
 
-    pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pData->get_freq()), _T("Set the frequency of the radio-frequency field."), pData->get_freq_ptr());
-    m_wndPropList.AddProperty(pProp);
+    if(pData->get_type() == CElectricFieldData::typeFieldRF)
+    {
+      pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pData->get_freq()), _T("Set the frequency of the radio-frequency field."), pData->get_freq_ptr());
+      pGenGroup->AddSubItem(pProp);
+    }
+
+// Enable / disable field visualization:
+    CContourRangeCheckBox* pVisCheckBox = new CContourRangeCheckBox(this, _T("Enable Visualization"), (_variant_t)pData->get_enable_vis(), _T("Enable / Disable this field as a component in the Electric Potential contour."), pData->get_enable_vis_ptr());
+    pGenGroup->AddSubItem(pVisCheckBox);
 
 // Field calculation method:
     COleVariant varCalc(CElectricFieldData::get_calc_method_name(pData->get_calc_method()));
@@ -54,13 +63,16 @@ void CPropertiesWnd::add_field_ctrls()
     for(int j = CElectricFieldData::cmLaplacian3; j < CElectricFieldData::cmCount; j++)
       pCalcMethod->AddOption(CElectricFieldData::get_calc_method_name(j));
 
-    m_wndPropList.AddProperty(pCalcMethod);
-
+    pGenGroup->AddSubItem(pCalcMethod);
 
     CString cDummy(_T(" "));
 // Calculate field button:
     CCalcFieldButton* pCalcField = new CCalcFieldButton(this, _T("Calculate Field"), cDummy, _T("Click this button to start field calculation."), (DWORD_PTR)pData);
-    m_wndPropList.AddProperty(pCalcField);
+    bool bEnableCalc = pData->get_type() != CElectricFieldData::typeMirror;
+    pCalcField->Enable(bEnableCalc);
+    pGenGroup->AddSubItem(pCalcField);
+
+    m_wndPropList.AddProperty(pGenGroup);
 
 // Solver parameters (iterations count, tolerance, multithreading):
     CMFCPropertyGridProperty* pSolverParamGroup = new CMFCPropertyGridProperty(_T("Solver Parameters"));
@@ -188,6 +200,12 @@ void CPropertiesWnd::add_field_ctrls()
         cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitLastStepPhi);
         pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fLastStepPhi), cHint, (DWORD_PTR)&(pBC->fLastStepPhi));
         pStepWiseGroup->AddSubItem(pProp);
+
+        double fEndPhi = pData->quadric_step_potential(pBC, Vector3D(pBC->fEndX, pBC->fEndX, 0));
+        CGeneralResponseProperty* pReadOnly = new CGeneralResponseProperty(this, _T("End Potential, V"), COleVariant(fEndPhi), _T(""), NULL);
+        pReadOnly->AllowEdit(FALSE);
+        pReadOnly->Enable(FALSE);
+        pStepWiseGroup->AddSubItem(pReadOnly);
 
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
       }

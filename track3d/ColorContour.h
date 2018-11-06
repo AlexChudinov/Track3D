@@ -29,9 +29,7 @@ public:
     varClmbX    = 8,
     varClmbY    = 9,
     varClmbZ    = 10,
-// DEBUG
-    varPhi      = 11,  // home-computed electric potential (or absolute field, see ElectricField.cpp, CElectricFieldData::calc_field()).
-// END DEBUG
+    varPhi      = 11,  // sum of potentials of all computed fields, which visualization is enabled.
     varCount    = 12
   };
 
@@ -57,7 +55,9 @@ public:
   virtual void        load(CArchive& archive);
 
   virtual void        restore_user_range();
-  virtual void        get_min_max();
+
+  virtual void        get_min_max();      // minimal and maximal values of the drawn variable over the cross-section...
+  virtual void        get_glob_min_max(); // ... and over all the computational domain.
 
   const char*         get_var_name(int nVar) const;
 
@@ -67,12 +67,19 @@ protected:
   virtual bool        build_draw_array();
 
   void                reorder_vertices(CFace* pFace, Vector3D* pFaceVert, double* pVal) const;
+
   void                get_face_values_array(CFace* pFace, double* pVal) const;
+
+  double              get_node_value(CNode3D* pNode) const;
 
   void                add_face(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const RGB_Color& clr);
   void                add_edge(const Vector3D& v0, const Vector3D& v1);
 
   double              get_multiplier(bool bSI_to_CGS) const;
+
+// Visualization of electric potentials. This function searches over all computed fields, which visualization is enabled
+// and sets the summary potential to all the nodes (node.phi).
+  bool                get_phi() const;
   
 private:
   int                 m_nVar;

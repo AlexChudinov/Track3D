@@ -197,8 +197,14 @@ bool CFieldDataColl::calc_fields(bool bMirrorClmb)
   HWND hProgress, hJobName, hDlgWnd;
   pObj->get_handlers(hJobName, hProgress, hDlgWnd);
 
+// bMirrorClmb == false:
+//   The call is from CPropertiesWnd::OnDoTracking(); only the steady-state (not Mirror) fields must be calculated if. In fact, only those fields
+//   will be re-calculated, which have their m_bNeedRecalc flags raised.
+// bMirrorClmb == true:
+//   The call is from CTracker::create_BH_object(); only the Mirror field must be re-calculated on every iteration.
+
   if(!bMirrorClmb)
-    clear_fields_in_nodes();  // do not clear fields from the nodes if Mirror Coulomb field is about to be calculated.
+    clear_fields_in_nodes();
 
   size_t nCount = size();
   for(size_t i = 0; i < nCount; i++)
@@ -233,6 +239,7 @@ void CFieldDataColl::clear_fields_in_nodes()
   {
     pNode = vNodes.at(i);
     pNode->field = scvNull;
+    pNode->clmb = scvNull;
     pNode->rf = scvNull;
   }
 }
@@ -353,6 +360,8 @@ void CElectricFieldData::set_default()
 {
   m_bEnable = true;
   m_bMultiThread = true;  // for tests only, it is never saved to the stream.
+  m_bEnableVis = false;   // visualization flag.
+
   m_nCalcMethod = cmLaplacian3;   // the oldest and most tested method so far.
 
   m_fScale = 10 * SI_to_CGS_Voltage;  // 10 V in CGS.
@@ -371,7 +380,7 @@ void CElectricFieldData::set_default()
   m_sName = default_name();
 }
 
-bool CElectricFieldData::calc_field(bool bTest)
+bool CElectricFieldData::calc_field()
 {
   if(!m_bEnable)
     return true;
@@ -379,19 +388,19 @@ bool CElectricFieldData::calc_field(bool bTest)
   bool bOK = m_vField.size() == CParticleTrackingApp::Get()->GetTracker()->get_nodes().size();
 
   if(!m_bNeedRecalc && bOK)
-    return get_result(bTest);
+    return get_result();
 
   switch(m_nCalcMethod)
   {
-    case cmLaplacian3: return calc_lap3(bTest);
-    case cmDirTessLap3: return calc_dirichlet_lap3(bTest);
-    case cmFinVolJacobi: return calc_finite_vol_jacobi(bTest);
+    case cmLaplacian3: return calc_lap3();
+    case cmDirTessLap3: return calc_dirichlet_lap3();
+    case cmFinVolJacobi: return calc_finite_vol_jacobi();
   }
 
   return false;
 }
 
-bool CElectricFieldData::calc_lap3(bool bTest)
+bool CElectricFieldData::calc_lap3()
 {
   try
   {
@@ -437,24 +446,17 @@ bool CElectricFieldData::calc_lap3(bool bTest)
     std::vector<double> dPhiDz(field);
     pGrad->applyToField(dPhiDz);
 
-// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
-    CBarnesHut* pBHObj = pObj->get_BH_object();
     CNode3D* pNode = NULL;
-// END DEBUG
-
+    m_vPhi.resize(nNodesCount, 0);
     m_vField.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
+      m_vPhi[i] = (float)field[i];
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
-
-// DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
-      pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi = (float)field[i];
-// END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], pNode->phi);
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], m_vPhi[i]);
     }
 
     m_bNeedRecalc = m_nType == typeMirror;  // false;
@@ -464,7 +466,7 @@ bool CElectricFieldData::calc_lap3(bool bTest)
     AfxMessageBox(ex.what());
   }
 
-  bool bRes = get_result(bTest);
+  bool bRes = get_result();
   notify_scene();
 
   /*[AC 03.05.2017] Memory clean up */
@@ -474,7 +476,7 @@ bool CElectricFieldData::calc_lap3(bool bTest)
   return bRes;
 }
 
-bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
+bool CElectricFieldData::calc_dirichlet_lap3()
 {
   CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
   try
@@ -528,27 +530,20 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
     std::vector<double> dPhiDz(field);
     pGrad->applyToField(dPhiDz);
 
-// DEBUG  (MS 04-04-2018 Mirror Coulomb potential testing)
-    CBarnesHut* pBHObj = pObj->get_BH_object();
     CNode3D* pNode = NULL;
-// END DEBUG
-
+    m_vPhi.resize(nNodesCount, 0);
     m_vField.resize(nNodesCount);
     for(size_t i = 0; i < nNodesCount; i++)
     {
+      m_vPhi[i] = (float)field[i];
       m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
-
-// DEBUG  (MS 04-04-2018 Mirror Coulomb potential visualization).
-      pNode = CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(i);
-      pNode->phi = (float)field[i];
-// END DEBUG
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], pNode->phi);
+        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], m_vPhi[i]);
     }
 
-    m_bNeedRecalc = m_nType == typeMirror;  // false;
+    m_bNeedRecalc = m_nType == typeMirror;
 
     output_convergence_history(vMaxRelErr);
 	}
@@ -557,7 +552,7 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
     AfxMessageBox(ex.what());
   }
 
-  bool bRes = get_result(bTest);
+  bool bRes = get_result();
   notify_scene();
 
   /*[AC 03.05.2017] Memory clean up */
@@ -567,7 +562,7 @@ bool CElectricFieldData::calc_dirichlet_lap3(bool bTest)
   return bRes;
 }
 
-bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
+bool CElectricFieldData::calc_finite_vol_jacobi()
 {
   CAnsysMesh* pMesh = (CAnsysMesh*)CParticleTrackingApp::Get()->GetTracker();
   CDirichletTesselation* pTess = CParticleTrackingApp::Get()->GetDirichletTess();
@@ -585,22 +580,20 @@ bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
     float fTol = (float)m_fTol;
     CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi, m_bMultiThread);
 
-    CNode3D* pNode = NULL;
     CNodesCollection& vNodes = pMesh->get_nodes();
     size_t nNodeCount = vNodes.size();
+    m_vPhi.resize(nNodeCount);
     m_vField.resize(nNodeCount);
     Vector3D vGrad;
     for(size_t k = 0; k < nNodeCount; k++)
     {
-      pNode = vNodes.at(k);
-      pNode->phi = vPhi.at(k);
-
       vGrad = pTess->get_grad(k, vPhi);
       m_vField[k] = Vector3F(-(float)vGrad.x, -(float)vGrad.y, -(float)vGrad.z);
+      m_vPhi[k] = vPhi.at(k);
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(k)->pos, m_vField[k], pNode->phi);
+        apply_analytic_field(vNodes.at(k)->pos, m_vField[k], m_vPhi[k]);
     }
 
     output_convergence_history(info.vMaxErrHist);
@@ -613,7 +606,7 @@ bool CElectricFieldData::calc_finite_vol_jacobi(bool bTest)
   m_bNeedRecalc = m_nType == typeMirror;
   notify_scene();
 
-  return get_result(bTest);
+  return get_result();
 }
 
 void CElectricFieldData::output_convergence_history(const std::vector<float>& vMaxRelErr)
@@ -732,17 +725,15 @@ bool CElectricFieldData::set_default_boundary_conditions(CFiniteVolumesSolver& s
   return true;
 }
 
-bool CElectricFieldData::get_result(bool bTest) const
+bool CElectricFieldData::get_result() const
 {
+  if(m_nType != typeFieldDC)
+    return true;
+
   CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
-  {
-    if(m_nType == typeFieldDC)
-      vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
-    else if(m_nType == typeMirror)
-      vNodes.at(i)->clmb += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z);
-  }
+    vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
 
   return true;
 }
@@ -1165,7 +1156,7 @@ void CElectricFieldData::check_regions()
 
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 4;  // 4 - Tolerance; 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
+  UINT nVersion = 6;  // 6 -  m_bEnableVis; 5 - m_vPhi; 4 - Tolerance; 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
   ar << nVersion;
 
   ar << m_bEnable;
@@ -1191,6 +1182,7 @@ void CElectricFieldData::save(CArchive& ar)
     ar << m_vField[j].x;
     ar << m_vField[j].y;
     ar << m_vField[j].z;
+    ar << m_vPhi[j];    // since version 5.
   }
 
   ar << m_bAnalytField;
@@ -1200,6 +1192,7 @@ void CElectricFieldData::save(CArchive& ar)
   ar << m_sName;
 
   ar << m_fTol;
+  ar << m_bEnableVis;
 }
 
 void CElectricFieldData::load(CArchive& ar)
@@ -1235,13 +1228,18 @@ void CElectricFieldData::load(CArchive& ar)
     size_t nNodesCount;
     ar >> nNodesCount;
     if(nNodesCount > 0)
+    {
       m_vField.resize(nNodesCount, Vector3F(0, 0, 0));
+      m_vPhi.resize(nNodesCount, 0.0f);
+    }
 
     for(size_t j = 0; j < nNodesCount; j++)
     {
       ar >> m_vField[j].x;
       ar >> m_vField[j].y;
       ar >> m_vField[j].z;
+      if(nVersion >= 5)
+        ar >> m_vPhi[j];
     }
 
     if(nNodesCount > 0)
@@ -1259,6 +1257,9 @@ void CElectricFieldData::load(CArchive& ar)
 
   if(nVersion >= 4)
     ar >> m_fTol;
+
+  if(nVersion >= 6)
+    ar >> m_bEnableVis;
 }
 
 };  // namespace EvaporatingParticle.
