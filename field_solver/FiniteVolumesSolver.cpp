@@ -100,6 +100,9 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
   float fMaxRelErr = FLT_MAX;
   const CNodesCollection& vNodes = m_pMesh->get_nodes();
   size_t nNodesCount = vNodes.size();
+
+  CFloatArray vErr;
+  vErr.resize(nNodesCount, 0.0f);
   vRes.resize(nNodesCount);
   vRes = m_vU0;
 
@@ -107,20 +110,30 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
   {
     for(UINT k = 0; k < nIterCount; k++)
     {
-		set_progress(100 * (k + 1) / nIterCount);
+      set_progress(100 * (k + 1) / nIterCount);
 
-      ThreadPool::splitInPar(vNodes.size(),
+      ThreadPool::splitInPar(nNodesCount,
 	      [&](size_t i) 
         {
-		  CNode3D* pNode = vNodes[i];
-		  CDirichletCell* pCell = m_pTess->get_cell(i);
+          CNode3D* pNode = vNodes[i];
+          CDirichletCell* pCell = m_pTess->get_cell(i);
           float fDiagCoeff = m_vDiagCoeff.at(i);
           int nType = m_vRes.at(i).nType;
           if(nType != 1)
-	          m_vRes[i].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+            m_vRes[i].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+
+          float fMaxVal = max(::fabsf(m_vRes.at(i).fValue), ::fabsf(m_vU0[i]));
+          if(fMaxVal > Const_Almost_Zero)
+            vErr[i] = ::fabsf(m_vRes.at(i).fValue - m_vU0[i]) / fMaxVal;
         });
 
-      fMaxRelErr = get_max_relative_error();
+      fMaxRelErr = *ThreadPool::max_element(vErr.begin(), vErr.end());
+
+      ThreadPool::splitInPar(nNodesCount,
+	      [&](size_t i) 
+        {
+          m_vU0[i] = m_vRes.at(i).fValue;
+        });
 
       info.vMaxErrHist.at(k) = fMaxRelErr;
       if(fMaxRelErr <= fTol)

@@ -1156,7 +1156,7 @@ void CElectricFieldData::check_regions()
 
 void CElectricFieldData::save(CArchive& ar)
 {
-  UINT nVersion = 6;  // 6 -  m_bEnableVis; 5 - m_vPhi; 4 - Tolerance; 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
+  UINT nVersion = 7;  // 7 - m_vClmbPhi; 6 -  m_bEnableVis; 5 - m_vPhi; 4 - Tolerance; 3 - Calculation method; 2 - Analytic RF field kitchen, alpha version; 1 - m_bEnable and calculated
   ar << nVersion;
 
   ar << m_bEnable;
@@ -1193,6 +1193,11 @@ void CElectricFieldData::save(CArchive& ar)
 
   ar << m_fTol;
   ar << m_bEnableVis;
+
+  size_t nClmbPhiSize = m_vClmbPhi.size();  // it must be either nNodesCount or 0.
+  ar << nClmbPhiSize;
+  for(size_t k = 0; k < nClmbPhiSize; k++)
+    ar << m_vClmbPhi[k];
 }
 
 void CElectricFieldData::load(CArchive& ar)
@@ -1260,6 +1265,18 @@ void CElectricFieldData::load(CArchive& ar)
 
   if(nVersion >= 6)
     ar >> m_bEnableVis;
+
+  if(nVersion >= 7)
+  {
+    size_t nClmbPhiSize; // it must be either nNodesCount or 0.
+    ar >> nClmbPhiSize;
+    if(nClmbPhiSize > 0)
+    {
+      m_vClmbPhi.resize(nClmbPhiSize, 0.0f);
+      for(size_t k = 0; k < nClmbPhiSize; k++)
+        ar >> m_vClmbPhi[k];
+    }
+  }
 }
 
 };  // namespace EvaporatingParticle.
