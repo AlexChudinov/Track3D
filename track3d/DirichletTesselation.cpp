@@ -100,20 +100,19 @@ bool CDirichletTesselation::init()
   clear();
 
   const CNodesCollection& vNodes = m_pMesh->get_nodes();
-  CNode3D* pNode = NULL;
 
   //[AC 19042018] changed to parallel
   m_Cells.resize(vNodes.size());
   ThreadPool::splitInPar(vNodes.size(),
 	  [&](size_t i) 
   {
-	  pNode = vNodes[i];
+	  CNode3D* pNode = vNodes[i];
 	  m_Cells[i] = build_cell_in_node(pNode, vNodes);
   },
 	  static_cast<CObject*>(this));
 
   m_bReady = true;
-  return true && !m_bTerminate;
+  return !get_terminate_flag();
 }
 
 void CDirichletTesselation::clear()

@@ -35,6 +35,9 @@ public:
   EvaporatingParticle::CFieldDataColl*        GetFields();
   EvaporatingParticle::CCrossSectColl*        GetPlanes();
 
+  bool                                        is_terminated() const { return m_bTerminate; }
+  void                                        terminate(bool bTerm) { m_bTerminate = bTerm; }
+
   void                                        SelectedRegionChanged(EvaporatingParticle::CNamesVector* pRegNames);
 
 // Overrides
@@ -62,6 +65,8 @@ private:
   EvaporatingParticle::CCalcCollection        m_vCalcs;
   EvaporatingParticle::CFieldDataColl         m_vFields;
   EvaporatingParticle::CCrossSectColl         m_vPlanes;
+
+  bool                                        m_bTerminate;
 
 	DECLARE_MESSAGE_MAP()
 };

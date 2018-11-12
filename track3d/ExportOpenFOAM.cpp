@@ -120,7 +120,7 @@ void CExportOpenFOAM::set_default()
 void CExportOpenFOAM::prepare()
 {
   clear();
-  m_bTerminate = false;
+  terminate(false);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   if(!pObj->is_ready())
@@ -268,7 +268,7 @@ bool CExportOpenFOAM::export_vertices()
     fprintf(pStream, "(%f %f %f)\n", fCoeff * (pNode->pos.x - m_fShiftX), fCoeff * pNode->pos.y, fCoeff * pNode->pos.z);
 
     set_progress(int(0.5 + 100. * (i + 1) / nNodeCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -323,7 +323,7 @@ bool CExportOpenFOAM::export_faces()
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nFaceCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -380,7 +380,7 @@ bool CExportOpenFOAM::export_owners()
     fprintf(pStream, "%d\n", pFace->nOwnerIndex);
 
     set_progress(int(0.5 + 100. * (i + 1) / nFaceCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -440,7 +440,7 @@ bool CExportOpenFOAM::export_neighbors()
     fprintf(pStream, "%d\n", pFace->nNbrIndex);
 
     set_progress(int(0.5 + 100. * (i + 1) / nFaceCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -521,7 +521,7 @@ bool CExportOpenFOAM::export_boundary()
     nFirstFaceInd += nFaceCount;
 
     set_progress(int(0.5 + 100. * (i + 1) / nPatchCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -580,7 +580,7 @@ bool CExportOpenFOAM::read_2D_regions()
     m_Patches.push_back(pReg);
 
     set_progress(int(0.5 + 100. * (i + 1) / nRegCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       fclose(pStream);
       return false;
@@ -652,7 +652,7 @@ void CExportOpenFOAM::merge_2D_regions()
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nRegCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
   }
 
@@ -789,7 +789,7 @@ void CExportOpenFOAM::collect_internal_faces()
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nElemCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
   }
 }
@@ -1101,7 +1101,7 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
     fprintf(pFileN, "%e\n", fNumDens);
 
     set_progress(int(0.5 + 100. * (i + 1) / nElemCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
   }
 
@@ -1134,7 +1134,7 @@ void CExportOpenFOAM::export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* p
     size_t nFaceCount = pReg->vFaces.size();
 
     set_progress(int(0.5 + 100. * (i + 1) / nPatchCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
 
     CBoundaryConditions* pBC = get_bc(pReg);

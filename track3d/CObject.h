@@ -29,12 +29,9 @@ public:
 protected:
   void            show_dlg(int nCmdShow);
 
-  const bool*     get_terminate_ptr() const;
-
   HWND            m_hProgressBarHandle;
   HWND            m_hJobNameHandle;
   HWND            m_hDlgWndHandle;
-  bool            m_bTerminate;
 
   void            set_status(const char* cAction, int nPercent) const;
 };
@@ -55,38 +52,23 @@ inline void CObject::set_handlers(HWND hJobName, HWND hProgress, HWND hDlgWnd)
 
 inline void CObject::set_job_name(const char* pJobName)
 {
-  CWnd* pEditCtrl = CWnd::FromHandle(m_hJobNameHandle);
+  CWnd* pEditCtrl = m_hJobNameHandle != NULL ? CWnd::FromHandle(m_hJobNameHandle) : NULL;
   if(pEditCtrl != NULL)
     pEditCtrl->SetWindowTextA(pJobName);
 }
 
 inline void CObject::set_progress(int nPercent)
 {
-  CProgressCtrl* pProgressBar = (CProgressCtrl*)CWnd::FromHandle(m_hProgressBarHandle);
+  CProgressCtrl* pProgressBar = m_hProgressBarHandle != NULL ? (CProgressCtrl*)CWnd::FromHandle(m_hProgressBarHandle) : NULL;
   if(pProgressBar != NULL)
     pProgressBar->SetPos(nPercent);
 }
 
-inline void CObject::terminate(bool bTermFlag)
-{
-  m_bTerminate = bTermFlag;
-}
-
-inline bool CObject::get_terminate_flag() const
-{
-  return m_bTerminate;
-}
-
 inline void CObject::show_dlg(int nCmdShow)
 {
-  CWnd* pDlgWnd = CWnd::FromHandle(m_hDlgWndHandle);
+  CWnd* pDlgWnd = m_hDlgWndHandle != NULL ? CWnd::FromHandle(m_hDlgWndHandle) : NULL;
   if(pDlgWnd != NULL)
     pDlgWnd->ShowWindow(nCmdShow);
-}
-
-inline const bool* CObject::get_terminate_ptr() const
-{
-  return &m_bTerminate;
 }
 
 }; // namespace EvaporatingParticle

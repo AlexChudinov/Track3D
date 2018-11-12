@@ -915,7 +915,7 @@ CFieldOperator::Hist CFieldOperator::applyToFieldNTimes
 	ThreadPool::Progress * p
 ) const
 {
-	assert(m_matrix.size() = f0.size());
+	assert(m_matrix.size() == f0.size());
 
 	Hist res(N, std::numeric_limits<double>::lowest());
 

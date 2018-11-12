@@ -214,6 +214,9 @@ bool CFieldDataColl::calc_fields(bool bMirrorClmb)
     if(!bDoCalc)
       continue;
 
+    if(pObj->get_terminate_flag())
+      return false;
+
     pData->set_handlers(hJobName, hProgress, hDlgWnd);
     if(!pData->calc_field())
     {
@@ -231,12 +234,17 @@ static const Vector3D scvNull(0, 0, 0);
 
 void CFieldDataColl::clear_fields_in_nodes()
 {
-  CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  pObj->set_job_name("Clearing field in nodes...");
+  CNodesCollection& vNodes = pObj->get_nodes();
 
   CNode3D* pNode = NULL;
   size_t nCount = vNodes.size();
   for(size_t i = 0; i < nCount; i++)
   {
+    if((i % 100 == 0) && !pObj->get_terminate_flag())
+      pObj->set_progress(100 * i / nCount);
+
     pNode = vNodes.at(i);
     pNode->field = scvNull;
     pNode->clmb = scvNull;
@@ -404,7 +412,7 @@ bool CElectricFieldData::calc_lap3()
 {
   try
   {
-    m_bTerminate = false;
+    terminate(false);
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
     const CNodesCollection& vNodes = pObj->get_nodes();
     CMeshAdapter mesh(pObj->get_elems(), vNodes);
@@ -423,11 +431,14 @@ bool CElectricFieldData::calc_lap3()
     if(pOp == NULL)
       return false;
 
-    set_job_name("Field calculation...");
+    set_job_name(job_name(jobCalcField));
     for(int i = 0; i < m_nIterCount; ++i)
     {
-      if(m_bTerminate)
+      if(get_terminate_flag())
+      {
+        BlockPoolInterface::cleanUpEveryPool();
         return false;
+      }
 
       pOp->applyToField(field);
       set_progress(100 * i / m_nIterCount);
@@ -481,7 +492,7 @@ bool CElectricFieldData::calc_dirichlet_lap3()
   CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
   try
   {
-    m_bTerminate = false;
+    terminate(false);
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
     const CNodesCollection& vNodes = pObj->get_nodes();
     DCMeshAdapter mesh(pObj->get_elems(), vNodes, *pTessObj);
@@ -500,14 +511,17 @@ bool CElectricFieldData::calc_dirichlet_lap3()
     if(pOp == NULL)
       return false;
 
-    set_job_name("Field calculation...");
+    set_job_name(job_name(jobCalcField));
     CFloatArray vMaxRelErr;
     vMaxRelErr.assign(m_nIterCount, 0);
     double fErr;
     for(int i = 0; i < m_nIterCount; ++i)
     {
-      if(m_bTerminate)
+      if(get_terminate_flag())
+      {
+        BlockPoolInterface::cleanUpEveryPool();
         return false;
+      }
 
       fErr = 0;
       pOp->applyToField(field, &fErr);
@@ -569,6 +583,7 @@ bool CElectricFieldData::calc_finite_vol_jacobi()
 
   try
   {
+    terminate(false);
     CFiniteVolumesSolver solver(pMesh, pTess);
 
     solver.set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
@@ -578,7 +593,12 @@ bool CElectricFieldData::calc_finite_vol_jacobi()
 
     CFloatArray vPhi;
     float fTol = (float)m_fTol;
+    set_job_name(job_name(jobCalcField));
     CSolutionInfo info = solver.solve(fTol, m_nIterCount, vPhi, m_bMultiThread);
+
+    solver.set_handlers(NULL, NULL, NULL);
+    if(!info.bSuccess)
+      return false;
 
     CNodesCollection& vNodes = pMesh->get_nodes();
     size_t nNodeCount = vNodes.size();
@@ -634,6 +654,9 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
 {
   set_default_boundary_conditions(solver);
 
+  set_job_name(job_name(jobUserCond));
+  set_progress(0);
+
   float fVal;
   CRegion* pReg = NULL;
   CPotentialBoundCond* pBC = NULL;
@@ -642,8 +665,13 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
   {
     pBC = m_vBoundCond.at(i);
     nRegCount = pBC->vRegNames.size();
+    int nPart = 100 * i / nCount;
     for(size_t j = 0; j < nRegCount; j++)
     {
+      set_progress(nPart + int(0.5 + 100. * (j + 1) / (nRegCount * nCount)));
+      if(get_terminate_flag())
+        return false;
+
       pReg = CAnsysMesh::get_region(pBC->vRegNames.at(j));
       if(pReg == NULL)  // if the geometry file has been changed in the project, some region names can be not relevant.
         continue;
@@ -701,7 +729,7 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
 
 bool CElectricFieldData::set_default_boundary_conditions(CFiniteVolumesSolver& solver)
 {
-  set_job_name("Setting default boundary conditions...");
+  set_job_name(job_name(jobDfltCond));
   set_progress(0);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
@@ -709,7 +737,7 @@ bool CElectricFieldData::set_default_boundary_conditions(CFiniteVolumesSolver& s
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return false;
 
     CRegion* pReg = vRegions.at(i);
@@ -767,7 +795,7 @@ void CElectricFieldData::apply_analytic_field(const Vector3D& vPos, Vector3F& vF
 
 bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 {
-  set_job_name("Setting boundary conditions...");
+  set_job_name(job_name(jobUserCond));
   set_progress(0);
 
   CRegion* pReg = NULL;
@@ -782,7 +810,7 @@ bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
     nRegCount = pBC->vRegNames.size();
     for(j = 0; j < nRegCount; j++)
     {
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return false;
 
       k++;
@@ -802,7 +830,7 @@ bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
 
 bool CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
 {
-  set_job_name("Setting default boundary conditions...");
+  set_job_name(job_name(jobDfltCond));
   set_progress(0);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
@@ -810,7 +838,7 @@ bool CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return false;
 
     CRegion* pReg = vRegions.at(i);
@@ -1132,6 +1160,21 @@ CString CElectricFieldData::default_name()
   }
 
   return sName;
+}
+
+const char* CElectricFieldData::job_name(int nJobType) const
+{
+  CString sJobName = get_field_name();
+  CString sSuffix = m_nType == typeMirror ? CString(_T(" (Mirror): ")) : CString(_T(": "));
+  sJobName += sSuffix;
+  switch(nJobType)
+  {
+    case jobDfltCond:  sJobName += CString(_T("Default boundary conditions...")); break;
+    case jobUserCond:  sJobName += CString(_T("User-defined boundary conditions...")); break;
+    case jobCalcField: sJobName += CString(_T("Solving...")); break;
+  }
+
+  return (const char*)sJobName;
 }
 
 void CElectricFieldData::check_regions()

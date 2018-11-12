@@ -212,6 +212,7 @@ static UINT __stdcall main_thread_func(LPVOID pData)
 void CPropertiesWnd::OnDoTracking()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  pObj->terminate(false);
 
   set_data_to_model();
  

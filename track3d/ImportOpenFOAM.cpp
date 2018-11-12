@@ -34,7 +34,7 @@ void CImportOpenFOAM::set_default()
 
 bool CImportOpenFOAM::do_import()
 {
-  m_bTerminate = false;
+  terminate(false);
   switch(m_nStep)
   {
     case opFirstStep: return first_step();
@@ -102,7 +102,7 @@ bool CImportOpenFOAM::first_step()
     i = nSuccessCount + nFailsCount;
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nNodeCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
     {
       bOK = false;
       break;
@@ -279,7 +279,7 @@ bool CImportOpenFOAM::second_step()
 
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nNodeCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return false;
   }
 

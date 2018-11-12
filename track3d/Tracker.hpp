@@ -26,6 +26,7 @@ const double cfDCVoltage = 2500.; // ANSYS data supplies DC field computed with 
 class CSource;
 class CEvaporationModel;
 class CalcThreadVector;
+class CElectricFieldData;
 class CBarnesHut;
 //-------------------------------------------------------------------------------------------------
 // CTracker - main class containing data and methods for ions and evaporating particles tracking.
@@ -370,11 +371,12 @@ protected:
 
   void                    get_output_freq(UINT& nOutFreq) const;
 
-  bool                    create_BH_object(CalcThreadVector& vThreads, UINT nIter);
+  bool                    create_BH_object(UINT nIter);
   void                    get_BH_cube(Vector3D& c, double& edge, double& fMinX, double& fMaxX) const;
 
 // The Coulomb field is accumulated in the nodes from iteration to iteration to provide better stability.
-  void                    accumulate_clmb_field(UINT nIter);
+  bool                    accumulate_clmb_field(UINT nIter);
+  void                    accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter);
 
   double                  get_full_current_at(UINT nIter);  // the full current is gradually increasing with iteration number.
   bool                    capture_save_image(UINT nIter);   // capture and save screenshot with tracks after nIter-th iteration.

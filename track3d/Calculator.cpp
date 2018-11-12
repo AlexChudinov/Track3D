@@ -365,7 +365,7 @@ CPlaneYZCalculator::~CPlaneYZCalculator()
 
 void CPlaneYZCalculator::run()
 {
-  m_bTerminate = false;
+  terminate(false);
   do_sequence_calc();
 }
 
@@ -481,7 +481,7 @@ void CPlaneYZCalculator::do_sequence_calc()
   for(UINT i = 0; i < m_nSeqCalcCount; i++)
   {
     set_progress(100 * i / m_nSeqCalcCount);
-    if(m_bTerminate)
+    if(get_terminate_flag())
       break;
 
     fCurrX = m_fStartX + i * fStepX;
@@ -492,7 +492,7 @@ void CPlaneYZCalculator::do_sequence_calc()
   }
 
   fclose(pStream);
-  if(m_bTerminate)
+  if(get_terminate_flag())
     return;
 
   set_progress(100);
@@ -566,7 +566,7 @@ CSelectedRegionCalculator::~CSelectedRegionCalculator()
 
 void CSelectedRegionCalculator::run()
 {
-  m_bTerminate = false;
+  terminate(false);
   do_calculate();
 }
 
@@ -593,7 +593,7 @@ void CSelectedRegionCalculator::do_calculate()
     size_t nFaceCount = pReg->vFaces.size();
     for(size_t i = 0; i < nFaceCount; i++)
     {
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return;
 
       if(nFaceDone % 5 == 0)
@@ -691,7 +691,7 @@ CLineCalculator::~CLineCalculator()
 
 void CLineCalculator::run()
 {
-  m_bTerminate = false;
+  terminate(false);
   do_calculate();
 }
 
@@ -736,7 +736,7 @@ void CLineCalculator::do_calculate()
   for(UINT i = 0; i <= m_nStepCount; i++)
   {
     set_progress(100 * i / m_nStepCount);
-    if(m_bTerminate)
+    if(get_terminate_flag())
       break;
 
     vPos = m_vLineStart + vDir * (i * fStep);
@@ -903,7 +903,7 @@ CTrackCalculator::~CTrackCalculator()
 
 void CTrackCalculator::run()
 {
-  m_bTerminate = false;
+  terminate(false);
   do_sequence_calc();
 }
 
@@ -1117,7 +1117,7 @@ void CTrackCalculator::do_sequence_calc()
   for(UINT i = 0; i < m_nCrossSectCount; i++)
   {
     set_progress(100 * i / m_nCrossSectCount);
-    if(m_bTerminate)
+    if(get_terminate_flag())
       break;
 
     m_fPosCS = m_fStartPos + i * fStep;
@@ -1138,7 +1138,7 @@ void CTrackCalculator::do_sequence_calc()
   }
 
   fclose(pStream);
-  if(m_bTerminate)
+  if(get_terminate_flag())
   {
     m_vReachedLastCS.clear();
     return;
@@ -1476,7 +1476,7 @@ CTrackCrossSectionCalculator::~CTrackCrossSectionCalculator()
 
 void CTrackCrossSectionCalculator::run()
 {
-  m_bTerminate = false;
+  terminate(false);
   do_calculate();
 }
 

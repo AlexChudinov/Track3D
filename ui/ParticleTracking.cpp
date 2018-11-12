@@ -33,6 +33,8 @@ CParticleTrackingApp::CParticleTrackingApp()
 	m_bHiColorIcons = TRUE;
 
 	// TODO: add construction code here,
+  m_bTerminate = false; // global termination flag [MS] 10-11-2018.
+
 	// Place all significant initialization in InitInstance
 }
 

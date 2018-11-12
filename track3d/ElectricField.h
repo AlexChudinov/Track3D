@@ -276,6 +276,7 @@ public:
   static const char*      get_calc_method_name(int nCalcMethod);
 
   bool                    calc_field();
+
   bool                    need_recalc() const;
   void                    invalidate();
 
@@ -318,6 +319,10 @@ protected:
   bool                    calc_lap3();
   bool                    calc_dirichlet_lap3();
   bool                    calc_finite_vol_jacobi();
+
+  enum  { jobDfltCond  = 0, jobUserCond  = 1,  jobCalcField = 2 };
+
+  const char*             job_name(int nJobType) const;
 
 private:
   bool                    m_bEnable,

@@ -40,6 +40,5 @@
 #include <afx.h>
 
 #include <string>
-#include <cassert>
-#include <algorithm>
-#include <iterator>
+
+

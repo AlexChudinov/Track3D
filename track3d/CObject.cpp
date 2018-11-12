@@ -10,12 +10,22 @@ namespace EvaporatingParticle
 {
 
 CObject::CObject()
-  : m_hProgressBarHandle(NULL), m_hJobNameHandle(NULL), m_bTerminate(false)
+  : m_hProgressBarHandle(NULL), m_hJobNameHandle(NULL)
 {
 }
 
 CObject::~CObject()
 {
+}
+
+void CObject::terminate(bool bTermFlag)
+{
+  CParticleTrackingApp::Get()->terminate(bTermFlag);
+}
+
+bool CObject::get_terminate_flag() const
+{
+  return CParticleTrackingApp::Get()->is_terminated();
 }
 
 CString CObject::compile_string(const CStringVector& vNames)

@@ -5,6 +5,8 @@
 #include "constant.hpp"
 #include "math.h"
 
+#include "../utilities/ParallelFor.h"
+
 namespace EvaporatingParticle
 {
 
@@ -150,91 +152,84 @@ void CBarnesHut::create_main_cell(const Vector3D& cube_center, double cube_edge)
   m_vCells.push_back(m_pTree);
 }
 
-void CBarnesHut::prepare(CalcThreadVector& vThreads)
+void CBarnesHut::prepare()
 {
-  compute_moments(vThreads);
+  compute_moments();
   m_bReady = true;
 }
 
-UINT CBarnesHut::build_moments(LPVOID pCalcThread)
+void CBarnesHut::build_moments(OctoTreeCell* pCell)
 {
-  CalcThread* pThread = (CalcThread*)pCalcThread;
-  CBarnesHut* pObj = (CBarnesHut*)pThread->m_pData;
-  const CellsColl& vCells = pObj->get_cells();
-
-  for(UINT nJob = pThread->get_first_job(); nJob <= pThread->get_last_job(); nJob++)
-	{
-    OctoTreeCell* pCell = vCells.at(nJob);
-   
 // Computation of the "center of charge" of the cell. All the moments will be computed with respect to this point.
-    pCell->qSum = 0;
-    Vector3D vPosChargeSum(0, 0, 0);
-    UINT nChargesCount = pCell->charges.size();
+  pCell->qSum = 0;
+  Vector3D vPosChargeSum(0, 0, 0);
+  UINT nChargesCount = pCell->charges.size();
+  for(UINT i = 0; i < nChargesCount; i++)
+  {
+    ChargeData* pData = pCell->charges.at(i);
+    vPosChargeSum += pData->pos * pData->charge;
+    pCell->qSum += pData->charge;
+  }
+
+  if(pCell->qSum < Const_Almost_Zero)
+    return;
+    
+  pCell->charge_center = vPosChargeSum / pCell->qSum;
+
+  if(get_enable_quad_terms())
+  {
+    double dx, dy, dz, dx2, dy2, dz2, dr2sum = 0;
     for(UINT i = 0; i < nChargesCount; i++)
     {
       ChargeData* pData = pCell->charges.at(i);
-      vPosChargeSum += pData->pos * pData->charge;
-      pCell->qSum += pData->charge;
+
+      dx = pData->pos.x - pCell->charge_center.x;
+      dy = pData->pos.y - pCell->charge_center.y;
+      dz = pData->pos.z - pCell->charge_center.z;
+
+      dx2 = dx * dx;
+      dy2 = dy * dy;
+      dz2 = dz * dz;
+
+      dr2sum += dx2 + dy2 + dz2;
+
+      pCell->Qxx += dx2;
+      pCell->Qyy += dy2;
+      pCell->Qzz += dz2;
+      pCell->Qxy += dx * dy;
+      pCell->Qyz += dy * dz;
+      pCell->Qxz += dz * dx;
     }
 
-    if(pCell->qSum < Const_Almost_Zero)
-      continue;
-    
-    pCell->charge_center = vPosChargeSum / pCell->qSum;
+    dr2sum *= 0.3333333;
+    pCell->Qxx -= dr2sum;
+    pCell->Qyy -= dr2sum;
+    pCell->Qzz -= dr2sum;
 
-    if(pObj->m_bEnableQuadTerms)
-    {
-      double dx, dy, dz, dx2, dy2, dz2, dr2sum = 0;
-      for(UINT i = 0; i < nChargesCount; i++)
-      {
-        ChargeData* pData = pCell->charges.at(i);
-
-        dx = pData->pos.x - pCell->charge_center.x;
-        dy = pData->pos.y - pCell->charge_center.y;
-        dz = pData->pos.z - pCell->charge_center.z;
-
-        dx2 = dx * dx;
-        dy2 = dy * dy;
-        dz2 = dz * dz;
-
-        dr2sum += dx2 + dy2 + dz2;
-
-        pCell->Qxx += dx2;
-        pCell->Qyy += dy2;
-        pCell->Qzz += dz2;
-        pCell->Qxy += dx * dy;
-        pCell->Qyz += dy * dz;
-        pCell->Qxz += dz * dx;
-      }
-
-      dr2sum *= 0.3333333;
-      pCell->Qxx -= dr2sum;
-      pCell->Qyy -= dr2sum;
-      pCell->Qzz -= dr2sum;
-
-      pCell->Qxx *= 1.5;
-      pCell->Qyy *= 1.5;
-      pCell->Qzz *= 1.5;
-      pCell->Qxy *= 1.5;
-      pCell->Qyz *= 1.5;
-		  pCell->Qxz *= 1.5;
-    }
-
-		pThread->done_job();
+    pCell->Qxx *= 1.5;
+    pCell->Qyy *= 1.5;
+    pCell->Qzz *= 1.5;
+    pCell->Qxy *= 1.5;
+    pCell->Qyz *= 1.5;
+		pCell->Qxz *= 1.5;
   }
-
-  return 0;
 }
 
-void CBarnesHut::compute_moments(CalcThreadVector& vThreads)
+void CBarnesHut::compute_moments()
 {
-	int nCellCount = m_vCells.size();
-	if(nCellCount == 0)
-		return;
+  size_t nCellCount = m_vCells.size();
+  if(nCellCount == 0)
+    return;
 
-  vThreads.distribute_jobs(0, nCellCount - 1, build_moments, (void*)this);
-	vThreads.start_execution();
-	vThreads.wait();
+  set_job_name("Computing moments...");
+
+  ThreadPool::splitInPar(nCellCount,
+    [&](size_t i) 
+  {
+    OctoTreeCell* pCell = m_vCells.at(i);
+    build_moments(pCell);
+  },
+  static_cast<CObject*>(this));
 }
 
 double CBarnesHut::coulomb_phi(const Vector3D& vPos)

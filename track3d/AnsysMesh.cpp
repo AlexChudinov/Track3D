@@ -149,7 +149,7 @@ bool CAnsysMesh::read_geometry()
 // Progress bar and termination support:
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nNodeCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return abort(pStream);
   }
 
@@ -177,7 +177,7 @@ bool CAnsysMesh::read_geometry()
 // Progress bar and termination support:
       if(i % 100 == 0)
         set_progress(int(0.5 + 100. * i / nTetraCount));
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return abort(pStream);
     }
   }
@@ -203,7 +203,7 @@ bool CAnsysMesh::read_geometry()
 // Progress bar and termination support:
       if(i % 100 == 0)
         set_progress(int(0.5 + 100. * i / nPyrCount));
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return abort(pStream);
     }
   }
@@ -229,7 +229,7 @@ bool CAnsysMesh::read_geometry()
 // Progress bar and termination support:
       if(i % 100 == 0)
         set_progress(int(0.5 + 100. * i / nWedgeCount));
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return abort(pStream);
     }
   }
@@ -256,7 +256,7 @@ bool CAnsysMesh::read_geometry()
 // Progress bar and termination support:
       if(i % 100 == 0)
         set_progress(int(0.5 + 100. * i / nHexaCount));
-      if(m_bTerminate)
+      if(get_terminate_flag())
         return abort(pStream);
     }
   }
@@ -339,7 +339,7 @@ bool CAnsysMesh::read_2D_regions()
 // Progress bar and termination support:
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nRegCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return abort(pStream);
   }
 
@@ -409,7 +409,7 @@ bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
 // Progress bar and termination support:
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nNodeCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return abort(pStream);
   }
 

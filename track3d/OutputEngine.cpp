@@ -215,7 +215,7 @@ void COutputEngine::output_ion_tracks()
   else
     output_ensemble_by_ens_index();
 
-  if(m_bTerminate)
+  if(get_terminate_flag())
     return;
 
   output_average_tracks();  // support of averaging over all the tracks to be output.
@@ -284,7 +284,7 @@ void COutputEngine::output_ensemble_by_ens_index()
     nEnsIndex++;
 
     nPercentStart = nPercentEnd;
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
   }
 }
@@ -375,7 +375,7 @@ void COutputEngine::output_ensemble_by_initial_radius()
     output_ion_ensemble(vEnsTracks, pStream, nPercentStart, nPercentEnd);
 
     fclose(pStream);
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
 
     nPercentStart = nPercentEnd;
@@ -422,7 +422,7 @@ void COutputEngine::output_ion_ensemble(const CTrackVector& vEnsTracks, FILE* pS
 
     double fKsi = double(i + 1) / nTimeCount;
     set_progress(int((1. - fKsi) * nPercentStart + fKsi * nPercentEnd));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
 
     double fCurrTime = vEnsTracks.at(0).at(i)->time;

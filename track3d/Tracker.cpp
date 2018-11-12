@@ -23,6 +23,7 @@
 #include "ExecutionDialog.h"
 
 #include "../Integrators/libIntegrators.h"
+#include "../utilities/ParallelFor.h"
 
 
 namespace EvaporatingParticle
@@ -58,7 +59,7 @@ void CTracker::set_default()
   m_bUsePreCalcCoulomb = false;
   m_bSaveTracks = false;
 
-  m_bTerminate = false;
+  terminate(false);
 
   double fTimeStep = 2.e-8;       // sec
   set_time_step(fTimeStep);
@@ -448,7 +449,7 @@ void CTracker::do_track()
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nPartCount));
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
   }
 }
@@ -458,7 +459,7 @@ void CTracker::do_iterations()
   for(UINT i = 0; i < m_nIterCount; i++)
   {
     do_track();
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
 
     if(i == m_nIterCount - 1)
@@ -469,13 +470,14 @@ void CTracker::do_iterations()
     if((m_nIterCount > 4) && (i >= m_nIterCount - 4))
       m_OutputEngine.add_current();    // average output currents over 4 latest iterations.
 
-    CalcThreadVector vThreads;
-    create_BH_object(vThreads, i + 1);
+    if(!create_BH_object(i + 1))
+      return;
+
     clear_tracks(false);    // keep the initial positions only.
   }
 }
 
-bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
+bool CTracker::create_BH_object(UINT nIter)
 {
   set_job_name("Building Space Charge distribution volume...");
   set_progress(0);
@@ -501,7 +503,7 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
 
   double fCurrPerTrack = get_full_current_at(nIter) / nTrackCount;   // CGSE.
 
-  if(m_bTerminate || m_hJobNameHandle == NULL || m_hProgressBarHandle == NULL)
+  if(get_terminate_flag() || m_hJobNameHandle == NULL || m_hProgressBarHandle == NULL)
     return false;
 
   m_SpaceChargeDist.clear();
@@ -509,65 +511,83 @@ bool CTracker::create_BH_object(CalcThreadVector& vThreads, UINT nIter)
   m_SpaceChargeDist.set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
 
   if(!m_SpaceChargeDist.set_BH_object(m_pBarnesHut))
-  {
-    m_bTerminate = true;
     return false;
-  }
   
-  m_pBarnesHut->prepare(vThreads);
-
   m_SpaceChargeDist.set_handlers(NULL, NULL);
+
+  m_pBarnesHut->set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
+  m_pBarnesHut->prepare();
+  m_pBarnesHut->set_handlers(NULL, NULL);
+  if(get_terminate_flag())
+    return false;
 
 // Calculate the Coulomb Mirror field:
   if(!CParticleTrackingApp::Get()->GetFields()->calc_fields(true))
-  {
-    m_bTerminate = true;
     return false;
-  }
 
 // Calculate the full Coulomb field at every node and accumulate it in the nodes.
-  accumulate_clmb_field(nIter);
+  if(!accumulate_clmb_field(nIter))
+    return false;
 
   return true;
 }
 
-void CTracker::accumulate_clmb_field(UINT nIter)
+bool CTracker::accumulate_clmb_field(UINT nIter)
 {
+  set_job_name("Accumulating space charge in the nodes...");
+  set_progress(0);
+
+  CElectricFieldData* pData = NULL;
   CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
   size_t nFieldCount = pAllFields->size();
   for(size_t k = 0; k < nFieldCount; k++)
   {
-    CElectricFieldData* pData = pAllFields->at(k);
-    if(pData->get_type() != CElectricFieldData::typeMirror)
+    if(pAllFields->at(k)->get_type() != CElectricFieldData::typeMirror)
       continue;
 
-    size_t nNodesCount = m_vNodes.size();
-// For visualization purposes initialize the m_vClmbPhi member of the mirror field:
-    if(nIter == 1)
-      pData->init_clmb_phi(nNodesCount);
-
-    CNode3D* pNode = NULL;
-    Vector3D vMirrField;
-    double fCoeff = 1. / nIter, fClmbPhi, fMirrPhi;
-    bool bMirrEnabled = pData->get_enable_field();
-    for(size_t i = 0; i < nNodesCount; i++)
-    {
-      vMirrField = bMirrEnabled? pData->get_field(i) : vNull;
-      pNode = m_vNodes.at(i);
-      pNode->clmb = nIter == 1 ? 
-        m_pBarnesHut->coulomb_force(pNode->pos) + vMirrField :
-        (double(nIter - 1) * pNode->clmb + m_pBarnesHut->coulomb_force(pNode->pos) + vMirrField) * fCoeff;
-
-// Visualization of the Coulomb potential.
-      fMirrPhi = bMirrEnabled ? pData->get_phi(i) : 0.0f;
-      fClmbPhi = nIter == 1 ?
-        CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi) :
-        (double(nIter - 1) * pData->get_clmb_phi(i) + CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi)) * fCoeff;
-
-      pData->set_clmb_phi(i, fClmbPhi);
-    }
-
+    pData = pAllFields->at(k);
     break;  // the only field of Mirror type is assumed to present in the pAllFields collection.
+  }
+
+  bool bFieldExists = pData != NULL;
+  size_t nNodesCount = m_vNodes.size();
+// For visualization purposes initialize m_vClmbPhi member of the mirror field:
+  if((nIter == 1) && bFieldExists)
+    pData->init_clmb_phi(nNodesCount);
+
+  ThreadPool::splitInPar(nNodesCount,
+    [&](size_t i) 
+  {
+    CNode3D* pNode = m_vNodes.at(i);
+    accum_clmb_field_in_node(pNode, m_pBarnesHut, pData, nIter);
+  },
+  static_cast<CObject*>(this));
+
+  set_progress(100);
+  return true;
+}
+
+void CTracker::accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter)
+{
+  bool bFieldExists = pData != NULL;
+  bool bMirrEnabled = bFieldExists && pData->get_enable_field();
+  size_t nInd = pNode->nInd;
+
+  Vector3D vMirrField = bMirrEnabled ? pData->get_field(nInd) : vNull;
+
+  pNode->clmb = nIter == 1 ? 
+    pBHObj->coulomb_force(pNode->pos) + vMirrField :
+    (double(nIter - 1) * pNode->clmb + pBHObj->coulomb_force(pNode->pos) + vMirrField) / (double)nIter;
+
+  if(bFieldExists)
+  {
+// Visualization of the Coulomb potential.
+    double fMirrPhi = bMirrEnabled ? pData->get_phi(nInd) : 0.0f;
+    double fClmbPhi = nIter == 1 ?
+      CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi) :
+      (double(nIter - 1) * pData->get_clmb_phi(nInd) + CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi)) / (double)nIter;
+
+    pData->set_clmb_phi(nInd, fClmbPhi);
   }
 }
 
@@ -647,8 +667,6 @@ bool CTracker::capture_save_image(UINT nIter)
 bool CTracker::prepare()
 {
   m_bResult = true;
-  m_bTerminate = false;
-
   if(!m_bReady && !read_data())
     return false;
 
@@ -691,7 +709,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
       CBaseTrackItem* pItem = track.at(0)->copy();
       while(true)
       {
-        if(pObj->m_bTerminate)
+        if(pObj->get_terminate_flag())
           break;
 
         bool bOK = pObj->m_nType == CTrack::ptDroplet ? 
@@ -803,7 +821,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
 
     pThread->done_job();
     pObj->set_tracking_progress();
-    if(pObj->m_bTerminate)
+    if(pObj->get_terminate_flag())
       break;
   }
 
@@ -845,7 +863,7 @@ void CTracker::multi_thread_calculate()
     vThreads.start_execution();
     vThreads.wait();
 
-    if(m_bTerminate)
+    if(get_terminate_flag())
       return;
 
     if(bIter)
@@ -859,7 +877,9 @@ void CTracker::multi_thread_calculate()
     if((nIterCount > 4) && (i >= nIterCount - 4))
       m_OutputEngine.add_current();    // average output currents over 4 latest iterations.
 
-    create_BH_object(vThreads, i + 1);
+    if(!create_BH_object(i + 1))
+      return;
+
     clear_tracks(false);    // keep the initial positions only.
   }
 

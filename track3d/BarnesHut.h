@@ -1,6 +1,6 @@
 
 #include "Vector3D.hpp"
-#include "CalcThread.h"
+#include "CObject.h"
 #include "Elements.h"
 #include <vector>
 
@@ -55,7 +55,7 @@ const Vector3D vNull = Vector3D(0, 0, 0);
 // CBarnesHut - this class approximately computes Coulomb interaction 
 //              between charged particles. 
 //---------------------------------------------------------------------------
-class CBarnesHut
+class CBarnesHut : public CObject
 {
 public:
   CBarnesHut();
@@ -90,8 +90,7 @@ public:
 
   void            add_particle(const Vector3D& pos, double charge); // both in CGS.
 
-// In multi-threading applications this function must be called before start of the threads.
-  void            prepare(CalcThreadVector& vThreads);
+  void            prepare();
 
   Vector3D        get_center() const;
   OctoTreeCell*   get_main_cell() const;
@@ -118,9 +117,8 @@ protected:
   Vector3D        quad_field_cell(const Vector3D vRelPos, double fRR2, double fRR3, OctoTreeCell* pCell);
 
 // When the octo-tree is populated, compute moments with respect to the centers of charge of every cell.
-  void            compute_moments(CalcThreadVector& vThreads);
-
-  static UINT __stdcall build_moments(LPVOID pCalcThread);
+  void            compute_moments();
+  void            build_moments(OctoTreeCell* pCell);
 
 // Creation of new cells.
 // Get the child index by relative position of a new particle with respect to the parent box center.

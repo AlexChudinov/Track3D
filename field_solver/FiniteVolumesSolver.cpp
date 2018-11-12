@@ -26,8 +26,8 @@ CFiniteVolumesSolver::~CFiniteVolumesSolver()
 
 void CFiniteVolumesSolver::init()
 {
-  m_vRes.clear();
-  m_vRes.assign(m_pMesh->get_nodes().size(), CNodeInfo());
+  CNodeInfo info(0, 0.0f);
+  m_vRes.assign(m_pMesh->get_nodes().size(), info);
 }
 
 void CFiniteVolumesSolver::clear()
@@ -89,11 +89,8 @@ void CFiniteVolumesSolver::set_boundary_conditions(const CIndexVector& vNodeIds)
 
 CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArray& vRes, bool bMultiThread)
 {
-  set_job_name("Solving...");
   set_progress(0);
-
   prepare();
-
   CSolutionInfo info(nIterCount);
 
   int nType;
@@ -102,14 +99,18 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
   size_t nNodesCount = vNodes.size();
 
   CFloatArray vErr;
-  vErr.resize(nNodesCount, 0.0f);
-  vRes.resize(nNodesCount);
-  vRes = m_vU0;
+  vErr.assign(nNodesCount, 0.0f);
 
   if(bMultiThread)
   {
     for(UINT k = 0; k < nIterCount; k++)
     {
+      if(get_terminate_flag())
+      {
+        info.bSuccess = false;
+        return info;
+      }
+
       set_progress(100 * (k + 1) / nIterCount);
 
       ThreadPool::splitInPar(nNodesCount,
@@ -137,38 +138,34 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
 
       info.vMaxErrHist.at(k) = fMaxRelErr;
       if(fMaxRelErr <= fTol)
-      {
-        info.bSuccess = true;
         break;
-      }
     }
   }
   else
   {
     for(UINT i = 0; i < nIterCount; i++)
     {
-		set_progress(100 * (i + 1) / nIterCount);
-		for (size_t j = 0; j < vNodes.size(); ++j)
-		{
-			CNode3D* pNode = vNodes[j];
-			CDirichletCell * pCell = m_pTess->get_cell(j);
-			double fDiagCoeff = m_vDiagCoeff.at(j);
-			nType = m_vRes.at(j).nType;
-			if (nType != 1)
-				m_vRes[j].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
-		}
+      set_progress(100 * (i + 1) / nIterCount);
+      for (size_t j = 0; j < vNodes.size(); ++j)
+      {
+	      CNode3D* pNode = vNodes[j];
+	      CDirichletCell * pCell = m_pTess->get_cell(j);
+	      double fDiagCoeff = m_vDiagCoeff.at(j);
+	      nType = m_vRes.at(j).nType;
+	      if (nType != 1)
+		      m_vRes[j].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+      }
 
-		fMaxRelErr = get_max_relative_error();
+      fMaxRelErr = get_max_relative_error();
 
-		info.vMaxErrHist.at(i) = fMaxRelErr;
-		if (fMaxRelErr <= fTol)
-		{
-			info.bSuccess = true;
-			break;
-		}
+      info.vMaxErrHist.at(i) = fMaxRelErr;
+      if(fMaxRelErr <= fTol)
+        break;
     }
   }
 
+  info.bSuccess = true;
+  vRes.assign(nNodesCount, 0.0f);
   for(size_t j = 0; j < nNodesCount; j++)
     vRes[j] = m_vRes.at(j).fValue;
 
