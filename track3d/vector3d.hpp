@@ -28,7 +28,8 @@ public:
   {
   }
 
-  Vector3(const Vector3& v)
+  template<class Element1>
+  Vector3(const Vector3<Element1>& v)
     : x(v.x), y(v.y), z(v.z)
   {
   }

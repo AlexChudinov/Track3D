@@ -106,8 +106,8 @@ inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last,
 
 		for (size_t i = 0; i < futures.size(); ++i)
 		{
+			n = n > std::distance(_First, _Last) ? std::distance(_First, _Last) : n;
 			Iterator _Next = _First + n;
-			_Next = _Next < _Last ? _Next : _Last;
 			futures[i] = ThreadPool::addTask([&results, i, _First, _Next]()
 			{
 				results[i] = std::max_element(_First, _Next);
