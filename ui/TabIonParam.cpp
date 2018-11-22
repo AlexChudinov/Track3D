@@ -28,10 +28,12 @@ void CPropertiesWnd::add_ion_ctrls()
 
   CMFCPropertyGridProperty* pCollisionGroup = new CMFCPropertyGridProperty(_T("Collision Parameters"));
   pProp = new CMFCPropertyGridProperty(_T("Cross-Section"), COleVariant(pObj->get_ion_cross_section() / scfA2), _T("Collision cross-section with the environmental gas, squared angstrem."), pObj->get_ion_cross_section_ptr());
+  pProp->AllowEdit(pObj->get_user_def_cs());
+  pProp->Enable(pObj->get_user_def_cs());
   pCollisionGroup->AddSubItem(pProp);
 
-  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Velocity-dependent"), (_variant_t)pObj->get_vel_depend_flag(), _T("If this is set to 'true' the cross-section is inversely proportional to the relative ion - air velocity."), pObj->get_vel_depend_flag_ptr());
-  pCollisionGroup->AddSubItem(pCheckBox);
+  CUserDefCSCheckBox* pUserDefCrossSect = new CUserDefCSCheckBox(this, _T("User-Defined Cross-Section"), (_variant_t)pObj->get_user_def_cs(), _T("If this is set to 'true' the cross-section is user-defined. Otherwise the Mason-Schamp formula will be used."), pObj->get_user_def_cs_ptr());
+  pCollisionGroup->AddSubItem(pUserDefCrossSect);
 
   pProp = new CMFCPropertyGridProperty(_T("Activation Energy, eV"), COleVariant(pObj->get_act_energy()), _T("Ion collisional activation energy, eV"), pObj->get_act_energy_ptr());
   pCollisionGroup->AddSubItem(pProp);
@@ -39,7 +41,7 @@ void CPropertiesWnd::add_ion_ctrls()
 
 // Coulomb:
   CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Space Charge"));
-  pCheckBox = new CCheckBoxButton(this, _T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
+  CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
   pCoulombGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Full Ion Current, nA"), COleVariant(pObj->get_full_current() / Const_nA_to_CGSE), _T("Full current carried by the ion bunch."), pObj->get_full_current_ptr());
   pCoulombGroup->AddSubItem(pProp);
@@ -157,19 +159,11 @@ void CPropertiesWnd::set_ion_data()
   if(pProp != NULL)
     pObj->set_ion_cross_section(pProp->GetValue().dblVal * scfA2);
 
-  pProp = m_wndPropList.FindItemByData(pObj->get_vel_depend_flag_ptr());
-  if(pProp != NULL)
-    pObj->set_vel_depend_flag(pProp->GetValue().boolVal);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_act_energy_ptr());
   if(pProp != NULL)
     pObj->set_act_energy(pProp->GetValue().dblVal);
 
 // Coulomb:
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_coulomb_ptr());
-  if(pProp != NULL)
-    pObj->set_enable_coulomb(pProp->GetValue().boolVal);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_full_current_ptr());
   if(pProp != NULL)
     pObj->set_full_current(Const_nA_to_CGSE * pProp->GetValue().dblVal);
@@ -198,10 +192,6 @@ void CPropertiesWnd::set_ion_data()
 //  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
 //  if(pProp != NULL)
 //    distrib.set_charge_time_step(1e-6 * pProp->GetValue().dblVal);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_use_radial_coulomb_ptr());
-  if(pProp != NULL)
-    pObj->set_use_radial_coulomb(pProp->GetValue().boolVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
@@ -290,7 +280,7 @@ void CPropertiesWnd::update_ion_ctrls()
   if(pProp != NULL)
     pProp->Enable(bEnable);
 
-  pProp = m_wndPropList.FindItemByData(pObj->get_vel_depend_flag_ptr());
+  pProp = m_wndPropList.FindItemByData(pObj->get_user_def_cs_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable);
 

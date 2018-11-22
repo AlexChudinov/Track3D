@@ -442,6 +442,22 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CUserDefCSCheckBox - the check-box for immediate cross-section calculation.
+//---------------------------------------------------------------------------------------
+class CUserDefCSCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CUserDefCSCheckBox)
+
+public:
+  CUserDefCSCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // Inline implementation.
 //---------------------------------------------------------------------------------------
 inline BOOL CSelectRegionButton::HasButton() const

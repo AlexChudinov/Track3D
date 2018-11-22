@@ -81,7 +81,6 @@ public:
 
   bool                    get_enable_field() const;
   DWORD_PTR               get_enable_field_ptr() const;
-  void                    set_enable_field(bool bEnable);
 
   double                  get_particle_charge() const;
   DWORD_PTR               get_particle_charge_ptr() const;
@@ -125,13 +124,14 @@ public:
   DWORD_PTR               get_ion_cross_section_ptr() const;
   void                    set_ion_cross_section(double fCrossSect);
 
+  bool                    get_user_def_cs() const;
+  DWORD_PTR               get_user_def_cs_ptr() const;
+
   bool                    get_vel_depend_flag() const;
   DWORD_PTR               get_vel_depend_flag_ptr() const;
-  void                    set_vel_depend_flag(bool bFlag);
 
   bool                    get_enable_rf() const;
   DWORD_PTR               get_enable_rf_ptr() const;
-  void                    set_enable_rf(bool bEnable);
 
   double                  get_rf_amplitude() const;
   DWORD_PTR               get_rf_amplitude_ptr() const;
@@ -168,7 +168,6 @@ public:
 // Coulomb effects:
   bool                    get_enable_coulomb() const;
   DWORD_PTR               get_enable_coulomb_ptr() const;
-  void                    set_enable_coulomb(bool bEnable);
 
   double                  get_full_current() const;
   DWORD_PTR               get_full_current_ptr() const;
@@ -205,7 +204,6 @@ public:
 
   bool                    get_use_radial_coulomb() const;
   DWORD_PTR               get_use_radial_coulomb_ptr() const;
-  void                    set_use_radial_coulomb(bool bEnable);
 
   double                  get_radial_coulomb_trans() const;
   DWORD_PTR               get_radial_coulomb_trans_ptr() const;
@@ -358,6 +356,8 @@ public:
 // Ion mobility recalculated from m_fIonMobility at STP using the Chapman-Enskog approximation.
   double                  get_ion_mob(double fPress, double fTemp) const;
 
+  void                    calc_cross_section();
+
 protected:
   CBaseTrackItem*         create_track_item(size_t          nElemId,
                                             const Vector3D& vPos,
@@ -462,7 +462,8 @@ private:
                           m_fCrossSection,    // cm^2, this is a user-defined collision cross-section with the environmental gas.
                           m_fActEnergy;       // activation energy of the ion, eV.
 
-  bool                    m_bVelDependent;    // if true, the collision cross-section is inversely proportional to the relative velocity.
+  bool                    m_bVelDependent,    // if true, the collision cross-section is inversely proportional to the relative velocity.
+                          m_bUserDefCS;       // if true, the user defines the collision cross-section manually; otherwise the Mason-Schamp formula is used.
 
   bool                    m_bEnableRF;
 // RF field stuff. The amplitude is in Volts because ANSYS calculated RF field for RF potential amplitude
@@ -658,11 +659,6 @@ inline DWORD_PTR CTracker::get_enable_field_ptr() const
   return (DWORD_PTR)&m_bEnableField;
 }
 
-inline void CTracker::set_enable_field(bool bEnable)
-{
-  m_bEnableField = bEnable;
-}
-
 inline double CTracker::get_particle_charge() const
 {
   return m_fCharge;
@@ -798,6 +794,16 @@ inline void CTracker::set_ion_cross_section(double fCrossSect)
   m_fCrossSection = fCrossSect;
 }
 
+inline bool CTracker::get_user_def_cs() const
+{
+  return m_bUserDefCS;
+}
+
+inline DWORD_PTR CTracker::get_user_def_cs_ptr() const
+{
+  return (DWORD_PTR)&m_bUserDefCS;
+}
+
 inline bool CTracker::get_vel_depend_flag() const
 {
   return m_bVelDependent;
@@ -806,11 +812,6 @@ inline bool CTracker::get_vel_depend_flag() const
 inline DWORD_PTR CTracker::get_vel_depend_flag_ptr() const
 {
   return (DWORD_PTR)&m_bVelDependent;
-}
-
-inline void CTracker::set_vel_depend_flag(bool bFlag)
-{
-  m_bVelDependent = bFlag;
 }
 
 inline double CTracker::get_act_energy() const
@@ -836,11 +837,6 @@ inline bool CTracker::get_enable_rf() const
 inline DWORD_PTR CTracker::get_enable_rf_ptr() const
 {
   return (DWORD_PTR)&m_bEnableRF;
-}
-
-inline void CTracker::set_enable_rf(bool bEnable)
-{
-  m_bEnableRF = bEnable;
 }
 
 inline double CTracker::get_rf_amplitude() const
@@ -993,11 +989,6 @@ inline DWORD_PTR CTracker::get_enable_coulomb_ptr() const
   return (DWORD_PTR)&m_bEnableCoulomb;
 }
 
-inline void CTracker::set_enable_coulomb(bool bEnable)
-{
-  m_bEnableCoulomb = bEnable;
-}
-
 inline double CTracker::get_full_current() const
 {
   return m_fFullCurrent;
@@ -1124,11 +1115,6 @@ inline bool CTracker::get_use_radial_coulomb() const
 inline DWORD_PTR CTracker::get_use_radial_coulomb_ptr() const
 {
   return (DWORD_PTR)&m_bUseRadialCoulomb;
-}
-
-inline void CTracker::set_use_radial_coulomb(bool bEnable)
-{
-  m_bUseRadialCoulomb = bEnable;
 }
 
 inline double CTracker::get_radial_coulomb_trans() const

@@ -854,3 +854,19 @@ void CHideShowRegsCheckBox::OnClickButton(CPoint point)
   pDrawObj->set_visibility_status(pRegNames, bVisible);
   pDrawObj->draw();
 }
+
+//---------------------------------------------------------------------------------------
+// CUserDefCSCheckBox - the check-box for immediate cross-section calculation.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CUserDefCSCheckBox, CCheckBoxButton)
+
+void CUserDefCSCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  if(!pObj->get_user_def_cs())
+    pObj->calc_cross_section();
+
+  m_pWndProp->set_update_all();
+}

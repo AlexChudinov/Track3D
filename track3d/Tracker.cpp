@@ -89,6 +89,7 @@ void CTracker::set_default()
   const double cfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
   set_ion_cross_section(160 * cfA2);        // collision cross-section, 160 squared angstrem, 1.6e-14 cm^2.
   m_bVelDependent = false;                  // if true, the collision cross-section is inversely proportional to the relative velocity.
+  m_bUserDefCS = true;                      // if true, the user defines the collision cross-section manually; otherwise the Mason-Schamp formula is used.
   set_ion_mass(Const_AMU_CGS * 16000);      // protein molecule.
   m_fActEnergy = 1.0;       // eV.
 
@@ -1446,6 +1447,15 @@ double CTracker::get_full_current_at(UINT nIter)
   return fCoeff * m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
 }
 
+void CTracker::calc_cross_section()
+{
+  const double fCoeff = 0.1875; // 3/16.
+  const double fkT = Const_Boltzmann * Const_T0;
+  double fReducedMass = m_fMolarMass / (1. + m_fMolarMass / m_fIonMass);
+  double fNumbDens = Const_One_Atm_CGS / fkT;
+  m_fCrossSection = fCoeff * sqrt(Const_2PI / (fReducedMass * fkT)) * m_fCharge / (fNumbDens * m_fIonMobility);
+}
+
 //-------------------------------------------------------------------------------------------------
 // Evaporation:
 //-------------------------------------------------------------------------------------------------
@@ -1487,7 +1497,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 28;  // 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 29;  // 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
   CAnsysMesh::save(ar);
@@ -1593,6 +1603,7 @@ void CTracker::save(CArchive& ar)
   ar << nRndDiffType;
   ar << nRndCollisionType;
   ar << m_fCrossSection;
+  ar << m_bUserDefCS;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1875,6 +1886,9 @@ void CTracker::load(CArchive& ar)
     m_nRndCollisionType = (CRandomProcType)nRndCollisionType;
     ar >> m_fCrossSection;
   }
+
+  if(nVersion >= 29)
+    ar >> m_bUserDefCS;
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);

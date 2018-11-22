@@ -131,10 +131,6 @@ void CPropertiesWnd::set_tracking_data()
    outEng.set_output_time_step(1.e-6 * pProp->GetValue().dblVal);
 
 // Electrostatics:
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_field_ptr());
-  if(pProp != NULL)
-    pObj->set_enable_field(pProp->GetValue().boolVal);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
   if(pProp != NULL)
     pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
