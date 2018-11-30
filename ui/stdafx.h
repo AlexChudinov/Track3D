@@ -40,5 +40,6 @@
 #include <afx.h>
 
 #include <string>
-
+#include <vector>
+#include <memory>
 

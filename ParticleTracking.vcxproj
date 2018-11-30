@@ -270,6 +270,7 @@
     <ClInclude Include="ui\ResponseProperty.h" />
     <ClInclude Include="ui\stdafx.h" />
     <ClInclude Include="ui\targetver.h" />
+    <ClInclude Include="utilities\Integrator.h" />
     <ClInclude Include="utilities\MemoryPool.h" />
     <ClInclude Include="utilities\ParallelFor.h" />
   </ItemGroup>
@@ -333,6 +334,7 @@
     <ClCompile Include="ui\TabOpenFoamImport.cpp" />
     <ClCompile Include="ui\TabSource.cpp" />
     <ClCompile Include="ui\TabTracking.cpp" />
+    <ClCompile Include="utilities\Integrator.cpp" />
     <ClCompile Include="utilities\MemoryPool.cpp" />
     <ClCompile Include="utilities\ParallelFor.cpp" />
   </ItemGroup>

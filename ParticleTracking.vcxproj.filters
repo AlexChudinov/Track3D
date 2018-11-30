@@ -204,6 +204,9 @@
     <ClInclude Include="field_solver\FiniteVolumesSolver.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="utilities\Integrator.h">
+      <Filter>utilities\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">
@@ -373,6 +376,9 @@
     </ClCompile>
     <ClCompile Include="field_solver\FiniteVolumesSolver.cpp">
       <Filter>field_solver\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="utilities\Integrator.cpp">
+      <Filter>utilities</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
