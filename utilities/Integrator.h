@@ -4,24 +4,21 @@
 
 #include <boost/numeric/odeint.hpp>
 
-using namespace boost::numeric::odeint;
-
-class IntegratorState
+class IntegratorState :
+	boost::additive1< IntegratorState,
+	boost::additive2< IntegratorState, double,
+	boost::multiplicative< IntegratorState, double > > >
 {
 public:
-	using Ptr = std::unique_ptr<IntegratorState>;
+	virtual IntegratorState& operator*=(double h);
+	virtual IntegratorState& operator+=(const IntegratorState&);
 
-	virtual IntegratorState& operator*=(double h) = 0;
-	virtual IntegratorState& operator+=(const IntegratorState&) = 0;
-
-	static Ptr& operator*=(Ptr& s, double h);
-	static Ptr& operator+=(Ptr& s0, const Ptr& s1);
 	//Differentiates state
 	static void diff(const IntegratorState& s, IntegratorState& ds, const double t);
 
 private:
 	//Calculates state derivatives at time t and saves them into dS
-	virtual void d(IntegratorState& dS, double t) const = 0;
+	virtual void d(IntegratorState& dS, double t) const;
 };
 
 class Integrator
@@ -35,22 +32,31 @@ public:
 		ModifiedMidpoint,
 		RungeKutta4,
 		RungeKuttaCashKarp54,
-		RungeKuttaDopru5,
+		RungeKuttaDopri5,
 		RungeKuttaFehlberg78
 	};
 
 	static Ptr create(Type type);
 
 	//Change s0 with value of state after step dt was calculated
-	virtual void do_step(IntegratorState& s0, double t0, double dt) = 0;
+	virtual void doStep(IntegratorState& s0, double t0, double dt) = 0;
 };
 
-class IntegratorExplicitEuler
+template<template<class...> class Stepper>  
+class IntegratorImpl : public Integrator
 {
-	euler<IntegratorState*, double, IntegratorState*, double, vector_space_algebra>
-		mStepper;
+	Stepper<
+		IntegratorState,
+		double,
+		IntegratorState,
+		double,
+		boost::numeric::odeint::vector_space_algebra> mStepper;
+
 public:
-	virtual void do_step(IntegratorState* s0, double t0, double dt);
+	void doStep(IntegratorState& s0, double t0, double dt)
+	{
+		mStepper.do_step(IntegratorState::diff, s0, t0, dt);
+	}
 };
 
 #endif

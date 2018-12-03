@@ -1,24 +1,39 @@
 #include "stdafx.h"
 #include "Integrator.h"
 
-void IntegratorExplicitEuler::do_step(IntegratorState * s0, double t0, double dt)
+IntegratorState & IntegratorState::operator*=(double /*h*/)
 {
-	mStepper.do_step(IntegratorState::diff, s0, t0, s0, dt);
+	assert(false); //Dummy function
+	return *this;
 }
 
-IntegratorState::Ptr & IntegratorState::operator*=(Ptr & s, double h)
+IntegratorState & IntegratorState::operator+=(const IntegratorState &)
 {
-	s->operator*=(h);
-	return s;
-}
-
-IntegratorState::Ptr & IntegratorState::operator+=(Ptr & s0, const Ptr & s1)
-{
-	s0->operator+=(*s1);
-	return s0;
+	assert(false); //Dummy function
+	return *this;
 }
 
 void IntegratorState::diff(const IntegratorState & s, IntegratorState & ds, const double t)
 {
 	s.d(ds, t);
+}
+
+void IntegratorState::d(IntegratorState & /*dS*/, double /*t*/) const
+{
+	assert(false); //Dummy function
+}
+
+Integrator::Ptr Integrator::create(Type type)
+{
+	using namespace boost::numeric::odeint;
+	switch (type)
+	{
+	case ExplicitEuler: return Ptr(new IntegratorImpl<euler>);
+	case ModifiedMidpoint: return Ptr(new IntegratorImpl<modified_midpoint>);
+	case RungeKutta4: return Ptr(new IntegratorImpl<runge_kutta4>);
+	case RungeKuttaCashKarp54: return Ptr(new IntegratorImpl<runge_kutta_cash_karp54>);
+	case RungeKuttaDopri5: return Ptr(new IntegratorImpl<runge_kutta_dopri5>);
+	case RungeKuttaFehlberg78: return Ptr(new IntegratorImpl<runge_kutta_fehlberg78>);
+	}
+	return Ptr();
 }
