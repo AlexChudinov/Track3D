@@ -248,6 +248,7 @@
     <ClInclude Include="track3d\mathematics.h" />
     <ClInclude Include="track3d\matrix3d.hpp" />
     <ClInclude Include="track3d\OutputEngine.h" />
+    <ClInclude Include="track3d\Particle.h" />
     <ClInclude Include="track3d\ParticleSource.h" />
     <ClInclude Include="track3d\Perturbation.h" />
     <ClInclude Include="track3d\ScreenCapture.h" />
@@ -299,6 +300,7 @@
     <ClCompile Include="track3d\mathematics.cpp" />
     <ClCompile Include="track3d\matrix3d.cpp" />
     <ClCompile Include="track3d\OutputEngine.cpp" />
+    <ClCompile Include="track3d\Particle.cpp" />
     <ClCompile Include="track3d\ParticleSource.cpp" />
     <ClCompile Include="track3d\Perturbation.cpp" />
     <ClCompile Include="track3d\ScreenCapture.cpp" />

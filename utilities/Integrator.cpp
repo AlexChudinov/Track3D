@@ -28,7 +28,7 @@ Integrator::Ptr Integrator::create(Type type)
 	using namespace boost::numeric::odeint;
 	switch (type)
 	{
-	case ExplicitEuler: return Ptr(new IntegratorImpl<euler>);
+	case Euler: return Ptr(new IntegratorImpl<euler>);
 	case ModifiedMidpoint: return Ptr(new IntegratorImpl<modified_midpoint>);
 	case RungeKutta4: return Ptr(new IntegratorImpl<runge_kutta4>);
 	case RungeKuttaCashKarp54: return Ptr(new IntegratorImpl<runge_kutta_cash_karp54>);

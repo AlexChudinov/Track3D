@@ -28,7 +28,7 @@ public:
 
 	enum Type
 	{
-		ExplicitEuler,
+		Euler,
 		ModifiedMidpoint,
 		RungeKutta4,
 		RungeKuttaCashKarp54,
