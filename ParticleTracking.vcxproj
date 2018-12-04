@@ -336,7 +336,6 @@
     <ClCompile Include="ui\TabOpenFoamImport.cpp" />
     <ClCompile Include="ui\TabSource.cpp" />
     <ClCompile Include="ui\TabTracking.cpp" />
-    <ClCompile Include="utilities\Integrator.cpp" />
     <ClCompile Include="utilities\MemoryPool.cpp" />
     <ClCompile Include="utilities\ParallelFor.cpp" />
   </ItemGroup>

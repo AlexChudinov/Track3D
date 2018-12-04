@@ -383,9 +383,6 @@
     <ClCompile Include="track3d\Particle.cpp">
       <Filter>ui\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="utilities\Integrator.cpp">
-      <Filter>utilities\Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="ui\res\MoveRotateToolbar.bmp">

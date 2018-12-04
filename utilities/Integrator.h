@@ -4,23 +4,10 @@
 
 #include <boost/numeric/odeint.hpp>
 
-class IntegratorState :
-	boost::additive1< IntegratorState,
-	boost::additive2< IntegratorState, double,
-	boost::multiplicative< IntegratorState, double > > >
-{
-public:
-	virtual IntegratorState& operator*=(double h);
-	virtual IntegratorState& operator+=(const IntegratorState&);
+template<template<class...> class Stepper, class State>
+class IntegratorImpl;
 
-	//Differentiates state
-	static void diff(const IntegratorState& s, IntegratorState& ds, const double t);
-
-private:
-	//Calculates state derivatives at time t and saves them into dS
-	virtual void d(IntegratorState& dS, double t) const;
-};
-
+template<class State>
 class Integrator
 {
 public:
@@ -36,26 +23,39 @@ public:
 		RungeKuttaFehlberg78
 	};
 
-	static Ptr create(Type type);
+	static Ptr create(Type type)
+	{
+		using namespace boost::numeric::odeint;
+		switch (type)
+		{
+		case Euler: return Ptr(new IntegratorImpl<euler>);
+		case ModifiedMidpoint: return Ptr(new IntegratorImpl<modified_midpoint>);
+		case RungeKutta4: return Ptr(new IntegratorImpl<runge_kutta4>);
+		case RungeKuttaCashKarp54: return Ptr(new IntegratorImpl<runge_kutta_cash_karp54>);
+		case RungeKuttaDopri5: return Ptr(new IntegratorImpl<runge_kutta_dopri5>);
+		case RungeKuttaFehlberg78: return Ptr(new IntegratorImpl<runge_kutta_fehlberg78>);
+		}
+		return Ptr();
+	}
 
 	//Change s0 with value of state after step dt was calculated
-	virtual void doStep(IntegratorState& s0, double t0, double dt) = 0;
+	virtual void doStep(State& s0, double t0, double dt) = 0;
 };
 
-template<template<class...> class Stepper>  
-class IntegratorImpl : public Integrator
+template<template<class...> class Stepper, class State>  
+class IntegratorImpl : public Integrator<State>
 {
 	Stepper<
-		IntegratorState,
+		State,
 		double,
-		IntegratorState,
+		State,
 		double,
 		boost::numeric::odeint::vector_space_algebra> mStepper;
 
 public:
-	void doStep(IntegratorState& s0, double t0, double dt)
+	void doStep(State& s0, double t0, double dt)
 	{
-		mStepper.do_step(IntegratorState::diff, s0, t0, dt);
+		mStepper.do_step(State::diff, s0, t0, dt);
 	}
 };
 
