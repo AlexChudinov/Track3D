@@ -50,6 +50,25 @@ private:
 		mMob;         // ion mobility, random diffusion velocity jumps support.
 };
 
+class Droplet :
+	public Particle,
+	public BlockAllocator<Droplet>,
+	boost::additive1< Droplet,
+	boost::multiplicative2<Droplet, double> >
+{
+public:
+	using Particle::operator delete;
+	virtual void deleteObj();
+
+	Droplet& operator*=(double h);
+
+	Droplet& operator+=(const Droplet& s);
+
+	static void diff(const Droplet& s, Droplet& ds, double t);
+};
+
 extern template class Integrator<Ion>;
+
+extern template class Integrator<Droplet>;
 
 #endif // !_PARTICLE_H_

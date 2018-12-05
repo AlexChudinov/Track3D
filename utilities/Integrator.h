@@ -28,12 +28,12 @@ public:
 		using namespace boost::numeric::odeint;
 		switch (type)
 		{
-		case Euler: return Ptr(new IntegratorImpl<euler>);
-		case ModifiedMidpoint: return Ptr(new IntegratorImpl<modified_midpoint>);
-		case RungeKutta4: return Ptr(new IntegratorImpl<runge_kutta4>);
-		case RungeKuttaCashKarp54: return Ptr(new IntegratorImpl<runge_kutta_cash_karp54>);
-		case RungeKuttaDopri5: return Ptr(new IntegratorImpl<runge_kutta_dopri5>);
-		case RungeKuttaFehlberg78: return Ptr(new IntegratorImpl<runge_kutta_fehlberg78>);
+		case Euler: return Ptr(new IntegratorImpl<euler, State>());
+		case ModifiedMidpoint: return Ptr(new IntegratorImpl<modified_midpoint, State>());
+		case RungeKutta4: return Ptr(new IntegratorImpl<runge_kutta4, State>());
+		case RungeKuttaCashKarp54: return Ptr(new IntegratorImpl<runge_kutta_cash_karp54, State>());
+		case RungeKuttaDopri5: return Ptr(new IntegratorImpl<runge_kutta_dopri5, State>());
+		case RungeKuttaFehlberg78: return Ptr(new IntegratorImpl<runge_kutta_fehlberg78, State>());
 		}
 		return Ptr();
 	}
@@ -53,6 +53,7 @@ class IntegratorImpl : public Integrator<State>
 		boost::numeric::odeint::vector_space_algebra> mStepper;
 
 public:
+
 	void doStep(State& s0, double t0, double dt)
 	{
 		mStepper.do_step(State::diff, s0, t0, dt);

@@ -34,5 +34,31 @@ void Ion::diff(const Ion & s, Ion & ds, double t)
 	const EvaporatingParticle::CNodesCollection& nodes = tr->get_nodes();
 	EvaporatingParticle::CNode3D node = *nodes[s.mIdx];
 
+	double phase = 0.0;
+
 	ds.mPos = s.mVel;
+
+}
+
+void Droplet::deleteObj()
+{
+	BlockPool<Droplet>::freeBlock(this);
+}
+
+Droplet & Droplet::operator*=(double h)
+{
+	mPos *= h;
+	mVel *= h;
+	return *this;
+}
+
+Droplet & Droplet::operator+=(const Droplet & s)
+{
+	mPos += s.mPos;
+	mVel += s.mVel;
+	return *this;
+}
+
+void Droplet::diff(const Droplet & s, Droplet & ds, double t)
+{
 }
