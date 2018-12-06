@@ -43,8 +43,18 @@ public:
 
 	static void diff(const Ion& s, Ion& ds, double t);
 
+	inline double phase() const
+	{
+		return mPhase;
+	}
+
+	inline double temp() const
+	{
+		return mTemp;
+	}
 private:
-	double mTemp,     // ion temperature.
+	double mPhase,	  //Start phase of the rf field
+		mTemp,		  // ion temperature.
 		mTempInf,     // steady-state (equilibrium) ion temperature.
 		mUnfragm,     // part of unfragmented ions.
 		mMob;         // ion mobility, random diffusion velocity jumps support.
