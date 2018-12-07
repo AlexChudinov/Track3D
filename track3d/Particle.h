@@ -20,6 +20,16 @@ public:
 	static void operator delete(void* ptr, size_t n);
 	virtual void deleteObj() = 0;
 
+	inline const Vector3D& pos() const 
+	{
+		return mPos;
+	}
+
+	inline const Vector3D& vel() const
+	{
+		return mVel;
+	}
+
 protected:
 	mutable int mIdx;		// mesh element which this item belongs to.
 

@@ -31,10 +31,10 @@ Ion & Ion::operator+=(const Ion & s)
 void Ion::diff(const Ion & s, Ion & ds, double t)
 {
 	EvaporatingParticle::CTracker * tr = CParticleTrackingApp::Get()->GetTracker();
-	const EvaporatingParticle::CNodesCollection& nodes = tr->get_nodes();
-	EvaporatingParticle::CNode3D node = *nodes[s.mIdx];
-
-	double phase = 0.0;
+	EvaporatingParticle::CNode3D node;
+	EvaporatingParticle::CElem3D * elem = tr->get_elems()[s.mIdx];
+	
+	Vector3D a = tr->get_ion_accel(node, )
 
 	ds.mPos = s.mVel;
 
