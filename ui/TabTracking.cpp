@@ -48,8 +48,6 @@ void CPropertiesWnd::add_tracking_ctrls()
   pFieldGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("DC Voltage, V"), COleVariant(pObj->get_dc_amplitude()), _T("DC potential applied to the emitter"), pObj->get_dc_amplitude_ptr());
   pFieldGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Charge, elem. charges"), COleVariant(long(pObj->get_particle_charge() / Const_Charge_CGS)), _T("Electric charge carried by a particle."), pObj->get_particle_charge_ptr());
-  pFieldGroup->AddSubItem(pProp);
 
   m_wndPropList.AddProperty(pFieldGroup);
 
@@ -84,11 +82,39 @@ void CPropertiesWnd::add_tracking_ctrls()
 
   m_wndPropList.AddProperty(pRFGroup);
 
+// Random diffusion group:
+  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Processes"));
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Diffusion"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion positions (or ion velocities) are disturbed by random variations at every time step. The random diffusion is applied if at X < Xc"), pObj->get_enable_diffusion_ptr());
+  pDiffusionGroup->AddSubItem(pCheckBox);
+
+  COleVariant var1(RandomProcess::rndProcName(pObj->get_rand_diff_type()));
+  pProp = new CMFCPropertyGridProperty(_T("Random Diffusion Type"), var1, _T("Select the type of random diffusion model."), pObj->get_rand_diff_type_ptr());
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP));
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_COORD_JUMP));
+  pProp->AllowEdit(FALSE);
+  pDiffusionGroup->AddSubItem(pProp);
+
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Collisions"), (_variant_t)pObj->get_enable_collisions(), _T("If this is set to 'true' the ion positions are disturbed by random variations once per several time steps. The random collisions are applied if at X > Xc"), pObj->get_enable_collisions_ptr());
+  pDiffusionGroup->AddSubItem(pCheckBox);
+
+  COleVariant var2(RandomProcess::rndProcName(pObj->get_rand_collision_type()));
+  pProp = new CMFCPropertyGridProperty(_T("Random Collisions Model"), var2, _T("Select the type of random collisions model."), pObj->get_rand_collision_type_ptr());
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION));
+  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION_ANY_PRESS));
+  pProp->AllowEdit(FALSE);
+  pDiffusionGroup->AddSubItem(pProp);
+
+  pProp = new CMFCPropertyGridProperty(_T("Limiting X-Coordinate, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("Xc the x-coordinate, limiting the application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
+  pDiffusionGroup->AddSubItem(pProp);
+
+  pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
+  pDiffusionGroup->AddSubItem(pProp);
+
+  m_wndPropList.AddProperty(pDiffusionGroup);
+
 // Backward compatibility:
   CMFCPropertyGridProperty* pOldIntegratorGroup = new CMFCPropertyGridProperty(_T("Backward compatibility"));
-// Old Predictor-Corrector switcher:
-  pCheckBox = new CCheckBoxButton(this, _T("Enable Old Integrator"), (_variant_t)pObj->get_use_old_integrator(), _T("If this is true the old predictor-corrector integrator is used."), pObj->get_use_old_integrator_ptr());
-  pOldIntegratorGroup->AddSubItem(pCheckBox);
+
   pCheckBox = new CCheckBoxButton(this, _T("Use ANSYS Electric Fields"), (_variant_t)pObj->get_enable_ansys_field(), _T("If this is true the electric fields computed in ANSYS are used."), pObj->get_enable_ansys_field_ptr());
   pOldIntegratorGroup->AddSubItem(pCheckBox);
   pCheckBox = new CCheckBoxButton(this, _T("Save Screen Image"), (_variant_t)pObj->get_save_image(), _T("If this is true the screen image will be captured and saved at every iteration."), pObj->get_save_image_ptr());
@@ -131,10 +157,6 @@ void CPropertiesWnd::set_tracking_data()
    outEng.set_output_time_step(1.e-6 * pProp->GetValue().dblVal);
 
 // Electrostatics:
-  pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
-  if(pProp != NULL)
-    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_dc_amplitude_ptr());
   if(pProp != NULL)
     pObj->set_dc_amplitude(pProp->GetValue().dblVal);
@@ -173,6 +195,35 @@ void CPropertiesWnd::set_tracking_data()
   pProp = m_wndPropList.FindItemByData(pObj->get_flatapole_trans_ptr());
   if(pProp != NULL)
     pObj->set_flatapole_trans(0.1 * pProp->GetValue().dblVal);
+
+// Random processes group:
+  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
+  if(pProp != NULL)
+    pObj->set_diffusion_switch_cond(0.1 * pProp->GetValue().dblVal);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
+  if(pProp != NULL)
+    pObj->set_random_seed(pProp->GetValue().lVal);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
+  if(pProp != NULL)
+  {
+    CString cTypeName = (CString)pProp->GetValue();
+    if(cTypeName == RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP))
+      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_VELOCITY_JUMP);
+    else
+      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_COORD_JUMP);
+  }
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
+  if(pProp != NULL)
+  {
+    CString cTypeName = (CString)pProp->GetValue();
+    if(cTypeName == RandomProcess::rndProcName(RandomProcess::COLLISION))
+      pObj->set_rand_collision_type(RandomProcess::COLLISION);
+    else
+      pObj->set_rand_collision_type(RandomProcess::COLLISION_ANY_PRESS);
+  }
 }
 
 void CPropertiesWnd::update_tracking_ctrls()
@@ -235,13 +286,29 @@ void CPropertiesWnd::update_tracking_ctrls()
   if(pProp != NULL)
     pProp->Enable(bEnableRF);
 
-// Old Integrator switcher:
-  BOOL bOldIntegr = FALSE;
-  pProp = m_wndPropList.FindItemByData(pObj->get_use_old_integrator_ptr());
+// Random processes:
+  bool bDiffOn = false, bCollOn = false;
+  pProp = m_wndPropList.FindItemByData(pObj->get_enable_diffusion_ptr());
   if(pProp != NULL)
-    bOldIntegr = (BOOL)(pProp->GetValue().boolVal);
+    bDiffOn = pProp->GetValue().boolVal;
 
-  pProp = m_wndPropList.FindItemByData(pObj->get_integr_type_ptr());
+  pProp = m_wndPropList.FindItemByData(pObj->get_enable_collisions_ptr());
   if(pProp != NULL)
-    pProp->Enable(!bOldIntegr);
+    bCollOn = pProp->GetValue().boolVal;
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn || bCollOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn || bCollOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bDiffOn);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bCollOn);
 }

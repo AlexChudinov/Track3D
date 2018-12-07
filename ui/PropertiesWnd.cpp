@@ -92,7 +92,7 @@ void CPropertiesWnd::AdjustLayout()
 }
 
 static const char* scTabItemNames[CPropertiesWnd::nTabCount] = 
-{ "Main", "Source", "Tracking", "Evaporation", "Ion Param", "Drawing", "Export", "Import", "Calculators", "Perturbations", "Field" };
+{ "Main", "Source", "Tracking", "Droplet Param", "Ion Param", "Drawing", "Export", "Import", "Calculators", "Perturbations", "Field" };
 
 int CPropertiesWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {

@@ -12,6 +12,12 @@
 void CPropertiesWnd::add_evapor_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  CMFCPropertyGridProperty* pElectroGroup = new CMFCPropertyGridProperty(_T("Electrostatics"));
+  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Charge, elem. charges"), COleVariant(long(pObj->get_particle_charge() / Const_Charge_CGS)), _T("Electric charge carried by a droplet."), pObj->get_particle_charge_ptr());
+  pElectroGroup->AddSubItem(pProp);
+  m_wndPropList.AddProperty(pElectroGroup);
+
   CMFCPropertyGridProperty* pEvaporGroup = new CMFCPropertyGridProperty(_T("Evaporation"));
 
 // Evaporation model:
@@ -33,7 +39,7 @@ void CPropertiesWnd::add_evapor_ctrls()
   pEvaporGroup->AddSubItem(pModGroup);
 
   CMFCPropertyGridProperty* pDiamGroup = new CMFCPropertyGridProperty(_T("Initial Diameter, mcm"));
-  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Initial Diameter"), COleVariant(1.e+4 * pObj->get_init_diameter()), _T("Diameter of a particle at the start point of the track."), pObj->get_init_diameter_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("Initial Diameter"), COleVariant(1.e+4 * pObj->get_init_diameter()), _T("Diameter of a particle at the start point of the track."), pObj->get_init_diameter_ptr());
   pDiamGroup->AddSubItem(pProp);
   pEvaporGroup->AddSubItem(pDiamGroup);
 
@@ -70,7 +76,12 @@ void CPropertiesWnd::set_evapor_data()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
-  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_evapor_model_type_ptr());
+// Electrostatics:
+  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
+  if(pProp != NULL)
+    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_evapor_model_type_ptr());
   if(pProp != NULL)
   {
     CString cMod = (CString)pProp->GetValue();
@@ -112,10 +123,14 @@ void CPropertiesWnd::set_evapor_data()
 void CPropertiesWnd::update_evapor_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-
   BOOL bEnable = pObj->get_particle_type() == EvaporatingParticle::CTrack::ptDroplet;
 
-  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_init_diameter_ptr());
+// Electrostatics:
+  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnable);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_init_diameter_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable);
 

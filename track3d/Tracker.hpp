@@ -323,10 +323,6 @@ protected:
   void                    do_track();
   void                    do_iterations();  // start computing ion motion with Coulomb repulsion in a general case (no axial symmetery).
 
-// Different calls for particles of droplet and ion types.
-  bool                    do_time_step(CBaseTrackItem* pItem);
-  bool                    do_ion_time_step(CBaseTrackItem* pItem, double fPhase, double fCurr);
-
   double                  get_Re(const Vector3D& vVel, double fDens, double fDynVisc, double fD) const;
   double                  get_Cd(double fRe) const;
 

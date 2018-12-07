@@ -3,6 +3,7 @@
 
 #include "PropertiesWnd.h"
 #include "ParticleTracking.h"
+#include "ResponseProperty.h"
 #include "BeamCrossSection.h"
 #include "../RandomProcess/RandomProcess.h"    // random diffusion support.
 #include "Button.h"
@@ -16,15 +17,28 @@ void CPropertiesWnd::add_ion_ctrls()
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   CMFCPropertyGridProperty* pProp = NULL;
 
-  CMFCPropertyGridProperty* pMassGroup = new CMFCPropertyGridProperty(_T("Mass, a.m.u."));
-  pProp = new CMFCPropertyGridProperty(_T("Mass"), COleVariant(pObj->get_ion_mass() / Const_AMU_CGS), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
-  pMassGroup->AddSubItem(pProp);
-  m_wndPropList.AddProperty(pMassGroup);
+// General parameters: mass, charge, mobility.
+  CMFCPropertyGridProperty* pGeneralGroup = new CMFCPropertyGridProperty(_T("General"));
 
-  CMFCPropertyGridProperty* pMobGroup = new CMFCPropertyGridProperty(_T("Mobility, cm2/s/V"));
-  pProp = new CMFCPropertyGridProperty(_T("Mobility"), COleVariant(pObj->get_ion_mobility() * SI_to_CGS_Voltage), _T("Ion mobility at STP."), pObj->get_ion_mobility_ptr());
-  pMobGroup->AddSubItem(pProp);
-  m_wndPropList.AddProperty(pMobGroup);
+  long nZ = long(pObj->get_particle_charge() / Const_Charge_CGS);
+  CGeneralResponseProperty* pRespProp = new CGeneralResponseProperty(this, _T("Charge, elem. charges"), COleVariant(nZ), _T("Electric charge carried by a particle."), pObj->get_particle_charge_ptr());
+  pGeneralGroup->AddSubItem(pRespProp);
+  double fM = pObj->get_ion_mass() / Const_AMU_CGS;
+  pRespProp = new CGeneralResponseProperty(this, _T("Mass, a.m.u."), COleVariant(fM), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
+  pGeneralGroup->AddSubItem(pRespProp);
+  double fMovrZ = fM / nZ;
+  pProp = new CMFCPropertyGridProperty(_T("M/Z,  Da"), COleVariant(fMovrZ), _T("M / Z ratio in Dalton."), NULL);
+  pProp->AllowEdit(false);
+  pProp->Enable(false);
+  pGeneralGroup->AddSubItem(pProp);
+  pProp = new CMFCPropertyGridProperty(_T("Mobility, cm2/s/V"), COleVariant(pObj->get_ion_mobility() * SI_to_CGS_Voltage), _T("Ion mobility at STP."), pObj->get_ion_mobility_ptr());
+  pGeneralGroup->AddSubItem(pProp);
+
+  m_wndPropList.AddProperty(pGeneralGroup);
+
+// Collision parameters:
+  if(!pObj->get_user_def_cs())
+    pObj->calc_cross_section();
 
   CMFCPropertyGridProperty* pCollisionGroup = new CMFCPropertyGridProperty(_T("Collision Parameters"));
   pProp = new CMFCPropertyGridProperty(_T("Cross-Section"), COleVariant(pObj->get_ion_cross_section() / scfA2), _T("Collision cross-section with the environmental gas, squared angstrem."), pObj->get_ion_cross_section_ptr());
@@ -104,43 +118,8 @@ void CPropertiesWnd::add_ion_ctrls()
   pProp = new CMFCPropertyGridProperty(_T("Space Charge Step, mm"), COleVariant(10 * distrib.get_space_charge_step()), _T("Distance between pseudo-charges placed into nodes of a constant cubical mesh."), distrib.get_space_charge_step_ptr());
   pDistribGroup->AddSubItem(pProp);
 
-//  pProp = new CMFCPropertyGridProperty(_T("Space Charge Time Step, mcs"), COleVariant(1e+6 * distrib.get_charge_time_step()), _T("Distance between pseudo-charges placed along the trajectories."), distrib.get_charge_time_step_ptr());
-//  pDistribGroup->AddSubItem(pProp);
-
   pCoulombGroup->AddSubItem(pDistribGroup);
   m_wndPropList.AddProperty(pCoulombGroup);
-
-// Random diffusion group:
-  CMFCPropertyGridProperty* pDiffusionGroup = new CMFCPropertyGridProperty(_T("Random Processes"));
-  pCheckBox = new CCheckBoxButton(this, _T("Enable Diffusion"), (_variant_t)pObj->get_enable_diffusion(), _T("If this is set to 'true' the ion positions (or ion velocities) are disturbed by random variations at every time step. The random diffusion is applied if at X < Xc"), pObj->get_enable_diffusion_ptr());
-  pDiffusionGroup->AddSubItem(pCheckBox);
-
-  COleVariant var1(RandomProcess::rndProcName(pObj->get_rand_diff_type()));
-  pProp = new CMFCPropertyGridProperty(_T("Random Diffusion Type"), var1, _T("Select the type of random diffusion model."), pObj->get_rand_diff_type_ptr());
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP));
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::DIFFUSION_COORD_JUMP));
-  pProp->AllowEdit(FALSE);
-  pDiffusionGroup->AddSubItem(pProp);
-
-  pCheckBox = new CCheckBoxButton(this, _T("Enable Collisions"), (_variant_t)pObj->get_enable_collisions(), _T("If this is set to 'true' the ion positions are disturbed by random variations once per several time steps. The random collisions are applied if at X > Xc"), pObj->get_enable_collisions_ptr());
-  pDiffusionGroup->AddSubItem(pCheckBox);
-
-  COleVariant var2(RandomProcess::rndProcName(pObj->get_rand_collision_type()));
-  pProp = new CMFCPropertyGridProperty(_T("Random Collisions Model"), var2, _T("Select the type of random collisions model."), pObj->get_rand_collision_type_ptr());
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION));
-  pProp->AddOption(RandomProcess::rndProcName(RandomProcess::COLLISION_ANY_PRESS));
-  pProp->AllowEdit(FALSE);
-  pDiffusionGroup->AddSubItem(pProp);
-
-  pProp = new CMFCPropertyGridProperty(_T("Limiting X-Coordinate, mm"), COleVariant(10 * pObj->get_diffusion_switch_cond()), _T("Xc the x-coordinate, limiting the application of both random diffusion and random collision models."), pObj->get_diffusion_switch_cond_ptr());
-  pDiffusionGroup->AddSubItem(pProp);
-
-  pProp = new CMFCPropertyGridProperty(_T("Random Seed"), COleVariant(pObj->get_random_seed()), _T("Seed for the random numbers generator."), pObj->get_random_seed_ptr());
-  pDiffusionGroup->AddSubItem(pProp);
-
-  
-
-  m_wndPropList.AddProperty(pDiffusionGroup);
 }
 
 void CPropertiesWnd::set_ion_data()
@@ -150,6 +129,10 @@ void CPropertiesWnd::set_ion_data()
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_ion_mass_ptr());
   if(pProp != NULL)
     pObj->set_ion_mass(Const_AMU_CGS * pProp->GetValue().dblVal);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
+  if(pProp != NULL)
+    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_ion_mobility_ptr());
   if(pProp != NULL)
@@ -188,10 +171,6 @@ void CPropertiesWnd::set_ion_data()
   pProp = m_wndPropList.FindItemByData(distrib.get_space_charge_step_ptr());
   if(pProp != NULL)
     distrib.set_space_charge_step(0.1 * pProp->GetValue().dblVal);
-
-//  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
-//  if(pProp != NULL)
-//    distrib.set_charge_time_step(1e-6 * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
@@ -232,35 +211,6 @@ void CPropertiesWnd::set_ion_data()
       }
     }
   }
-
-// Random processes group:
-  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
-  if(pProp != NULL)
-    pObj->set_diffusion_switch_cond(0.1 * pProp->GetValue().dblVal);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
-  if(pProp != NULL)
-    pObj->set_random_seed(pProp->GetValue().lVal);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
-  if(pProp != NULL)
-  {
-    CString cTypeName = (CString)pProp->GetValue();
-    if(cTypeName == RandomProcess::rndProcName(RandomProcess::DIFFUSION_VELOCITY_JUMP))
-      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_VELOCITY_JUMP);
-    else
-      pObj->set_rand_diff_type(RandomProcess::DIFFUSION_COORD_JUMP);
-  }
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
-  if(pProp != NULL)
-  {
-    CString cTypeName = (CString)pProp->GetValue();
-    if(cTypeName == RandomProcess::rndProcName(RandomProcess::COLLISION))
-      pObj->set_rand_collision_type(RandomProcess::COLLISION);
-    else
-      pObj->set_rand_collision_type(RandomProcess::COLLISION_ANY_PRESS);
-  }
 }
 
 void CPropertiesWnd::update_ion_ctrls()
@@ -268,7 +218,11 @@ void CPropertiesWnd::update_ion_ctrls()
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   bool bEnable = pObj->get_particle_type() == EvaporatingParticle::CTrack::ptIon;
 
-  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_ion_mass_ptr());
+  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnable);
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_ion_mass_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable);
 
@@ -350,10 +304,6 @@ void CPropertiesWnd::update_ion_ctrls()
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bDistAlongTraject && !bPreCalcClmb);
 
-//  pProp = m_wndPropList.FindItemByData(distrib.get_charge_time_step_ptr());
-//  if(pProp != NULL)
-//    pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && bDistAlongTraject && !bPreCalcClmb);
-
   pProp = m_wndPropList.FindItemByData(pObj->get_BH_dist_par_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
@@ -396,30 +346,4 @@ void CPropertiesWnd::update_ion_ctrls()
   pProp = m_wndPropList.FindItemByData((DWORD_PTR)pObj);
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
-
-// Random processes:
-  bool bDiffOn = false, bCollOn = false;
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_diffusion_ptr());
-  if(pProp != NULL)
-    bDiffOn = pProp->GetValue().boolVal;
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_enable_collisions_ptr());
-  if(pProp != NULL)
-    bCollOn = pProp->GetValue().boolVal;
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_diffusion_switch_cond_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bDiffOn || bCollOn);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_random_seed_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bDiffOn || bCollOn);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_rand_diff_type_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bDiffOn);
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_rand_collision_type_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bCollOn);
 }

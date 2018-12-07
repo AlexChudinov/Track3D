@@ -337,117 +337,90 @@ void CTracker::do_track()
   {
     size_t nStep = 1; // to prevent from writing the first item to the track twice.
     CTrack& track = m_Tracks.at(i);
-    if(m_bOldIntegrator)
-    {
-      CBaseTrackItem* pItem = track.at(0)->copy();
-      while(true)
-      {
-        bool bOK = m_nType == CTrack::ptDroplet ? 
-          do_time_step(pItem) : do_ion_time_step(pItem, track.get_phase(), track.get_current());
 
-        if(!bOK)
-        {
-          track.push_back(pItem->copy());  // insert the last item anyway.
-          break;  // the track went out of the mesh.
-        }
-
-        if(nStep % nOutFreq == 0)
-          track.push_back(pItem->copy());
-
-        if(track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp(), track.get_term_reason()))
-          break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
-
-        nStep++;
-      }
-
-      delete pItem;
-    }
-    else
-    {
 // General integration interface:
-      double fMass, fTemp;
-      CBaseTrackItem* pItem = track.at(0);
-      double fTime = pItem->time;
-      double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
-      pItem->state(pState);
-      CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
-      void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
+    double fMass, fTemp;
+    CBaseTrackItem* pItem = track.at(0);
+    double fTime = pItem->time;
+    double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
+    pItem->state(pState);
+    CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
+    void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
 
 // Random processes support:
-      RandomProcess* pColl = create_collisions(track.get_rand_seed());
-      RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
-      CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
-      CNode3D currNode;
-      bool bReflDonePrev, bReflDoneCurr;
-      Vector3D vAccel;
+    RandomProcess* pColl = create_collisions(track.get_rand_seed());
+    RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
+    CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
+    CNode3D currNode;
+    bool bReflDonePrev, bReflDoneCurr;
+    Vector3D vAccel;
 
-      while(true)
+    while(true)
+    {
+      do_integrator_step(pI, pState, &fTime, &m_fTimeStep);
+
+      if(!data.bOk)
       {
-        do_integrator_step(pI, pState, &fTime, &m_fTimeStep);
-
-        if(!data.bOk)
-        {
-          CBaseTrackItem* pLastItem = CBaseTrackItem::create(m_nType, -1, fTime, pState);
-          track.push_back(pLastItem);  // insert the last item anyway.
-          break;  // the track went out of the mesh.
-        }
-
-        if(nStep % nOutFreq == 0)
-        {
-          CBaseTrackItem* pOutItem = CBaseTrackItem::create(m_nType, data.nElemId, fTime, pState);
-          if(m_nType == CTrack::ptIon)
-          {
-            CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
-            pIonItem->tempinf = data.fTionInf;
-            pIonItem->mob = data.fIonMob;
-          }
-
-          track.push_back(pOutItem);
-        }
-
-        fTemp = pState[6];
-        fMass = m_nType == CTrack::ptDroplet ? pState[7] : 0;
-        if(track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
-          break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
-
-        fTime += m_fTimeStep;
-        nStep++;
-
-// Random processes support:
-        if((pDiffJump != NULL) && can_be_applied(m_nRndDiffType, prevItem.pos))
-        {
-          currItem.set_param(data.nElemId, fTime, pState);
-          currItem.mob = data.fIonMob;
-          prevItem = pDiffJump->randomJump(prevItem, currItem);
-          prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
-        }
-        else if((pColl != NULL) && can_be_applied(m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
-        {
-          currItem.set_param(data.nElemId, fTime, pState);
-// Symmetry support:
-          bReflDoneCurr = sym_corr(currItem.pos, currItem.vel, vAccel);
-          bReflDonePrev = sym_corr(prevItem.pos, prevItem.vel, vAccel);
-          m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
-          prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
-          if(bReflDonePrev)
-            sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
-          if(bReflDoneCurr)
-            sym_corr(currItem.pos, currItem.vel, vAccel, true);
-
-          prevItem.state(pState); // the initial velocity is perturbed for the next time step.
-        }
-        else  // update the previous item even though none of the random processes has been applied.
-        {
-          prevItem.set_param(data.nElemId, fTime, pState);
-        }
+        CBaseTrackItem* pLastItem = CBaseTrackItem::create(m_nType, -1, fTime, pState);
+        track.push_back(pLastItem);  // insert the last item anyway.
+        break;  // the track went out of the mesh.
       }
 
-      delete_integrator_interface(pI);
-      if(pDiffJump != NULL)
-        delete pDiffJump;
-      if(pColl != NULL)
-        delete pColl;
+      if(nStep % nOutFreq == 0)
+      {
+        CBaseTrackItem* pOutItem = CBaseTrackItem::create(m_nType, data.nElemId, fTime, pState);
+        if(m_nType == CTrack::ptIon)
+        {
+          CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
+          pIonItem->tempinf = data.fTionInf;
+          pIonItem->mob = data.fIonMob;
+        }
+
+        track.push_back(pOutItem);
+      }
+
+      fTemp = pState[6];
+      fMass = m_nType == CTrack::ptDroplet ? pState[7] : 0;
+      if(track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
+        break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
+
+      fTime += m_fTimeStep;
+      nStep++;
+
+// Random processes support:
+      if((pDiffJump != NULL) && can_be_applied(m_nRndDiffType, prevItem.pos))
+      {
+        currItem.set_param(data.nElemId, fTime, pState);
+        currItem.mob = data.fIonMob;
+        prevItem = pDiffJump->randomJump(prevItem, currItem);
+        prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
+      }
+      else if((pColl != NULL) && can_be_applied(m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
+      {
+        currItem.set_param(data.nElemId, fTime, pState);
+// Symmetry support:
+        bReflDoneCurr = sym_corr(currItem.pos, currItem.vel, vAccel);
+        bReflDonePrev = sym_corr(prevItem.pos, prevItem.vel, vAccel);
+        m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
+        prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
+        if(bReflDonePrev)
+          sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
+        if(bReflDoneCurr)
+          sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
+        prevItem.state(pState); // the initial velocity is perturbed for the next time step.
+      }
+      else  // update the previous item even though none of the random processes has been applied.
+      {
+        prevItem.set_param(data.nElemId, fTime, pState);
+      }
     }
+
+    delete_integrator_interface(pI);
+    if(pDiffJump != NULL)
+      delete pDiffJump;
+    if(pColl != NULL)
+      delete pColl;
 
     set_progress(int(0.5 + 100. * (i + 1) / nPartCount));
     if(get_terminate_flag())
@@ -705,120 +678,89 @@ UINT CTracker::main_thread_func(LPVOID pData)
     size_t nStep = 1;
     CTrack& track = pObj->m_Tracks.at(i);
 
-    if(pObj->m_bOldIntegrator)
-    {
-      CBaseTrackItem* pItem = track.at(0)->copy();
-      while(true)
-      {
-        if(pObj->get_terminate_flag())
-          break;
-
-        bool bOK = pObj->m_nType == CTrack::ptDroplet ? 
-          pObj->do_time_step(pItem) : pObj->do_ion_time_step(pItem, track.get_phase(), track.get_current());
-
-        if(!bOK)
-        {
-          track.push_back(pItem->copy());  // insert the last item anyway.
-          break;  // the track went out of the mesh.
-        }
-
-        if(nStep % nOutFreq == 0)
-          track.push_back(pItem->copy());
-
-        if(pObj->track_is_over(pItem->time, pItem->get_mass(), pItem->get_temp(), track.get_term_reason()))
-          break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
-
-        nStep++;
-      }
-
-      delete pItem;
-    }
-    else
-    {
 // General integration interface:
-      double fMass, fTemp;
-      CBaseTrackItem* pItem = track.at(0);
-      double fTime = pItem->time;
-      double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
-      pItem->state(pState);
-      CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
-      void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
+    double fMass, fTemp;
+    CBaseTrackItem* pItem = track.at(0);
+    double fTime = pItem->time;
+    double pState[max(ION_STATE_SIZE, DROPLET_STATE_SIZE)];
+    pItem->state(pState);
+    CIntegrInterface data(pItem->nElemId, track.get_index(), track.get_phase(), track.get_current());
+    void* pI = create_integrator_interface(nStateSize, nIntegrType, &data, CTracker::GetTimeDeriv);
 
 // Random processes support:
-      RandomProcess* pColl = pObj->create_collisions(track.get_rand_seed());
-      RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
-      CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
-      CNode3D currNode;
-      bool bReflDonePrev, bReflDoneCurr;
-      Vector3D vAccel;
+    RandomProcess* pColl = pObj->create_collisions(track.get_rand_seed());
+    RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
+    CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
+    CNode3D currNode;
+    bool bReflDonePrev, bReflDoneCurr;
+    Vector3D vAccel;
 
-      while(true)
+    while(true)
+    {
+      do_integrator_step(pI, pState, &fTime, &pObj->m_fTimeStep);
+
+      if(!data.bOk)
       {
-        do_integrator_step(pI, pState, &fTime, &pObj->m_fTimeStep);
-
-        if(!data.bOk)
-        {
-          CBaseTrackItem* pLastItem = CBaseTrackItem::create(pObj->m_nType, -1, fTime, pState);
-          track.push_back(pLastItem);  // insert the last item anyway.
-          break;  // the track went out of the mesh.
-        }
-
-        if(nStep % nOutFreq == 0)
-        {
-          CBaseTrackItem* pOutItem = CBaseTrackItem::create(pObj->m_nType, data.nElemId, fTime, pState);
-          if(pObj->m_nType == CTrack::ptIon)
-          {
-            CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
-            pIonItem->tempinf = data.fTionInf;
-            pIonItem->mob = data.fIonMob;
-          }
-
-          track.push_back(pOutItem);
-        }
-
-        fTemp = pState[6];
-        fMass = pObj->m_nType == CTrack::ptDroplet ? pState[7] : 0;
-        if(pObj->track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
-          break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
-
-        fTime += pObj->m_fTimeStep;
-        nStep++;
-
-// Random processes support:
-        if((pDiffJump != NULL)  && pObj->can_be_applied(pObj->m_nRndDiffType, prevItem.pos))
-        {
-          currItem.set_param(data.nElemId, fTime, pState);
-          currItem.mob = data.fIonMob;
-          prevItem = pDiffJump->randomJump(prevItem, currItem);
-          prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
-        }
-        else if((pColl != NULL) && pObj->can_be_applied(pObj->m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
-        {
-          currItem.set_param(data.nElemId, fTime, pState);
-// Symmetry support:
-          bReflDoneCurr = pObj->sym_corr(currItem.pos, currItem.vel, vAccel);
-          bReflDonePrev = pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel);
-          pObj->m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
-          prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
-          if(bReflDonePrev)
-            pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
-          if(bReflDoneCurr)
-            pObj->sym_corr(currItem.pos, currItem.vel, vAccel, true);
-
-          prevItem.state(pState); // the initial velocity is perturbed for the next time step.
-        }
-        else  // update the previous item even though none of the random processes has been applied.
-        {
-          prevItem.set_param(data.nElemId, fTime, pState);
-        }
+        CBaseTrackItem* pLastItem = CBaseTrackItem::create(pObj->m_nType, -1, fTime, pState);
+        track.push_back(pLastItem);  // insert the last item anyway.
+        break;  // the track went out of the mesh.
       }
 
-      delete_integrator_interface(pI);
-      if(pDiffJump != NULL)
-        delete pDiffJump;
-      if(pColl != NULL)
-        delete pColl;
+      if(nStep % nOutFreq == 0)
+      {
+        CBaseTrackItem* pOutItem = CBaseTrackItem::create(pObj->m_nType, data.nElemId, fTime, pState);
+        if(pObj->m_nType == CTrack::ptIon)
+        {
+          CIonTrackItem* pIonItem = (CIonTrackItem*)pOutItem;
+          pIonItem->tempinf = data.fTionInf;
+          pIonItem->mob = data.fIonMob;
+        }
+
+        track.push_back(pOutItem);
+      }
+
+      fTemp = pState[6];
+      fMass = pObj->m_nType == CTrack::ptDroplet ? pState[7] : 0;
+      if(pObj->track_is_over(fTime, fMass, fTemp, track.get_term_reason()))
+        break;  // the integration time exceeded the limit or the Rayleigh criterion was met.
+
+      fTime += pObj->m_fTimeStep;
+      nStep++;
+
+// Random processes support:
+      if((pDiffJump != NULL)  && pObj->can_be_applied(pObj->m_nRndDiffType, prevItem.pos))
+      {
+        currItem.set_param(data.nElemId, fTime, pState);
+        currItem.mob = data.fIonMob;
+        prevItem = pDiffJump->randomJump(prevItem, currItem);
+        prevItem.state(pState); // the initial velocity (or coordinate) is perturbed for the next time step.
+      }
+      else if((pColl != NULL) && pObj->can_be_applied(pObj->m_nRndCollisionType, prevItem.pos))  // never apply both processes simultaneousely.
+      {
+        currItem.set_param(data.nElemId, fTime, pState);
+// Symmetry support:
+        bReflDoneCurr = pObj->sym_corr(currItem.pos, currItem.vel, vAccel);
+        bReflDonePrev = pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel);
+        pObj->m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
+        prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
+        if(bReflDonePrev)
+          pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
+        if(bReflDoneCurr)
+          pObj->sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
+        prevItem.state(pState); // the initial velocity is perturbed for the next time step.
+      }
+      else  // update the previous item even though none of the random processes has been applied.
+      {
+        prevItem.set_param(data.nElemId, fTime, pState);
+      }
     }
+
+    delete_integrator_interface(pI);
+    if(pDiffJump != NULL)
+      delete pDiffJump;
+    if(pColl != NULL)
+      delete pColl;
 
     pThread->done_job();
     pObj->set_tracking_progress();
@@ -914,76 +856,6 @@ void CTracker::set_tracking_progress()
 //-------------------------------------------------------------------------------------------------
 // Droplets type of particles.
 //-------------------------------------------------------------------------------------------------
-bool CTracker::do_time_step(CBaseTrackItem* pBaseItem)
-{
-  if(pBaseItem->nElemId < 0)
-    return false;
-
-  CDropletTrackItem* pItem = (CDropletTrackItem*)pBaseItem;
-
-  Vector3D vAccel;
-  bool bReflDone = sym_corr(pItem->pos, pItem->vel, vAccel);
-
-  CNode3D node;
-  CElem3D* pElem = m_vElems.at(pItem->nElemId);
-// Predictor:
-  if(!interpolate(pItem->pos, pItem->time, 0, node, pElem))   // no RF-phase was used for droplets so far...
-  {
-    if(bReflDone)
-      sym_corr(pItem->pos, pItem->vel, vAccel, true);
-
-    return false;
-  }
-
-  double fRe;
-  double fD = get_particle_diameter(pItem->mass);
-  vAccel = get_accel(node, pItem->vel, pItem->mass, fD, pItem->time, fRe);  // the Reynolds number is computed here.
-// vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration and do a half time step:
-  if(bReflDone)
-    sym_corr(pItem->pos, pItem->vel, vAccel, true);
-
-  double fCoolingRate = m_pEvaporModel->get_cooling_rate(node, pItem->temp, fD, fRe);
-  double fEvaporRate = m_pEvaporModel->get_evaporation_rate(node, pItem->temp, fD, fRe);
-
-  double fTemp05 = pItem->temp - fCoolingRate * m_fHalfTimeStep;
-  double fMass05 = pItem->mass - fEvaporRate * m_fHalfTimeStep;
-  if(fMass05 < m_fMinMass)
-    return false;
-
-  Vector3D vVel05 = pItem->vel + vAccel * m_fHalfTimeStep;
-  Vector3D vPos05 = pItem->pos + (pItem->vel + 0.5 * vAccel * m_fHalfTimeStep) * m_fHalfTimeStep;
-
-// Corrector: getting more precise estimates of average acceleration during all dt.
-// If vPos05 is out of the gas-dynamic domain, reflect both position and velocity (acceleration is a dummy parameter here)
-// and remember the result of this action:
-  bReflDone = sym_corr(vPos05, vVel05, vAccel);
-
-  double fTime05 = pItem->time + m_fHalfTimeStep;
-  if(!interpolate(vPos05, fTime05, 0, node, pElem))
-    return false;
-
-  double fRe05;
-  double fD05 = get_particle_diameter(fMass05);
-  vAccel = get_accel(node, vVel05, fMass05, fD05, fTime05, fRe05); // the Reynolds number is computed here.
-// vAccel is the reflected particle acceleration. Turn back the velocity and acceleration and do the full time step:
-  if(bReflDone)
-    sym_corr(vPos05, vVel05, vAccel, true); // vPos05 is a dummy parameter here.
-
-  fCoolingRate = m_pEvaporModel->get_cooling_rate(node, fTemp05, fD05, fRe05);
-  fEvaporRate = m_pEvaporModel->get_evaporation_rate(node, fTemp05, fD05, fRe05);
-
-  pItem->temp -= fCoolingRate * m_fTimeStep;
-  pItem->mass -= fEvaporRate * m_fTimeStep;
-  if(pItem->mass < m_fMinMass)
-    return false;
-
-  pItem->nElemId = pElem->nInd;
-  pItem->pos += vVel05 * m_fTimeStep;
-  pItem->vel += vAccel * m_fTimeStep;
-  pItem->time += m_fTimeStep;
-  return true;
-}
-
 Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double fMass, double fD, double fTime, double& fRe) const
 {
 // Dynamics of a body with a variable mass: dV/dt = F/m + (U/m)dm/dt, where U is a relative velocity of the
@@ -1074,71 +946,6 @@ bool CTracker::limit_of_Rayleigh(double fT, double fD) const
 //-------------------------------------------------------------------------------------------------
 // Ion type of particles.
 //-------------------------------------------------------------------------------------------------
-bool CTracker::do_ion_time_step(CBaseTrackItem* pBaseItem, double fPhase, double fCurr)
-{
-  if(pBaseItem->nElemId < 0)
-    return false;
-
-  CIonTrackItem* pItem = (CIonTrackItem*)pBaseItem;
-
-  Vector3D vAccel;
-// After this call item.pos and item.vel are in the gas-dynamic domain. If the reflection is really
-// done, the bReflDone flag will be "true". Note that vAccel is a dummy parameter here.
-  bool bReflDone = sym_corr(pItem->pos, pItem->vel, vAccel);
-
-  CNode3D node;
-  CElem3D* pElem = m_vElems.at(pItem->nElemId);
-// Predictor:
-// Compute all ANSYS fields at item.pos and place them into the node structure.
-  if(!interpolate(pItem->pos, pItem->time, fPhase, node, pElem))
-  {
-    if(bReflDone) // if interpolate(...) fails set the reflected vectors back and terminate the integration.
-      sym_corr(pItem->pos, pItem->vel, vAccel, true);
-
-    return false;
-  }
-
-  double fExpCoeff, fMob;
-  vAccel = get_ion_accel(node, pItem->vel, pItem->time, m_fHalfTimeStep, fPhase, fCurr, fExpCoeff, fMob);
-
-  double fTionInf;
-// Compute dTi/dt before the sym_corr(...) call, when both node and pItem->vel are in the gas dynamic domain.
-  double fTi05 = pItem->temp + get_dTi(node, pItem->vel, pItem->temp, fExpCoeff, fTionInf) * m_fHalfTimeStep;
-
-// vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration and do a half time step:
-  if(bReflDone)
-    sym_corr(pItem->pos, pItem->vel, vAccel, true);
-
-  Vector3D vVel05 = pItem->vel + vAccel * m_fHalfTimeStep;
-  Vector3D vPos05 = pItem->pos + (pItem->vel + 0.5 * vAccel * m_fHalfTimeStep) * m_fHalfTimeStep;
-
-// Corrector: getting more precise estimates of average acceleration during all dt.
-// If vPos05 is out of the gas-dynamic domain, reflect both position and velocity (acceleration is a dummy parameter here)
-// and remember the result of this action:
-  bReflDone = sym_corr(vPos05, vVel05, vAccel);
-
-  double fTime05 = pItem->time + m_fHalfTimeStep;
-  if(!interpolate(vPos05, fTime05, fPhase, node, pElem))
-    return false;
-
-  vAccel = get_ion_accel(node, vVel05, fTime05, m_fTimeStep, fPhase, fCurr, fExpCoeff, fMob);
-// Compute dTi/dt before the sym_corr(...) call, when both node and pItem->vel are in the gas dynamic domain.
-  pItem->temp += get_dTi(node, vVel05, fTi05, fExpCoeff, fTionInf) * m_fTimeStep;
-
-// vAccel is the reflected particle acceleration. Turn back the velocity and acceleration and do the full time step:
-  if(bReflDone)
-    sym_corr(vPos05, vVel05, vAccel, true); // vPos05 is a dummy parameter here.
-
-  pItem->nElemId = pElem->nInd;
-// Correct position and velocity. Whether or not they are in the gas-dynamic domain will be checked at the next time step.
-  pItem->pos += vVel05 * m_fTimeStep;
-  pItem->vel += vAccel * m_fTimeStep;
-  pItem->tempinf = fTionInf;
-  pItem->mob = fMob;
-  pItem->time += m_fTimeStep;
-  return true;
-}
-
 Vector3D CTracker::get_ion_accel(const CNode3D&  node, 
                                  const Vector3D& vVel,
                                  double          fTime,

@@ -631,6 +631,8 @@ IMPLEMENT_DYNAMIC(CCheckBoxButton, CProprtyListButton)
 
 void CCheckBoxButton::OnClickButton(CPoint point)
 {
+  m_pWndProp->set_data_to_model();
+
   bool& bChecked = *(bool*)m_dwData;
   bChecked = !bChecked;
   SetValue((_variant_t)bChecked);
