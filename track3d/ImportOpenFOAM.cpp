@@ -259,7 +259,7 @@ bool CImportOpenFOAM::second_step()
   set_progress(0);
 
   Vector3D vPos;
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   CNode3D* pNode;
   CNode3D node;   // this is just a container for interpolated data.
 

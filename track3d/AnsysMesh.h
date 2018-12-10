@@ -78,6 +78,11 @@ public:
   void                    save(CArchive& archive);
   void                    load(CArchive& archive);
 
+  //AC: static functions to work with mesh
+  static const CElem3D * find_global_elem(const CElem3D* elem, const Vector3D& pos);
+
+  static const CElementsCollection& get_global_elements();
+
 protected:
 // Returns pointer to the element containing the input point or NULL if no element has been found.
 //[AC] const added
@@ -118,9 +123,6 @@ protected:
 // Run-time:
   bool                    m_bReady,       // this flag is set to "false" in set_filename(), to "true" in read_data().
                           m_bAux;         // this flag is set in the constructor and never changed afterwards; the only example - second step of import OpenFOAM.
-
-  //AC: static functions to work with mesh
-  static const CElem3D * find_global_elem(const CElem3D* elem, const Vector3D& pos);
 };
 
 //---------------------------------------------------------------------------------------

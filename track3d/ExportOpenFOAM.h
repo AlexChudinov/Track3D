@@ -202,7 +202,7 @@ protected:
   void                  print_symm_name(const char* pName, FILE* pOutFile);
 
   Vector3D              get_face_center(COpenFoamFace* pFace) const;
-  Vector3D              get_elem_center(CElem3D* pElem) const;
+  Vector3D              get_elem_center(const CElem3D* pElem) const;
 
 private:
   std::string           m_sPath;

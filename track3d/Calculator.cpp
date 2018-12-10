@@ -731,7 +731,7 @@ void CLineCalculator::do_calculate()
   vDir.normalize();
   double fStep = fLineLen / m_nStepCount;
   double fPhase = m_pObj->get_enable_ansys_field() ? 0.0 : Const_Half_PI; // for RF-fields presentation only.
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   CNode3D node;
   for(UINT i = 0; i <= m_nStepCount; i++)
   {

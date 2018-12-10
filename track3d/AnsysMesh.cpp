@@ -819,4 +819,9 @@ const CElem3D * CAnsysMesh::find_global_elem(const CElem3D * elem, const Vector3
 	return mesh->find_elem(elem, pos);
 }
 
+const CElementsCollection & CAnsysMesh::get_global_elements()
+{
+	return CParticleTrackingApp::Get()->GetTracker()->get_elems();
+}
+
 }; // namespace EvaporatingParticle

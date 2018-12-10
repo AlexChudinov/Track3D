@@ -125,7 +125,7 @@ bool COutputEngine::output_droplet_track(UINT nTrackIndex)
   fprintf(pStream, "%s\n", "time(ms), x(cm), y(cm), d/d0, Twater(K), Tenv(K), Tsat(K), Q/Qr");
 
   CNode3D node;
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   double fTime_ms, fDropD, fD_part, fDropTemp, fEnvTemp, fSatTemp, fRayleighLim, fRatioQ;
 
   CTrackItem item;
@@ -385,7 +385,7 @@ void COutputEngine::output_ensemble_by_initial_radius()
 void COutputEngine::output_ion_ensemble(const CTrackVector& vEnsTracks, FILE* pStream, int nPercentStart, int nPercentEnd)
 {
   CNode3D node;
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   double fTime_ms, fIonMob, fGasTemp, fAbsRelVel, fNumberDens, fTi;
   Vector3D vDriftVel;
 

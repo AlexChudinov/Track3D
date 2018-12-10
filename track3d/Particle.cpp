@@ -30,8 +30,30 @@ Ion & Ion::operator+=(const Ion & s)
 
 void Ion::diff(const Ion & s, Ion & ds, double t)
 {
-	
+	using namespace EvaporatingParticle;
 
+	const CElem3D * elem = CAnsysMesh::find_global_elem
+	(
+		CAnsysMesh::get_global_elements()[s.mElemIdx],
+		s.mPos
+	);
+
+	const CTracker * tr = CParticleTrackingApp::Get()->GetTracker();
+	const double h = tr->get_time_step();
+
+	if (elem)
+	{
+		s.mElemIdx = elem->nInd;
+		ds.mPos = s.mVel;
+		CNode3D node;
+		elem->interpolate(s.mPos, node);
+		double fExpCoeff, fMob;
+		ds.mVel = tr->get_ion_accel(node, s.mVel, t, h, s.mPhase, s.mCurr, fExpCoeff, fMob);
+	}
+	else
+	{
+		s.mElemIdx = -1;
+	}
 }
 
 void Droplet::deleteObj()

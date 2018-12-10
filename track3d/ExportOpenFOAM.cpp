@@ -1072,8 +1072,8 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
   fputs("(\n", pFileN);
 
   Vector3D vPos;
-  CElem3D* pElem = NULL;
-  CElem3D* pSearchElem = NULL;
+  const CElem3D* pElem = NULL;
+  const CElem3D* pSearchElem = NULL;
   CNode3D node;   // this is just a container for interpolated data.
 
   CBox box = pObj->get_box();
@@ -1158,13 +1158,13 @@ void CExportOpenFOAM::export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* p
         print_region_name(pReg->sName.c_str(), nFaceCount, true, pFileN);
 
         CNode3D node;   // this is just a container for interpolated data.
-        CElem3D* pSearchElem = NULL;
+        const CElem3D* pSearchElem = NULL;
         for(size_t j = 0; j < nFaceCount; j++)
         {
           COpenFoamFace* pFace = pReg->vFaces.at(j);
           vFaceCenter = get_face_center(pFace);
 
-          CElem3D* pElem = m_pElems->at(pFace->nOwnerIndex);
+          const CElem3D* pElem = m_pElems->at(pFace->nOwnerIndex);
           vElemCenter = get_elem_center(pElem);
 
           vPos = vFaceCenter + 0.1 * (vElemCenter - vFaceCenter);  // shift a bit from the center of the boundary face inside the volume.
@@ -1284,7 +1284,7 @@ Vector3D CExportOpenFOAM::get_face_center(COpenFoamFace* pFace) const
   return (vC / (double)nNodeCount);
 }
 
-Vector3D CExportOpenFOAM::get_elem_center(CElem3D* pElem) const
+Vector3D CExportOpenFOAM::get_elem_center(const CElem3D* pElem) const
 {
   Vector3D vC(0, 0, 0);
   size_t nNodeCount = pElem->get_node_count();

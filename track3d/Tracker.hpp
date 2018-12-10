@@ -294,7 +294,7 @@ public:
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface:
 //-------------------------------------------------------------------------------------------------
-  bool interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, const CElem3D* pElem) const;
+  bool interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, const CElem3D*& pElem) const;
 
 //-------------------------------------------------------------------------------------------------
 // Streaming:

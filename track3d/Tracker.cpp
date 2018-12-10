@@ -165,7 +165,7 @@ void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTime
     return;
   }
 
-  CElem3D* pElem = pObj->get_elems().at(pI->nElemId);
+  const CElem3D* pElem = pObj->get_elems().at(pI->nElemId);
 
   Vector3D vAccel;
   Vector3D vPos(pItemState[0], pItemState[1], pItemState[2]);
@@ -1169,7 +1169,7 @@ void CTracker::clear_tracks(bool bFinally)
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface (data reading, elements finding, interpolation)
 //-------------------------------------------------------------------------------------------------
-bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, const CElem3D* pElem) const
+bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, const CElem3D*& pElem) const
 {
   pElem = find_elem(pElem, vPos);
   if(pElem == NULL)

@@ -87,7 +87,7 @@ bool CSource::generate_initial_cond()
   double fPeriodRF = Const_2PI / pObj->get_rf_frequency();
 
   CSymmReflect reflector(pObj, nSymmPlane);
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   CNode3D node;
 
   calc_loc_triad();
@@ -530,7 +530,7 @@ void CSource::populate_face(CFace* pFace, UINT nPntCount, bool bReflect)
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
   CNode3D node;
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
   double fAlpha, fBeta;
   Vector3D v0 = pFace->p0->pos;
   Vector3D e1 = pFace->p1->pos - v0;

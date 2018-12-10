@@ -33,9 +33,6 @@ public:
 protected:
 	mutable int mElemIdx;		// mesh element which this item belongs to.
 
-	mutable int mNodeIdx;       // one of the nodes of the mesh element which 
-								//this item belongs to.
-
 	Vector3D mPos,      // position 
 		mVel;			// velocity of the item.
 };
@@ -75,7 +72,8 @@ private:
 		mTemp,		  // ion temperature.
 		mTempInf,     // steady-state (equilibrium) ion temperature.
 		mUnfragm,     // part of unfragmented ions.
-		mMob;         // ion mobility, random diffusion velocity jumps support.
+		mMob,         // ion mobility, random diffusion velocity jumps support.
+		mCurr;		  // current at given track.
 };
 
 class Droplet :
