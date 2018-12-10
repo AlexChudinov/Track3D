@@ -633,9 +633,9 @@ void CAnsysMesh::conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float
 //-------------------------------------------------------------------------------------------------
 //  Searching elements through the mesh methods
 //-------------------------------------------------------------------------------------------------
-CElem3D* CAnsysMesh::find_elem(CElem3D* pPrevElem, const Vector3D& vPos) const
+const CElem3D* CAnsysMesh::find_elem(const CElem3D* pPrevElem, const Vector3D& vPos) const
 {
-  CElem3D* pElem = NULL;
+  const CElem3D* pElem = NULL;
 // First, try the nearest neighbors of the previous face (if it is not zero), including the previous face itself:
   if(pPrevElem != NULL)
   {
@@ -655,7 +655,7 @@ CElem3D* CAnsysMesh::find_elem(CElem3D* pPrevElem, const Vector3D& vPos) const
   return NULL;
 }
 
-CElem3D* CAnsysMesh::try_neighbors(CElem3D* pElem, const Vector3D& vPos) const
+const CElem3D* CAnsysMesh::try_neighbors(const CElem3D* pElem, const Vector3D& vPos) const
 {
 // First, try the input element itself.
   if(pElem->inside(vPos))
@@ -811,6 +811,12 @@ bool CAnsysMesh::abort(FILE* pStream)
   m_bReady = false;
 
   return false;
+}
+
+const CElem3D * CAnsysMesh::find_global_elem(const CElem3D * elem, const Vector3D & pos)
+{
+	const CAnsysMesh* mesh = CParticleTrackingApp::Get()->GetTracker();
+	return mesh->find_elem(elem, pos);
 }
 
 }; // namespace EvaporatingParticle

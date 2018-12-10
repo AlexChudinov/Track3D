@@ -31,10 +31,13 @@ public:
 	}
 
 protected:
-	mutable int mIdx;		// mesh element which this item belongs to.
+	mutable int mElemIdx;		// mesh element which this item belongs to.
+
+	mutable int mNodeIdx;       // one of the nodes of the mesh element which 
+								//this item belongs to.
 
 	Vector3D mPos,      // position 
-		mVel;	   // velocity of the item.
+		mVel;			// velocity of the item.
 };
 
 class Ion : 
@@ -56,6 +59,11 @@ public:
 	inline double phase() const
 	{
 		return mPhase;
+	}
+
+	inline void setPhase(double phase)
+	{
+		mPhase = phase;
 	}
 
 	inline double temp() const

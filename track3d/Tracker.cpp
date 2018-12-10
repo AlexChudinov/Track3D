@@ -1169,7 +1169,7 @@ void CTracker::clear_tracks(bool bFinally)
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface (data reading, elements finding, interpolation)
 //-------------------------------------------------------------------------------------------------
-bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, CElem3D*& pElem) const
+bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CNode3D& node, const CElem3D* pElem) const
 {
   pElem = find_elem(pElem, vPos);
   if(pElem == NULL)

@@ -80,11 +80,13 @@ public:
 
 protected:
 // Returns pointer to the element containing the input point or NULL if no element has been found.
-  CElem3D*                find_elem(CElem3D* pPrevElem, const Vector3D& vPos) const;
+//[AC] const added
+	const CElem3D* find_elem(const CElem3D* pPrevElem, const Vector3D& vPos) const;
 
 // Try the nearest neighbors of the element, where the previous location was found, including the element itself.
 // Return pointer to the element containing the input point or NULL if no element has been found.
-  CElem3D*                try_neighbors(CElem3D* pElem, const Vector3D& vPos) const;
+//[AC] const added
+  const CElem3D* try_neighbors(const CElem3D* pElem, const Vector3D& vPos) const;
 
 // Convertation to CGS:
   void                    conv_to_cgs(float& fPress, float& fDens, float& fDynVisc, float& fThermCond, float& fCp,
@@ -116,6 +118,9 @@ protected:
 // Run-time:
   bool                    m_bReady,       // this flag is set to "false" in set_filename(), to "true" in read_data().
                           m_bAux;         // this flag is set in the constructor and never changed afterwards; the only example - second step of import OpenFOAM.
+
+  //AC: static functions to work with mesh
+  static const CElem3D * find_global_elem(const CElem3D* elem, const Vector3D& pos);
 };
 
 //---------------------------------------------------------------------------------------
