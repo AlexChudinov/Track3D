@@ -70,9 +70,6 @@ public:
 private:
 	double mPhase,	  //Start phase of the rf field
 		mTemp,		  // ion temperature.
-		mTempInf,     // steady-state (equilibrium) ion temperature.
-		mUnfragm,     // part of unfragmented ions.
-		mMob,         // ion mobility, random diffusion velocity jumps support.
 		mCurr;		  // current at given track.
 };
 
@@ -91,6 +88,19 @@ public:
 	Droplet& operator+=(const Droplet& s);
 
 	static void diff(const Droplet& s, Droplet& ds, double t);
+
+	inline double mass() const
+	{
+		return mMass;
+	}
+
+	inline double temp() const
+	{
+		return mTemp;
+	}
+private:
+	double mMass, //droplet mass
+		mTemp;    //droplet temperature
 };
 
 extern template class Integrator<Ion>;

@@ -326,6 +326,7 @@ protected:
   double                  get_Re(const Vector3D& vVel, double fDens, double fDynVisc, double fD) const;
   double                  get_Cd(double fRe) const;
 
+public:
 // Droplet acceleration. Input: node - environment parameters, vVel - particle velocity, cm/s,
 // fMass - particle mass, g, fD - particle diameter, cm, fTime - time since start of integration, s. 
 // Output: acceleration of the particle, cm/s2, fRe - the Reynolds number.
@@ -337,7 +338,6 @@ protected:
                                     double&         fRe) const;
 
 // Ion acceleration. The mass of the ion is constant and is the member of this class.
-public:
   Vector3D                get_ion_accel(const CNode3D&  node,
                                         const Vector3D& vVel,
                                         double          fTime,
