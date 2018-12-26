@@ -33,11 +33,33 @@ public:
   virtual void    OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/);
 	virtual void    OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/);
 
+  virtual CString ButtonValue();
+
 protected:
   virtual BOOL    HasButton() const;
 
-private:
   CPropertiesWnd* m_pWndProp;
+};
+
+//---------------------------------------------------------------------------------------
+// CSelectTrajectButton.
+//---------------------------------------------------------------------------------------
+class CSelectTrajectButton : public CSelectRegionButton
+{
+  DECLARE_DYNAMIC(CSelectTrajectButton)
+
+public:
+  CSelectTrajectButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CSelectRegionButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual void    OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/);
+	virtual void    OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/);
+
+  virtual CString ButtonValue();
 };
 
 //---------------------------------------------------------------------------------------
@@ -66,6 +88,23 @@ protected:
   virtual BOOL    HasButton() const;
 
   CPropertiesWnd* m_pWndProp;
+};
+
+//---------------------------------------------------------------------------------------
+// CSelectFolderButton.
+//---------------------------------------------------------------------------------------
+class CSelectFolderButton : public CProprtyListButton
+{
+  DECLARE_DYNAMIC(CSelectFolderButton)
+
+public:
+  CSelectFolderButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CProprtyListButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
 };
 
 //---------------------------------------------------------------------------------------

@@ -81,6 +81,9 @@ bool CSource::generate_initial_cond()
     return true;  // if the m_vData array is filled and nothing has changed since that time, use the old data.
 
   m_vData.clear();
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->clear_selected_traject(); // the initial conditions have been changed, clear all track selections.
+
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   UINT nSymmPlane = (UINT)pObj->get_sym_plane();
   UINT nEnsSize = pObj->get_particle_type() == CTrack::ptIon ? m_nEnsembleSize : 1;

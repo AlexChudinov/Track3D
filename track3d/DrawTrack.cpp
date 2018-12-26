@@ -14,9 +14,8 @@
 #include <sstream>
 #include <algorithm>
 
-// DEBUG
 #include "DirichletTesselation.h"
-// END DEBUG
+#include "TrajectSelector.h"
 
 namespace EvaporatingParticle
 {
@@ -36,7 +35,9 @@ CTrackDraw::CTrackDraw()
   m_bNormReady = false;
 
   m_bNewData = true;
-  m_bSelFlag = false;
+  m_bSelRegFlag = false;
+  m_bSelTrajectFlag = false;
+  m_nTrajUnderCursorId = -1;
 
   m_fScale = 1.;
   m_vShift = Vector2D(0, 0);
@@ -810,6 +811,9 @@ void CTrackDraw::set_materials()
 // Mouse events support
 void CTrackDraw::on_mouse_move(const CPoint& point)
 {
+  if(!m_pTracker || !m_pTracker->is_ready())
+    return;
+
   if(m_nRegime != nRegimeNone)
   {
     CPoint dp = point - m_StartPoint;
@@ -831,7 +835,7 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
     m_StartPoint = point;
     draw();
   }
-  else if(m_bSelFlag)
+  else if(m_bSelRegFlag)
   {
     CRay ray = get_view_dir(point);
     CRegion* pReg = intersect(ray);
@@ -845,6 +849,12 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
 
     draw();
   }
+  else if(m_bSelTrajectFlag && m_bDrawTracks)
+  {
+    CTrajectSelector sel(m_pTracker->get_tracks(), point.x, point.y);
+    m_nTrajUnderCursorId = sel.find_traject();
+    draw();
+  }
   else
   {
     int nOldOvrAxis = m_nOvrAxis;
@@ -853,22 +863,9 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
       draw();
   }
 
-  if(!m_pTracker || !m_pTracker->is_ready())
-    return;
-
   Vector3D w;
   screen_to_world(point, w);
 
-/*
-  CBox& box = m_pTracker->get_box();
-  bool bIntersect = (w.x >= box.vMin.x) && (w.x <= box.vMax.x)
-                 && (w.y >= box.vMin.y) && (w.y <= box.vMax.y)
-                 && (w.z >= box.vMin.z) && (w.z <= box.vMax.z);
-
-  std::string cTextX = bIntersect ? "X = " + dbl_to_str(10 * w.x) : "";
-  std::string cTextY = bIntersect ? "Y = " + dbl_to_str(10 * w.y) : "";
-  std::string cTextZ = bIntersect ? "Z = " + dbl_to_str(10 * w.z) : "";
-*/
   std::string cTextX = "X = " + dbl_to_str(10 * w.x);
   std::string cTextY = "Y = " + dbl_to_str(10 * w.y);
   std::string cTextZ = "Z = " + dbl_to_str(10 * w.z);
@@ -928,10 +925,21 @@ void CTrackDraw::on_left_button_up(const CPoint& point)
 
   m_nRegime = nRegimeNone;
 
-  if(m_bSelFlag && (m_pRegUnderCursor != NULL) && (m_StartPoint == point))
+  if(m_bSelRegFlag && (m_pRegUnderCursor != NULL) && (m_StartPoint == point))
   {
     m_pRegUnderCursor->bSelected = !m_pRegUnderCursor->bSelected;
     invalidate_hidden();
+    draw();
+  }
+  else if(m_bSelTrajectFlag && (m_nTrajUnderCursorId != -1) && (m_StartPoint == point))
+  {
+    std::vector<size_t>::iterator iter = std::find(m_vSelTrackIds.begin(), m_vSelTrackIds.end(), (size_t)m_nTrajUnderCursorId);
+    if(iter == m_vSelTrackIds.end())
+      m_vSelTrackIds.push_back(m_nTrajUnderCursorId);
+    else
+      m_vSelTrackIds.erase(iter);
+
+    m_nTrajUnderCursorId = -1;
     draw();
   }
 }
@@ -974,6 +982,26 @@ void CTrackDraw::screen_to_world(const CPoint& p, Vector3D& w, bool bWorldDepth)
     gluUnProject(x, y, z, pModelMtx, pProjMtx, pViewPort, &w.x, &w.y, &w.z);
   else
     gluUnProject(x, y, 0.5f, pModelMtx, pProjMtx, pViewPort, &w.x, &w.y, &w.z);
+}
+
+bool CTrackDraw::world_to_screen(const Vector3D& pos, CPoint& scr) const
+{
+  double pModelMtx[16], pProjMtx[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, pModelMtx);
+  glGetDoublev(GL_PROJECTION_MATRIX, pProjMtx);
+
+  int pViewPort[4];
+  glGetIntegerv(GL_VIEWPORT, pViewPort);
+
+  double x, y, z;
+  GLint nRes = gluProject(pos.x, pos.y, pos.z, pModelMtx, pProjMtx, pViewPort,&x, &y, &z);
+  if(nRes == GLU_FALSE)
+    return false;
+
+  scr.x = int(x);
+  scr.y = int((double)pViewPort[3] - y);
+
+  return true;
 }
 
 CRay CTrackDraw::get_view_dir(const CPoint& point) const
@@ -1261,7 +1289,7 @@ void CTrackDraw::set_progress(const char* cJobName, int nPercent) const
 // Streaming:
 void CTrackDraw::save(CArchive& ar)
 {
-  const UINT nVersion = 5;  // 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
+  const UINT nVersion = 6;  // 6 - m_vSelTrackIds; 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
   ar << nVersion;
 
   ar << m_nDrawMode; // ar << m_bDrawFaces;
@@ -1299,6 +1327,11 @@ void CTrackDraw::save(CArchive& ar)
   }
 
   m_ColoredTracks.save(ar); // since version 4.
+
+  size_t nSelTracksCount = m_vSelTrackIds.size();
+  ar << nSelTracksCount;
+  for(size_t m = 0; m < nSelTracksCount; m++)
+    ar << m_vSelTrackIds.at(m);
 }
 
 void CTrackDraw::load(CArchive& ar)
@@ -1371,6 +1404,18 @@ void CTrackDraw::load(CArchive& ar)
   if(nVersion >= 4)
     m_ColoredTracks.load(ar);
 
+  if(nVersion >= 6)
+  {
+    m_vSelTrackIds.clear();
+    size_t nSelTracksCount, nId;
+    ar >> nSelTracksCount;
+    for(size_t m = 0; m < nSelTracksCount; m++)
+    {
+      ar >> nId;
+      m_vSelTrackIds.push_back(nId);
+    }
+  }
+
   glMatrixMode(GL_MODELVIEW);
   glLoadMatrixd(pMtx);
 
@@ -1408,7 +1453,7 @@ void CTrackDraw::enter_sel_context(CNamesVector* pRegNames, bool bAllowSelect)
     pReg->bSelected = std::find(pRegNames->begin(), pRegNames->end(), pReg->sName) != pRegNames->end();
   }
 
-  m_bSelFlag = bAllowSelect;
+  m_bSelRegFlag = bAllowSelect;
   invalidate_hidden();
 }
 
@@ -1433,7 +1478,7 @@ void CTrackDraw::exit_sel_context(CNamesVector* pRegNames)
   else
     CParticleTrackingApp::Get()->SelectedRegionChanged(pRegNames);
 
-  m_bSelFlag = false;
+  m_bSelRegFlag = false;
   set_region_under_cursor(NULL);
   invalidate_hidden();
 }

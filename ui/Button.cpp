@@ -136,6 +136,67 @@ BOOL CSelectRegionButton::OnUpdateValue()
   return TRUE;
 }
 
+CString CSelectRegionButton::ButtonValue()
+{
+  return CString(_T(""));
+}
+
+//---------------------------------------------------------------------------------------
+// CSelectTrajectButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSelectTrajectButton, CSelectRegionButton)
+
+void CSelectTrajectButton::OnClickButton(CPoint point)
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  m_pWndProp->set_data_to_model();
+
+  if(pDrawObj->get_traject_sel_flag())
+  {
+    pDrawObj->exit_traject_sel_context();
+    
+    SetValue(ButtonValue());
+      
+    m_bPressed = FALSE;
+    m_pWndProp->set_ignore_idle(false);
+    m_pWndProp->set_update_all();
+    m_pWndProp->enable_tab_ctrl();
+  }
+  else
+  {
+    m_pWndProp->set_ignore_idle(true);
+    m_pWndProp->disable_all_but_one(this);
+    m_pWndProp->enable_tab_ctrl(FALSE);
+
+    pDrawObj->enter_traject_sel_context();
+    m_bPressed = TRUE;
+  }
+
+  Redraw();
+  pDrawObj->draw();
+}
+
+void CSelectTrajectButton::OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/)
+{
+}
+
+void CSelectTrajectButton::OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/)
+{
+}
+
+CString CSelectTrajectButton::ButtonValue()
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  char buff[8];
+  EvaporatingParticle::CIdsVector vIds = pDrawObj->get_sel_traject_ids();
+  int nSelCount = vIds.size();
+  CString sVal = nSelCount == 0 ? CString(_T("No selection")) 
+    : (nSelCount == 1 ? CString(_T("Trajectory #")) + CString(itoa(vIds[0], buff, 10)) + CString(_T(" is selected")) 
+    : CString(itoa(nSelCount, buff, 10)) + CString(_T(" trajectories are selected")));
+
+  return sVal;
+}
+
 //---------------------------------------------------------------------------------------
 // CProprtyListButton - a base class for simple buttons attached to the properties list.
 //---------------------------------------------------------------------------------------
@@ -178,6 +239,51 @@ void CProprtyListButton::AdjustButtonRect()
   m_rectButton.right = m_rectButton.left + m_rectButton.Height();
   m_rectButton.top++;
   m_rectButton.right--;
+}
+
+//---------------------------------------------------------------------------------------
+// CSelectFolderButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSelectFolderButton, CProprtyListButton)
+
+static int CALLBACK BrowseFolderCallbackProc(HWND hWnd, UINT nMsg, LPARAM lParam, LPARAM lpData)
+{
+  if(nMsg == BFFM_INITIALIZED)
+    SendMessage(hWnd, BFFM_SETSELECTION, TRUE, lpData);
+
+  return 0;
+}
+
+void CSelectFolderButton::OnClickButton(CPoint point)
+{
+  EvaporatingParticle::CSelectedTracksCalculator* pCalc = (EvaporatingParticle::CSelectedTracksCalculator*)m_dwData;
+
+  BROWSEINFO bi = { 0 };
+  bi.lpszTitle = "Select a folder";
+  bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+  bi.lpfn = BrowseFolderCallbackProc;
+  bi.lParam = (LPARAM)(pCalc->get_out_folder());
+
+  LPMALLOC shMalloc = NULL;
+  char folderpath[1024];
+
+  CoInitialize(NULL);
+  SHGetMalloc(&shMalloc);
+
+  LPITEMIDLIST pList = SHBrowseForFolder(&bi);
+
+  if(pList != NULL)
+  {
+    SHGetPathFromIDList(pList, folderpath);
+    shMalloc->Free(pList);
+    shMalloc->Release();
+  
+    CWaitCursor wait;
+    pCalc->set_out_folder((const char*)folderpath);
+
+    SetValue((const char*)folderpath);
+    Redraw();
+  }
 }
 
 //---------------------------------------------------------------------------------------

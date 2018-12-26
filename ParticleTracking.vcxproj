@@ -254,6 +254,7 @@
     <ClInclude Include="track3d\ScreenCapture.h" />
     <ClInclude Include="track3d\Tracker.hpp" />
     <ClInclude Include="track3d\TrackItem.h" />
+    <ClInclude Include="track3d\TrajectSelector.h" />
     <ClInclude Include="track3d\vector2d.hpp" />
     <ClInclude Include="track3d\vector3d.hpp" />
     <ClInclude Include="ui\AddCalculatorDialog.h" />
@@ -306,6 +307,7 @@
     <ClCompile Include="track3d\ScreenCapture.cpp" />
     <ClCompile Include="track3d\Tracker.cpp" />
     <ClCompile Include="track3d\TrackItem.cpp" />
+    <ClCompile Include="track3d\TrajectSelector.cpp" />
     <ClCompile Include="track3d\vector2d.cpp" />
     <ClCompile Include="track3d\vector3d.cpp" />
     <ClCompile Include="ui\AddCalculatorDialog.cpp" />

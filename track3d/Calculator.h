@@ -42,7 +42,8 @@ public:
     ctAlongLine      = 2,
     ctTrackCalc      = 3,
     ctTrackCrossSect = 4,
-    ctCount          = 5
+    ctAlongSelTracks = 5,
+    ctCount          = 6
   };
 
   static CCalculator* create(int nType);
@@ -463,6 +464,54 @@ private:
                         m_vSigma;     // mean square deviations.
 };
 
+class CTrack;
+//-------------------------------------------------------------------------------------------------
+// CSelectedTracksCalculator.
+//-------------------------------------------------------------------------------------------------
+class CSelectedTracksCalculator : public CCalculator
+{
+public:
+  CSelectedTracksCalculator();
+  virtual ~CSelectedTracksCalculator();
+
+  virtual void          run();
+  virtual void          do_calculate();
+  virtual void          update();
+  virtual void          clear();
+
+  virtual int           type() const { return ctAlongSelTracks; }
+
+  UINT                  get_skip_points_count() const;
+  DWORD_PTR             get_skip_points_count_ptr() const;
+  void                  set_skip_points_count(UINT nCount);
+
+  const char*           get_out_folder() const;
+  DWORD_PTR             get_out_folder_ptr() const;
+  void                  set_out_folder(const char* pName);
+
+  virtual void          save(CArchive& ar);
+  virtual void          load(CArchive& ar);
+
+protected:
+  void                  set_default();
+  void                  default_folder();
+
+  void                  calc_ion_accel(const CTrack& track, FILE* pStream);
+  void                  calc_droplet_accel(const CTrack& track, FILE* pStream);
+
+  Vector3D              gas_drag_accel(const Vector3D& vGasVel, const Vector3D& vIonVel, double fExpCoeff) const;
+  Vector3D              get_RF_field(const CNode3D& node, double fTime, double fPhase) const;
+  Vector3D              get_DC_field(const CNode3D& node) const;
+  Vector3D              space_charge_field(const CNode3D& node, const Vector3D& vIonVel, double fCurrent) const;
+
+private:
+  UINT                  m_nSkipPoints;
+  CString               m_sOutputFolder;
+
+// Run-time:
+  int                   m_nSelTrackId;
+};
+
 //-------------------------------------------------------------------------------------------------
 // Inline implementation
 //-------------------------------------------------------------------------------------------------
@@ -547,7 +596,7 @@ inline int CCalculator::calc_vars_count() const
 }
 
 //-------------------------------------------------------------------------------------------------
-// Inline implementation: CPlaneYZCalculator
+// CPlaneYZCalculator
 //-------------------------------------------------------------------------------------------------
 inline double CPlaneYZCalculator::get_plane_x() const
 {
@@ -630,7 +679,7 @@ inline void CPlaneYZCalculator::set_filename(const char* pName)
 }
 
 //-------------------------------------------------------------------------------------------------
-// Inline implementation: CSelectedRegionCalculator
+// CSelectedRegionCalculator
 //-------------------------------------------------------------------------------------------------
 inline CString CSelectedRegionCalculator::get_sel_reg_names() const
 {
@@ -643,7 +692,7 @@ inline DWORD_PTR CSelectedRegionCalculator::get_sel_reg_names_ptr() const
 }
 
 //-------------------------------------------------------------------------------------------------
-// Inline implementation: CLineCalculator
+// CLineCalculator
 //-------------------------------------------------------------------------------------------------
 inline int CLineCalculator::calc_vars_count() const
 {
@@ -712,7 +761,7 @@ inline void CLineCalculator::set_steps_count(UINT nCount)
 
 
 //-------------------------------------------------------------------------------------------------
-// Inline implementation: CTrackCalculator
+// CTrackCalculator
 //-------------------------------------------------------------------------------------------------
 inline int CTrackCalculator::calc_vars_count() const
 {
@@ -795,7 +844,7 @@ inline void CTrackCalculator::set_cs_count(UINT nCount)
 }
 
 //-------------------------------------------------------------------------------------------------
-// Inline implementation: CTrackCrossSectionCalculator
+// CTrackCrossSectionCalculator
 //-------------------------------------------------------------------------------------------------
 inline const char* CTrackCrossSectionCalculator::get_filename() const
 {
@@ -826,6 +875,39 @@ inline Vector3D CTrackCrossSectionCalculator::get_center() const
 inline Vector3D CTrackCrossSectionCalculator::get_sigma() const
 {
   return m_vSigma;
+}
+
+//-------------------------------------------------------------------------------------------------
+// CSelectedTracksCalculator.
+//-------------------------------------------------------------------------------------------------
+inline UINT CSelectedTracksCalculator::get_skip_points_count() const
+{
+  return m_nSkipPoints;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_skip_points_count_ptr() const
+{
+  return (DWORD_PTR)&m_nSkipPoints;
+}
+
+inline void CSelectedTracksCalculator::set_skip_points_count(UINT nCount)
+{
+  m_nSkipPoints = nCount;
+}
+
+inline const char* CSelectedTracksCalculator::get_out_folder() const
+{
+  return (const char*)m_sOutputFolder;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_out_folder_ptr() const
+{
+  return (DWORD_PTR)&m_sOutputFolder;
+}
+
+inline void CSelectedTracksCalculator::set_out_folder(const char* pName)
+{
+  m_sOutputFolder = pName;
 }
 
 };  // namespace EvaporatingParticle

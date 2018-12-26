@@ -306,6 +306,31 @@ void CPropertiesWnd::add_calc_ctrls()
         pCalcGroup->AddSubItem(pTrackCalcGroup);
         break;
       }
+      case EvaporatingParticle::CCalculator::ctAlongSelTracks:
+      {
+        EvaporatingParticle::CSelectedTracksCalculator* pSelTrackCalc = (EvaporatingParticle::CSelectedTracksCalculator*)pCalc;
+        CMFCPropertyGridProperty* pTrackCalcGroup = new CMFCPropertyGridProperty(pSelTrackCalc->get_name());
+
+        CMFCPropertyGridProperty* pPointsCount = new CMFCPropertyGridProperty(_T("Skipped Points Count"), COleVariant((long)pSelTrackCalc->get_skip_points_count()), _T("Every n-th point in the track will be skipped."), pSelTrackCalc->get_skip_points_count_ptr());
+        pTrackCalcGroup->AddSubItem(pPointsCount);
+
+        CSelectTrajectButton* pSelTrackBtn = new CSelectTrajectButton(this, _T("Trajectory Selection"), _T(""), _T("Click this button to enter/exit the trajectory selection tool."), NULL);
+        pSelTrackBtn->SetValue(pSelTrackBtn->ButtonValue());
+        pTrackCalcGroup->AddSubItem(pSelTrackBtn);
+
+        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pSelTrackCalc);
+        pTrackCalcGroup->AddSubItem(pStartCalcBtn);
+
+        COleVariant sDefFolder(pSelTrackCalc->get_out_folder());
+        CSelectFolderButton* pOutFolderBtn = new CSelectFolderButton(this, _T("Output Folder"), sDefFolder, _T("Click and browse to select the output folder."), (DWORD_PTR)pSelTrackCalc);
+        pTrackCalcGroup->AddSubItem(pOutFolderBtn);
+
+        CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), _T(""), _T("Click to delete this calculator."), (DWORD_PTR)pSelTrackCalc);
+        pTrackCalcGroup->AddSubItem(pRemoveCalcBtn);
+
+        pCalcGroup->AddSubItem(pTrackCalcGroup);
+        break;
+      }
     }
   }
 
@@ -453,6 +478,17 @@ void CPropertiesWnd::set_calc_data()
 
         break;
       }
+      case EvaporatingParticle::CCalculator::ctAlongSelTracks:
+      {
+        EvaporatingParticle::CSelectedTracksCalculator* pSelTrackCalc = (EvaporatingParticle::CSelectedTracksCalculator*)pCalc;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pSelTrackCalc->get_skip_points_count_ptr());
+        if(pProp != NULL)
+        {
+          pSelTrackCalc->set_skip_points_count((UINT)pProp->GetValue().llVal);
+        }
+
+        break;
+      }
     }
   }
 }
@@ -480,10 +516,6 @@ void CPropertiesWnd::update_calc_ctrls()
         pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_plane_x_ptr());
         if(pProp != NULL)
           pProp->Enable(bReady);
-
-//        pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_mesh_step_ptr());
-//        if(pProp != NULL)
-//          pProp->Enable(bReady);
 
         pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_clc_var_type_ptr());
         if(pProp != NULL)

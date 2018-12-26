@@ -613,11 +613,12 @@ void CColoredTracks::draw()
   size_t nTracksCount = m_vTracksVert.size();
   if(nTracksCount != 0)
   {
+// Draw ordinary tracks:
     glDisable(GL_LIGHTING);
     glEnableClientState(GL_COLOR_ARRAY);
 
     UINT nStrideDbl = 3 * sizeof(GLdouble);
-     UINT nStrideUINT = 3 * sizeof(GLubyte);
+    UINT nStrideUINT = 3 * sizeof(GLubyte);
     for(size_t i = 0; i < nTracksCount; i++)
     {
       CVert3DColl& vVertArray = m_vTracksVert.at(i);
@@ -632,6 +633,35 @@ void CColoredTracks::draw()
     }
 
     glDisableClientState(GL_COLOR_ARRAY);
+
+    glLineWidth(2);
+    glDisable(GL_DEPTH_TEST);
+// Draw selected tracks ...
+    glColor3ub(255, 0, 0);
+    CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    const CIdsVector& vIds = pDrawObj->get_sel_traject_ids();
+    size_t nSelCount = vIds.size();
+    for(size_t j = 0; j < nSelCount; j++)
+    {
+      CVert3DColl& vVertArray = m_vTracksVert.at(vIds.at(j));
+      if(vVertArray.size() != 0)
+      {
+        glVertexPointer(3, GL_DOUBLE, nStrideDbl, (const void*)(&vVertArray[0].x));
+        glDrawArrays(GL_LINE_STRIP, 0, vVertArray.size());
+      }
+    }
+// ... and the track under the cursor (if any):
+    glColor3ub(255, 0, 255);
+    int nTrackUnderCursor = pDrawObj->get_traject_under_cursor_id();
+    if((nTrackUnderCursor >= 0) && (nTrackUnderCursor < nTracksCount))
+    {
+      CVert3DColl& vVertArray = m_vTracksVert.at(nTrackUnderCursor);
+      glVertexPointer(3, GL_DOUBLE, nStrideDbl, (const void*)(&vVertArray[0].x));
+      glDrawArrays(GL_LINE_STRIP, 0, vVertArray.size());
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glLineWidth(1);
   }
 }
 

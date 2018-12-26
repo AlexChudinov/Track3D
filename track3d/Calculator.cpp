@@ -125,6 +125,7 @@ CCalculator* CCalculator::create(int nType)
     case ctAlongLine: return new CLineCalculator();
     case ctTrackCalc: return new CTrackCalculator();
     case ctTrackCrossSect: return new CTrackCrossSectionCalculator();
+    case ctAlongSelTracks: return new CSelectedTracksCalculator();
   }
 
   return NULL;
@@ -139,6 +140,7 @@ const char* CCalculator::calc_name(int nType)
     case ctAlongLine: return _T("Line Calculator");
     case ctTrackCalc: return _T("Ion/Droplet Track Calculator");
     case ctTrackCrossSect: return _T("Track's Cross-Section Calculator");
+    case ctAlongSelTracks: return _T("Forces at Selected Tracks");
   }
 
   return _T("");
@@ -1632,6 +1634,240 @@ void CTrackCrossSectionCalculator::load(CArchive& ar)
   m_sOutputFile = std::string((const char*)cName);
 
   m_Object.load(ar);
+}
+
+//-------------------------------------------------------------------------------------------------
+// CSelectedTracksCalculator.
+//-------------------------------------------------------------------------------------------------
+CSelectedTracksCalculator::CSelectedTracksCalculator()
+{
+  set_default();
+}
+
+CSelectedTracksCalculator::~CSelectedTracksCalculator()
+{
+}
+
+void CSelectedTracksCalculator::set_default()
+{
+  m_sCalcName = calc_name(ctAlongSelTracks);
+
+  m_nSelTrackId = -1;
+  m_nSkipPoints = 10;
+  default_folder();
+}
+
+void CSelectedTracksCalculator::default_folder()
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  m_sOutputFolder = (COutputEngine::get_full_path(pObj->get_filename())).c_str();
+}
+
+void CSelectedTracksCalculator::run()
+{
+  if(!get_tracker_ptr())
+    return;
+
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  CIdsVector vIds = pDrawObj->get_sel_traject_ids();
+  size_t nSelCount = vIds.size();
+  if(nSelCount == 0)
+  {
+    AfxMessageBox("No selected trajectories.");
+    return;
+  }
+
+  char buff[8];
+  CString sCount(itoa(nSelCount, buff, 10));
+  CString sJobName(_T("Calculating accelerations along selected track(s) "));
+  CString sOf(_T(" of "));
+  for(size_t i = 0; i < nSelCount; i++)
+  {
+    CString sCurr = itoa(i + 1, buff, 10);
+    m_nSelTrackId = vIds.at(i);
+    set_job_name((const char*)(sJobName + sCurr + sOf + sCount));
+
+    do_calculate();
+  }
+}
+
+void CSelectedTracksCalculator::do_calculate()
+{
+  CTrackVector& vTracks = m_pObj->get_tracks();
+  if(m_nSelTrackId < 0 || m_nSelTrackId >= vTracks.size())
+    return;
+
+  char buff[8];
+  CString sSelTrack(itoa(m_nSelTrackId, buff, 10)); 
+  CString sFileName = m_sOutputFolder + CString(_T("\\")) + CString(_T("Track_#")) + sSelTrack + CString(_T(".csv"));
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, (const char*)sFileName, (const char*)("w"));
+  if(nErr != 0 || pStream == 0)
+    return;
+
+  const CTrack& track = vTracks.at(m_nSelTrackId);
+  if(m_pObj->get_particle_type() == CTrack::ptIon)
+    calc_ion_accel(track, pStream);
+  else
+    calc_droplet_accel(track, pStream);
+
+  fclose(pStream);
+}
+
+void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStream)
+{
+  double fTimeStep = m_pObj->get_time_step();
+  double fChargeMassRatio = m_pObj->get_particle_charge() / m_pObj->get_ion_mass();
+
+  CElementsCollection& elems = m_pObj->get_elems();
+  size_t nElemsCount = elems.size();
+
+  double fCurrent = track.get_current();
+  double fPhase = track.get_phase();
+
+  size_t nItemsCount = track.size();
+  size_t nStep = 1 + m_nSkipPoints;
+  CTrackItem item;
+  CNode3D node;
+
+  double fMob, fOneOvrTau, fPow, fExpCoeff, fCoeff;
+  Vector3D vGasDrag, vDCField, vRFField, vClmb, vSum;
+// Header:
+  CString s1(_T("time(ms),    x(mm),    y(mm),    z(mm),"));
+  CString s2(_T("    GasDrag.x,    GasDrag.y,    GasDrag.z,    DCField.x,    DCField.y,    DCField.z,"));
+  CString s3(_T("    RFField.x,    RFField.y,    RFField.z,       Clmb.x,       Clmb.y,       Clmb.z,"));
+  CString s4(_T("        Sum.x,        Sum.y,        Sum.z\n\n"));
+  fputs((const char*)(s1 + s2 + s3 + s4), pStream);
+
+  const double fAccelCoeff = 1e-5;  // from cm/s^2 to mm/mcs^2.
+  for(size_t i = 0; i < nItemsCount; i += nStep)
+  {
+    track.get_track_item(i, item);
+    if(item.nElemId < 0 || item.nElemId >= nElemsCount)
+      continue;
+
+    const CElem3D* pElem = elems.at(item.nElemId);
+    if(!m_pObj->interpolate(item.pos, item.time, fPhase, node, pElem))
+      continue;
+
+    fMob = m_pObj->get_ion_mob(node.press, node.temp);
+    fOneOvrTau = fChargeMassRatio / fMob;   // 1 / tau.
+    fPow = fTimeStep * fOneOvrTau;          // in fact, fPow = dt / tau.
+    fExpCoeff = fPow < 0.01 ? fOneOvrTau : (1. - exp(-fPow)) / fTimeStep;
+    fExpCoeff *= fAccelCoeff; // to get acceleration in mm/mcs^2.
+    fCoeff = fMob * fExpCoeff;
+
+    vGasDrag = (node.vel - item.vel) * fExpCoeff;
+    vDCField = get_DC_field(node) * fCoeff;
+    vRFField = get_RF_field(node, item.time, fPhase) * fCoeff;
+    vClmb = space_charge_field(node, item.vel, fCurrent) * fCoeff;
+    vSum = vGasDrag + vDCField + vRFField + vClmb;
+
+    fprintf(pStream, "%f, %f, %f, %f, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e\n", 
+      1000 * item.time, 10 * item.pos.x, 10 * item.pos.y, 10 * item.pos.z,
+      vGasDrag.x, vGasDrag.y, vGasDrag.z, vDCField.x, vDCField.y, vDCField.z, vRFField.x, vRFField.y, vRFField.z,
+      vClmb.x, vClmb.y, vClmb.z, vSum.x, vSum.y, vSum.z);
+
+    set_progress(100 * i / nItemsCount);
+    if(get_terminate_flag())
+      break;
+  }
+}
+
+void CSelectedTracksCalculator::calc_droplet_accel(const CTrack& track, FILE* pStream)
+{
+}
+
+Vector3D CSelectedTracksCalculator::gas_drag_accel(const Vector3D& vGasVel, const Vector3D& vIonVel, double fExpCoeff) const
+{
+}
+
+Vector3D CSelectedTracksCalculator::get_DC_field(const CNode3D& node) const
+{
+  Vector3D vE = vNull;
+  if(m_pObj->get_enable_ansys_field())
+  {
+    if(m_pObj->get_enable_field())  // enable/disable Ansys DC field:
+      vE += node.field;
+
+    vE += m_pObj->get_field_ptb().apply(node.pos);  // DC perturbation field can be swiched on/off individually.
+  }
+  else
+  {
+    vE += (node.field + m_pObj->get_field_ptb().apply(node.pos));
+  }
+
+  return vE;
+}
+
+Vector3D CSelectedTracksCalculator::get_RF_field(const CNode3D& node, double fTime, double fPhase) const
+{
+  Vector3D vE = vNull;
+  if(m_pObj->get_enable_ansys_field())
+  {
+    if(m_pObj->get_enable_rf())     // RF field:
+      vE += m_pObj->get_rf_field(node, fTime, fPhase);
+  }
+  else
+  {
+    vE = node.rf;
+  }
+
+  return vE;
+}
+
+Vector3D CSelectedTracksCalculator::space_charge_field(const CNode3D& node, const Vector3D& vIonVel, double fCurr) const
+{
+  Vector3D vE = vNull;
+  if(m_pObj->get_enable_coulomb())
+  {
+    if(m_pObj->get_axial_symm())
+    {
+      if(vIonVel.x > Const_Almost_Zero)
+        vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vIonVel.x, fCurr);
+    }
+    else
+    {
+      Vector3D vClmb = node.clmb;
+      if(m_pObj->get_use_radial_coulomb() && (node.pos.x > m_pObj->get_radial_coulomb_trans()))
+        vClmb.x = 0;  // This is a workaround. I hope to get rid of in later.
+
+      vE += vClmb;
+    }
+  }
+
+  return vE;
+}
+
+void CSelectedTracksCalculator::update()
+{
+}
+
+void CSelectedTracksCalculator::clear()
+{
+}
+
+void CSelectedTracksCalculator::save(CArchive& ar)
+{
+  UINT nVersion = 0;
+  ar << nVersion;
+
+  CCalculator::save(ar);
+
+  ar << m_sOutputFolder;
+  ar << m_nSkipPoints;
+}
+
+void CSelectedTracksCalculator::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  CCalculator::load(ar);
+
+  ar >> m_sOutputFolder;
+  ar >> m_nSkipPoints;
 }
 
 };  // namespace EvaporatingParticle

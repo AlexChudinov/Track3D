@@ -64,6 +64,7 @@ class  CColorContour;
 typedef std::vector<std::string> CNamesVector;
 typedef std::vector<CColorContour*> CContourColl;
 typedef std::vector<CFace*> CExternalFaces;
+typedef std::vector<size_t> CIdsVector;
 
 //-------------------------------------------------------------------------------------------------
 //
@@ -194,6 +195,15 @@ public:
   void              show_all_regions(); // this is the only way to show hidden regions.
   void              set_visibility_status(CNamesVector* pRegNames, bool bVisible);
 
+// Selecting trajectory support:
+  bool              get_traject_sel_flag() const;
+  void              enter_traject_sel_context();
+  void              exit_traject_sel_context();
+  void              clear_selected_traject();
+
+  CIdsVector        get_sel_traject_ids() const;
+  int               get_traject_under_cursor_id() const;
+
 // Cross-sections of the calculators suppport:
   void              set_cross_sections_array(CExternalFaces* pFaces); // called from Calculator::update().
 
@@ -242,6 +252,9 @@ protected:
 
 // Cursor coordinates in the status line:
   void              screen_to_world(const CPoint& point, Vector3D& world, bool bWorldDepth = true) const;
+  bool              world_to_screen(const Vector3D& pos, CPoint& scr) const;
+
+protected:
 // Drawing progress in the status line:
   void              set_progress(const char* cJobName, int nPercent) const;
 
@@ -277,6 +290,8 @@ private:
   CEdgeVertexColl   m_vWireFrame;
 // Auxiliary lines (visualization of normals or Dirichlet cells):
   CEdgeVertexColl   m_vAuxLines;
+// Selected Tracks:
+  CIdsVector        m_vSelTrackIds;  // the highlighted tracks.
 
   int               m_nDrawMode;  // can be one of the following: dmNone, dmWire and dmFlat.
   bool              m_bDrawTracks,
@@ -317,10 +332,12 @@ private:
   };
 
   int               m_nRegime,
-                    m_nContext;
+                    m_nContext,
+                    m_nTrajUnderCursorId;
 
-  bool              m_bSelFlag,     // this flag becomes "true" in enter_sel_context(...) and "false" in exit_sel_context(...).
-                    m_bCtrlPressed; // true if the Control key is pressed.
+  bool              m_bSelRegFlag,      // this flag becomes "true" in enter_sel_context(...) and "false" in exit_sel_context(...).
+                    m_bSelTrajectFlag,
+                    m_bCtrlPressed;     // true if the Control key is pressed.
 
   CPoint            m_StartPoint;
 
@@ -551,7 +568,7 @@ inline void CTrackDraw::set_cell_index(UINT nId)
 
 inline bool CTrackDraw::get_sel_flag() const
 {
-  return m_bSelFlag;
+  return m_bSelRegFlag;
 }
 
 inline size_t CTrackDraw::get_contours_count() const
@@ -607,6 +624,40 @@ inline bool CTrackDraw::is_busy()
 inline void CTrackDraw::clear_selected_faces()
 {
   m_vSelFaceVert.clear();
+}
+
+// Selecting trajectory support:
+inline bool CTrackDraw::get_traject_sel_flag() const
+{
+  return m_bSelTrajectFlag;
+}
+
+inline void CTrackDraw::enter_traject_sel_context()
+{
+  m_bSelTrajectFlag = true;
+  m_nTrajUnderCursorId = -1;
+}
+
+inline void CTrackDraw::exit_traject_sel_context()
+{
+  m_bSelTrajectFlag = false;
+  m_nTrajUnderCursorId = -1;
+}
+
+inline void CTrackDraw::clear_selected_traject()
+{
+  m_vSelTrackIds.clear();
+  m_nTrajUnderCursorId = -1;
+}
+
+inline CIdsVector CTrackDraw::get_sel_traject_ids() const
+{
+  return m_vSelTrackIds;
+}
+
+inline int CTrackDraw::get_traject_under_cursor_id() const
+{
+  return m_nTrajUnderCursorId;
 }
 
 };  // namespace EvaporatingParticle
