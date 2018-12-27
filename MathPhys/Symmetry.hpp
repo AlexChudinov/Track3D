@@ -18,10 +18,12 @@ namespace math
 	template<class Vector3D, class NumType, class Model>
 	class Reflector
 	{
+	public:
 		typedef unsigned int uint32;
 		typedef Vector3D(Model::*VectorField) (const Vector3D&, const Vector3D&, const NumType&);
 		typedef NumType(Model::*ScalarField) (const Vector3D&, const Vector3D&, const NumType&);
-
+	
+	private:
 		/**
 		 * Field dependence on coordinate, velocity and time: U(r,v,t)
 		 */

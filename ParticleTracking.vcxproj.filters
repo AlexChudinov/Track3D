@@ -383,10 +383,10 @@
     <ClCompile Include="field_solver\FiniteVolumesSolver.cpp">
       <Filter>field_solver\Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="track3d\Particle.cpp">
-      <Filter>ui\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="track3d\TrajectSelector.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Particle.cpp">
       <Filter>track3d\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
