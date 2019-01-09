@@ -525,9 +525,11 @@ protected:
 
   bool                    can_be_applied(CRandomProcType nWhat, const Vector3D& vWhere) const;
 
+public:
   RandomProcess*          create_random_jump(UINT nSeed) const;
   RandomProcess*          create_collisions(UINT nSeed) const;
 
+protected:
 // Output stuff:
   COutputEngine           m_OutputEngine;
 
