@@ -287,7 +287,8 @@ void CPropertiesWnd::update_tracking_ctrls()
     pProp->Enable(bEnableRF);
 
 // Random processes:
-  bool bDiffOn = false, bCollOn = false;
+  bool bDiffOn = pObj->get_enable_diffusion();
+  bool bCollOn = pObj->get_enable_collisions();
   pProp = m_wndPropList.FindItemByData(pObj->get_enable_diffusion_ptr());
   if(pProp != NULL)
     bDiffOn = pProp->GetValue().boolVal;

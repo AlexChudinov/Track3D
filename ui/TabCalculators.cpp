@@ -318,15 +318,39 @@ void CPropertiesWnd::add_calc_ctrls()
         pSelTrackBtn->SetValue(pSelTrackBtn->ButtonValue());
         pTrackCalcGroup->AddSubItem(pSelTrackBtn);
 
-        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pSelTrackCalc);
-        pTrackCalcGroup->AddSubItem(pStartCalcBtn);
-
         COleVariant sDefFolder(pSelTrackCalc->get_out_folder());
         CSelectFolderButton* pOutFolderBtn = new CSelectFolderButton(this, _T("Output Folder"), sDefFolder, _T("Click and browse to select the output folder."), (DWORD_PTR)pSelTrackCalc);
         pTrackCalcGroup->AddSubItem(pOutFolderBtn);
 
+// Enable/disable different forces calculation:
+        CMFCPropertyGridProperty* pEnableGroup = new CMFCPropertyGridProperty(_T("Select forces to calculate"));
+        CCheckBoxButton* pBtn = new CCheckBoxButton(this, _T("Gas Drag"), _T(""), _T("Enable/disable gas drag force calculation."), (DWORD_PTR)pSelTrackCalc->get_enable_gas_drag_ptr());
+        pEnableGroup->AddSubItem(pBtn);
+
+        pBtn = new CCheckBoxButton(this, _T("External DC Field"), _T(""), _T("Enable/disable external DC field calculation."), (DWORD_PTR)pSelTrackCalc->get_enable_dc_field_ptr());
+        pEnableGroup->AddSubItem(pBtn);
+
+        pBtn = new CCheckBoxButton(this, _T("External RF Field"), _T(""), _T("Enable/disable external RF field calculation."), (DWORD_PTR)pSelTrackCalc->get_enable_rf_field_ptr());
+        pEnableGroup->AddSubItem(pBtn);
+
+        pBtn = new CCheckBoxButton(this, _T("Space Charge Field"), _T(""), _T("Enable/disable space charge field calculation."), (DWORD_PTR)pSelTrackCalc->get_enable_clmb_ptr());
+        pEnableGroup->AddSubItem(pBtn);
+
+        pTrackCalcGroup->AddSubItem(pEnableGroup);
+
+// Actions:
+        EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+        EvaporatingParticle::CIdsVector vIds = pDrawObj->get_sel_traject_ids();
+        bool bEnableStart = vIds.size() > 0;
+        CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));
+        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pSelTrackCalc);
+        pStartCalcBtn->Enable(bEnableStart);
+        pActionsGroup->AddSubItem(pStartCalcBtn);
+
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), _T(""), _T("Click to delete this calculator."), (DWORD_PTR)pSelTrackCalc);
-        pTrackCalcGroup->AddSubItem(pRemoveCalcBtn);
+        pActionsGroup->AddSubItem(pRemoveCalcBtn);
+
+        pTrackCalcGroup->AddSubItem(pActionsGroup);
 
         pCalcGroup->AddSubItem(pTrackCalcGroup);
         break;

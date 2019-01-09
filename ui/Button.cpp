@@ -329,6 +329,12 @@ void CRemovePropertyButton::OnDrawButton(CDC* pDC, CRect rectButton)
   pDC->SetBkColor(crBkColor);
 }
 
+bool CRemovePropertyButton::ConfirmRemove() const
+{
+  int nRes = AfxMessageBox("Are you sure you want to delete this object?", MB_YESNO);
+  return nRes == IDYES ? true : false;
+}
+
 //---------------------------------------------------------------------------------------
 // CRemoveBoundCondButton.
 //---------------------------------------------------------------------------------------
@@ -336,10 +342,19 @@ IMPLEMENT_DYNAMIC(CRemoveBoundCondButton, CRemovePropertyButton)
 
 void CRemoveBoundCondButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CBoundaryConditions* pBC = (EvaporatingParticle::CBoundaryConditions*)m_dwData;
   EvaporatingParticle::CExportOpenFOAM* pExpObj = CParticleTrackingApp::Get()->GetExporter();
   pExpObj->remove_bound_cond(pBC);
   m_pWndProp->set_update_all();
+}
+
+bool CRemoveBoundCondButton::ConfirmRemove() const
+{
+  int nRes = AfxMessageBox("Are you sure you want to delete this boundary condition?", MB_YESNO);
+  return nRes == IDYES ? true : false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -349,12 +364,21 @@ IMPLEMENT_DYNAMIC(CRemoveContourButton, CRemovePropertyButton)
 
 void CRemoveContourButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   EvaporatingParticle::CColorContour* pCont = (EvaporatingParticle::CColorContour*)m_dwData;
   pDrawObj->remove_contour(pCont);
 
   m_pWndProp->set_update_all();
   pDrawObj->draw();
+}
+
+bool CRemoveContourButton::ConfirmRemove() const
+{
+  int nRes = AfxMessageBox("Are you sure you want to delete this contour?", MB_YESNO);
+  return nRes == IDYES ? true : false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -364,6 +388,9 @@ IMPLEMENT_DYNAMIC(CClearLocationsButton, CRemovePropertyButton)
 
 void CClearLocationsButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   EvaporatingParticle::CColorContour* pCont = (EvaporatingParticle::CColorContour*)m_dwData;
   pCont->clear_reg_names();
@@ -378,6 +405,9 @@ IMPLEMENT_DYNAMIC(CRemoveCalcButton, CRemovePropertyButton)
 
 void CRemoveCalcButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   EvaporatingParticle::CCalcCollection* pCalcColl = CParticleTrackingApp::Get()->GetCalcs();
   EvaporatingParticle::CCalculator* pCalc = (EvaporatingParticle::CCalculator*)m_dwData;
@@ -435,7 +465,7 @@ void CStartCalcButton::OnDrawButton(CDC* pDC, CRect rectButton)
   COLORREF crBkColor = pDC->GetBkColor();
   COLORREF crTextColor = pDC->GetTextColor();
 
-  COLORREF crBrushColor = RGB(0, 120, 0);
+  COLORREF crBrushColor = IsEnabled() ? RGB(0, 120, 0) : RGB(120, 120, 120);
   CBrush brush1(crBrushColor);
   pDC->FillRect(rectButton, &brush1);
 
@@ -478,6 +508,9 @@ IMPLEMENT_DYNAMIC(CRemovePerturbationButton, CRemovePropertyButton)
 
 void CRemovePerturbationButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CFieldPtbCollection& coll = CParticleTrackingApp::Get()->GetTracker()->get_field_ptb();
   EvaporatingParticle::CFieldPerturbation* pPtb = (EvaporatingParticle::CFieldPerturbation*)m_dwData;
   size_t nPtbCount = coll.size();
@@ -501,6 +534,9 @@ IMPLEMENT_DYNAMIC(CRemoveFieldButton, CRemovePropertyButton)
 
 void CRemoveFieldButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CFieldDataColl* pColl = CParticleTrackingApp::Get()->GetFields();
   EvaporatingParticle::CElectricFieldData* pData = (EvaporatingParticle::CElectricFieldData*)m_dwData;
   size_t nCount = pColl->size();
@@ -578,6 +614,9 @@ IMPLEMENT_DYNAMIC(CRemoveFieldBoundCondButton, CRemovePropertyButton)
 
 void CRemoveFieldBoundCondButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CPotentialBoundCond* pBC = (EvaporatingParticle::CPotentialBoundCond*)m_dwData;
   EvaporatingParticle::CFieldDataColl* pColl = CParticleTrackingApp::Get()->GetFields();
   if(pColl->remove_bound_cond(pBC))
@@ -597,6 +636,9 @@ IMPLEMENT_DYNAMIC(CRemoveCrossSectionButton, CRemovePropertyButton)
 
 void CRemoveCrossSectionButton::OnClickButton(CPoint point)
 {
+  if(!ConfirmRemove())
+    return;
+
   EvaporatingParticle::CDomainCrossSection* pPlane = (EvaporatingParticle::CDomainCrossSection*)m_dwData;
   EvaporatingParticle::CCrossSectColl* pColl = CParticleTrackingApp::Get()->GetPlanes();
   size_t nPlanesCount = pColl->size();

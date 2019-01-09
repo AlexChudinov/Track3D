@@ -122,6 +122,7 @@ public:
   }
 
   virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -139,6 +140,7 @@ public:
   }
 
   virtual void    OnClickButton(CPoint point);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -156,6 +158,7 @@ public:
   }
 
   virtual void    OnClickButton(CPoint point);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------

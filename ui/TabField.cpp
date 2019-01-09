@@ -408,13 +408,14 @@ void CPropertiesWnd::update_field_ctrls()
     if(pProp != NULL)
       pProp->Enable(bFieldRF);
 
+    bool bAnalyt = pData->get_analyt_field();
     pProp = m_wndPropList.FindItemByData(pData->get_low_analyt_lim_ptr());
     if(pProp != NULL)
-      pProp->Enable(bFieldRF);
+      pProp->Enable(bFieldRF && bAnalyt);
 
     pProp = m_wndPropList.FindItemByData(pData->get_inscr_radius_ptr());
     if(pProp != NULL)
-      pProp->Enable(bFieldRF);
+      pProp->Enable(bFieldRF && bAnalyt);
 
 // Boundary conditions:
     size_t nBoundCondCount = pData->get_bc_count();

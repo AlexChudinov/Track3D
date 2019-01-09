@@ -1652,6 +1652,11 @@ void CSelectedTracksCalculator::set_default()
 {
   m_sCalcName = calc_name(ctAlongSelTracks);
 
+  m_bGasDrag = true;
+  m_bDCField = true;
+  m_bRFField = false;
+  m_bClmb = true;
+
   m_nSelTrackId = -1;
   m_nSkipPoints = 10;
   default_folder();
@@ -1732,7 +1737,7 @@ void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStrea
   CNode3D node;
 
   double fMob, fOneOvrTau, fPow, fExpCoeff, fCoeff;
-  Vector3D vGasDrag, vDCField, vRFField, vClmb, vSum;
+  Vector3D vGasDrag, vDCField, vRFField, vClmb, vSum, vAccel;
 // Header:
   CString s1(_T("time(ms),    x(mm),    y(mm),    z(mm),"));
   CString s2(_T("    GasDrag.x,    GasDrag.y,    GasDrag.z,    DCField.x,    DCField.y,    DCField.z,"));
@@ -1747,6 +1752,8 @@ void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStrea
     if(item.nElemId < 0 || item.nElemId >= nElemsCount)
       continue;
 
+    bool bReflDone = m_pObj->sym_corr(item.pos, item.vel, vAccel);  // vAccel is a dummy parameter here.
+
     const CElem3D* pElem = elems.at(item.nElemId);
     if(!m_pObj->interpolate(item.pos, item.time, fPhase, node, pElem))
       continue;
@@ -1758,11 +1765,23 @@ void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStrea
     fExpCoeff *= fAccelCoeff; // to get acceleration in mm/mcs^2.
     fCoeff = fMob * fExpCoeff;
 
-    vGasDrag = (node.vel - item.vel) * fExpCoeff;
-    vDCField = get_DC_field(node) * fCoeff;
-    vRFField = get_RF_field(node, item.time, fPhase) * fCoeff;
-    vClmb = space_charge_field(node, item.vel, fCurrent) * fCoeff;
+    if(m_bGasDrag)
+      vGasDrag = (node.vel - item.vel) * fExpCoeff;
+    if(m_bDCField)
+      vDCField = get_DC_field(node) * fCoeff;
+    if(m_bRFField)
+      vRFField = get_RF_field(node, item.time, fPhase) * fCoeff;
+    if(m_bClmb)
+      vClmb = space_charge_field(node, item.vel, fCurrent) * fCoeff;
+
     vSum = vGasDrag + vDCField + vRFField + vClmb;
+
+    if(bReflDone)
+    {
+      m_pObj->sym_corr(item.pos, item.vel, vAccel, true);
+      m_pObj->sym_corr(vGasDrag, vDCField, vRFField, true);
+      m_pObj->sym_corr(vClmb, vSum, vAccel, true);
+    }
 
     fprintf(pStream, "%f, %f, %f, %f, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e\n", 
       1000 * item.time, 10 * item.pos.x, 10 * item.pos.y, 10 * item.pos.z,
@@ -1781,6 +1800,7 @@ void CSelectedTracksCalculator::calc_droplet_accel(const CTrack& track, FILE* pS
 
 Vector3D CSelectedTracksCalculator::gas_drag_accel(const Vector3D& vGasVel, const Vector3D& vIonVel, double fExpCoeff) const
 {
+  return vNull;
 }
 
 Vector3D CSelectedTracksCalculator::get_DC_field(const CNode3D& node) const
@@ -1857,6 +1877,11 @@ void CSelectedTracksCalculator::save(CArchive& ar)
 
   ar << m_sOutputFolder;
   ar << m_nSkipPoints;
+
+  ar << m_bGasDrag;
+  ar << m_bDCField;
+  ar << m_bRFField;
+  ar << m_bClmb;
 }
 
 void CSelectedTracksCalculator::load(CArchive& ar)
@@ -1868,6 +1893,11 @@ void CSelectedTracksCalculator::load(CArchive& ar)
 
   ar >> m_sOutputFolder;
   ar >> m_nSkipPoints;
+
+  ar >> m_bGasDrag;
+  ar >> m_bDCField;
+  ar >> m_bRFField;
+  ar >> m_bClmb;
 }
 
 };  // namespace EvaporatingParticle

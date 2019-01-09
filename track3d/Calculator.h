@@ -489,6 +489,18 @@ public:
   DWORD_PTR             get_out_folder_ptr() const;
   void                  set_out_folder(const char* pName);
 
+  bool                  get_enable_gas_drag() const;
+  DWORD_PTR             get_enable_gas_drag_ptr() const;
+
+  bool                  get_enable_dc_field() const;
+  DWORD_PTR             get_enable_dc_field_ptr() const;
+
+  bool                  get_enable_rf_field() const;
+  DWORD_PTR             get_enable_rf_field_ptr() const;
+
+  bool                  get_enable_clmb() const;
+  DWORD_PTR             get_enable_clmb_ptr() const;
+
   virtual void          save(CArchive& ar);
   virtual void          load(CArchive& ar);
 
@@ -507,6 +519,11 @@ protected:
 private:
   UINT                  m_nSkipPoints;
   CString               m_sOutputFolder;
+
+  bool                  m_bGasDrag,
+                        m_bDCField,
+                        m_bRFField,
+                        m_bClmb;
 
 // Run-time:
   int                   m_nSelTrackId;
@@ -908,6 +925,46 @@ inline DWORD_PTR CSelectedTracksCalculator::get_out_folder_ptr() const
 inline void CSelectedTracksCalculator::set_out_folder(const char* pName)
 {
   m_sOutputFolder = pName;
+}
+
+inline bool CSelectedTracksCalculator::get_enable_gas_drag() const
+{
+  return m_bGasDrag;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_enable_gas_drag_ptr() const
+{
+  return (DWORD_PTR)&m_bGasDrag;
+}
+
+inline bool CSelectedTracksCalculator::get_enable_dc_field() const
+{
+  return m_bDCField;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_enable_dc_field_ptr() const
+{
+  return (DWORD_PTR)&m_bDCField;
+}
+
+inline bool CSelectedTracksCalculator::get_enable_rf_field() const
+{
+  return m_bRFField;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_enable_rf_field_ptr() const
+{
+  return (DWORD_PTR)&m_bRFField;
+}
+
+inline bool CSelectedTracksCalculator::get_enable_clmb() const
+{
+  return m_bClmb;
+}
+
+inline DWORD_PTR CSelectedTracksCalculator::get_enable_clmb_ptr() const
+{
+  return (DWORD_PTR)&m_bClmb;
 }
 
 };  // namespace EvaporatingParticle
