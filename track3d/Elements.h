@@ -30,12 +30,14 @@ struct CRay
 
 struct CRegFacePair
 {
-  CRegFacePair(UINT nr, UINT nf)
+  CRegFacePair(UINT nr = UINT_MAX, UINT nf = UINT_MAX)
     : nReg(nr), nFace(nf)
   {
   }
 
   UINT  nReg, nFace;
+
+  bool operator == (const CRegFacePair& face)   { return (nReg == face.nReg) && (nFace == face.nFace); }
 };
 
 struct CFace;
@@ -143,6 +145,7 @@ struct CFace : public BlockAllocator<CFace>
 
   void      init();
   bool      intersect(const CRay& ray, double& dist) const;
+  double    square() const;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -181,7 +184,7 @@ struct CRegion : public BlockAllocator<CRegion>
   void              bounding_box();
 
 // Use this function to find a single intersection with the region:
-  bool              intersect(const CRay& ray, double& dist) const;
+  bool              intersect(const CRay& ray, double& fDist, UINT& nFaceID) const;
 
 // Use this function to find all intersections with the region along a given ray:
   bool              intersect(const CRay& ray, CIntersectColl& results) const;
@@ -601,6 +604,11 @@ inline bool CBox::inside(const Vector3D& p) const
 inline Vector3D CBox::get_center() const
 {
   return 0.5 * (vMin + vMax);
+}
+
+inline double CFace::square() const
+{
+  return 0.5 * ((p1->pos - p0->pos) * (p2->pos - p0->pos)).length();
 }
 
 //-------------------------------------------------------------------------------------------------

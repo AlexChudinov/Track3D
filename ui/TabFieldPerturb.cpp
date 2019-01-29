@@ -128,6 +128,46 @@ void CPropertiesWnd::add_ptb_ctrls()
         m_wndPropList.AddProperty(pAddFieldGroup);
         break;
       }
+      case CFieldPerturbation::ptbDoubleLayer:
+      {
+        CDoubleLayerField* pDblLayer = (CDoubleLayerField*)pPtb;
+        CMFCPropertyGridProperty* pDblLayerGroup = new CMFCPropertyGridProperty(pDblLayer->name());
+// Enable:
+        CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pDblLayer->get_enable(), _T("Turns ON/OFF the field perturbation."), pDblLayer->get_enable_ptr());
+        pDblLayerGroup->AddSubItem(pCheckBox);
+// Film depth and surface charge density:
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Film Depth, mcm"), COleVariant(1e+4 * pDblLayer->get_film_depth()), _T("The thin dielectric film thickness."), pDblLayer->get_film_depth_ptr());
+        pDblLayerGroup->AddSubItem(pProp);
+
+        pProp = new CMFCPropertyGridProperty(_T("Surface Charge, nA*hour/mm2"), COleVariant(pDblLayer->get_charge_srf_dens() / Const_Srf_Charge_Dens), _T("The surface charge density in elem. charges per square millimeter."), pDblLayer->get_charge_srf_dens_ptr());
+        pDblLayerGroup->AddSubItem(pProp);
+
+// Faces selection:
+        CMFCPropertyGridProperty* pFacesSelGroup = new CMFCPropertyGridProperty(_T("Contaminated Area"));
+        CSelectFacesButton* pSelFaceBtn = new CSelectFacesButton(this, _T("Select Faces"), _T(""), _T("Click to enter the faces selection context. Select proper faces in the draw window and click this button again to exit the confirm the selection."), (DWORD_PTR)pPtb);
+        pSelFaceBtn->SetValue(pSelFaceBtn->ButtonValue());
+        pFacesSelGroup->AddSubItem(pSelFaceBtn);
+
+        CString cDummy(_T(" "));
+// Clear selection of all faces:
+        CClearSelectedFacesButton* pClearSelBtn = new CClearSelectedFacesButton(this, _T("Clear Faces Selection"), cDummy, _T("Click this button to deselect all previously tagged faces."), (DWORD_PTR)pPtb);
+        pFacesSelGroup->AddSubItem(pClearSelBtn);
+        pDblLayerGroup->AddSubItem(pFacesSelGroup);
+// Actions:
+        CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));
+// Calculate field button:
+        CCalcFieldPtbButton* pCalcPtb = new CCalcFieldPtbButton(this, _T("Calculate Field"), cDummy, _T("Click this button to start perturbation field calculation."), (DWORD_PTR)pPtb);
+        pCalcPtb->Enable(pPtb->get_enable());
+        pActionsGroup->AddSubItem(pCalcPtb);
+// Remove perturbation:
+        CRemovePerturbationButton* pRemBtn = new CRemovePerturbationButton(this, _T("Remove Perturbation"), cDummy, _T("Click to delete this perturbation."), (DWORD_PTR)pPtb);
+        pActionsGroup->AddSubItem(pRemBtn);
+
+        pDblLayerGroup->AddSubItem(pActionsGroup);
+
+        m_wndPropList.AddProperty(pDblLayerGroup);
+        break;
+      }
     }
   }
 }
@@ -236,6 +276,20 @@ void CPropertiesWnd::set_ptb_data()
         pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_end_x_ptr());
         if(pProp != NULL)
           pAddField->set_add_Edc_end_x(0.1 * pProp->GetValue().dblVal);
+
+        break;
+      }
+      case CFieldPerturbation::ptbDoubleLayer:
+      {
+        CDoubleLayerField* pDblLayer = (CDoubleLayerField*)pPtb;
+
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pDblLayer->get_film_depth_ptr());
+        if(pProp != NULL)
+          pDblLayer->set_film_depth(1e-4 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pDblLayer->get_charge_srf_dens_ptr());
+        if(pProp != NULL)
+          pDblLayer->set_charge_srf_dens(Const_Srf_Charge_Dens * pProp->GetValue().dblVal);
 
         break;
       }

@@ -26,8 +26,10 @@ BOOL CAddCalculatorDialog::OnInitDialog()
   CDialog::OnInitDialog();
 
   m_CalcSelector.Clear();
+// I use the InsertString function instead of AddString because this does not result in sorting strings even though the 
+// combo-box has been created with the CBS_SORT style.
   for(int i = 0; i < EvaporatingParticle::CCalculator::ctCount; i++)
-    m_CalcSelector.AddString(EvaporatingParticle::CCalculator::calc_name(i));
+    m_CalcSelector.InsertString(m_CalcSelector.GetCount(), EvaporatingParticle::CCalculator::calc_name(i));
 
   m_CalcSelector.SetCurSel(EvaporatingParticle::CCalculator::ctAlongLine);
   return TRUE;

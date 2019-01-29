@@ -198,6 +198,63 @@ CString CSelectTrajectButton::ButtonValue()
 }
 
 //---------------------------------------------------------------------------------------
+// CSelectFacesButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSelectFacesButton, CSelectRegionButton)
+
+void CSelectFacesButton::OnClickButton(CPoint point)
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  m_pWndProp->set_data_to_model();
+
+  if(pDrawObj->get_faces_sel_flag())
+  {
+    pDrawObj->exit_faces_sel_context();
+    
+    SetValue(ButtonValue());
+      
+    m_bPressed = FALSE;
+    m_pWndProp->set_ignore_idle(false);
+    m_pWndProp->set_update_all();
+    m_pWndProp->enable_tab_ctrl();
+  }
+  else
+  {
+    m_pWndProp->set_ignore_idle(true);
+    m_pWndProp->disable_all_but_one(this);
+    m_pWndProp->enable_tab_ctrl(FALSE);
+
+    pDrawObj->enter_faces_sel_context();
+    m_bPressed = TRUE;
+  }
+
+  Redraw();
+  pDrawObj->draw();
+}
+
+void CSelectFacesButton::OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/)
+{
+}
+
+void CSelectFacesButton::OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/)
+{
+}
+
+CString CSelectFacesButton::ButtonValue()
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  char buff[8];
+  EvaporatingParticle::CFaceIndices vIds = pDrawObj->get_sel_faces_ids();
+  int nSelCount = vIds.size();
+  CString sSquare = pDrawObj->get_sel_faces_square_str() + CString(_T(" mm^2"));
+  CString sVal = nSelCount == 0 ? CString(_T("No selection")) 
+    : (nSelCount == 1 ? CString(_T("1 face,  S = ")) + sSquare
+    : CString(itoa(nSelCount, buff, 10)) + CString(_T(" faces,  S = ")) + sSquare);
+
+  return sVal;
+}
+
+//---------------------------------------------------------------------------------------
 // CProprtyListButton - a base class for simple buttons attached to the properties list.
 //---------------------------------------------------------------------------------------
 IMPLEMENT_DYNAMIC(CProprtyListButton, CMFCPropertyGridProperty)
@@ -396,6 +453,29 @@ void CClearLocationsButton::OnClickButton(CPoint point)
   pCont->clear_reg_names();
   m_pWndProp->set_update_all();
   pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CClearSelectedFacesButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CClearSelectedFacesButton, CRemovePropertyButton)
+
+void CClearSelectedFacesButton::OnClickButton(CPoint point)
+{
+  if(!ConfirmRemove())
+    return;
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->clear_selected_faces();
+
+  m_pWndProp->set_update_all();
+  pDrawObj->draw();
+}
+
+bool CClearSelectedFacesButton::ConfirmRemove() const
+{
+  int nRes = AfxMessageBox("Are you sure you want to clear all faces selection?", MB_YESNO);
+  return nRes == IDYES ? true : false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -655,7 +735,8 @@ void CRemoveCrossSectionButton::OnClickButton(CPoint point)
 
   m_pWndProp->set_update_all();
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  pDrawObj->invalidate_hidden();
+  pDrawObj->invalidate_faces();
+  pDrawObj->invalidate_aux();
   pDrawObj->draw();
 }
 
@@ -700,7 +781,7 @@ void CCalcFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
   COLORREF crBkColor = pDC->GetBkColor();
   COLORREF crTextColor = pDC->GetTextColor();
 
-  COLORREF crBrushColor = RGB(0, 120, 0);
+  COLORREF crBrushColor = IsEnabled() ? RGB(0, 128, 0) : RGB(128, 128, 128);
   CBrush brush1(crBrushColor);
   pDC->FillRect(rectButton, &brush1);
 
@@ -734,6 +815,42 @@ void CCalcFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
 
   pDC->SetTextColor(crTextColor);
   pDC->SetBkColor(crBkColor);
+}
+
+//---------------------------------------------------------------------------------------
+// CCalcFieldPtbButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CCalcFieldPtbButton, CCalcFieldButton)
+
+static UINT __stdcall calc_field_ptb_func(LPVOID pData)
+{
+  CExecutionDialog* pDlg = (CExecutionDialog*)pData;
+  EvaporatingParticle::CFieldPerturbation* pPtb = (EvaporatingParticle::CFieldPerturbation*)(pDlg->GetDialogObject());
+  pPtb->calc_field();
+
+  if(!pPtb->get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations are over.
+    pDlg->PostMessage(WM_CLOSE);
+
+  return 0;
+}
+
+void CCalcFieldPtbButton::OnClickButton(CPoint point)
+{
+  if(m_pWndProp == NULL)
+    return;
+
+  m_pWndProp->set_data_to_model();
+
+  EvaporatingParticle::CFieldPerturbation* pPtb = (EvaporatingParticle::CFieldPerturbation*)m_dwData;
+  if(pPtb == NULL)
+    return;
+
+  CExecutionDialog dlg(&calc_field_ptb_func, (EvaporatingParticle::CObject*)pPtb);
+  INT_PTR nRes = dlg.DoModal();
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->invalidate_contours();
+  pDrawObj->draw();
 }
 
 //---------------------------------------------------------------------------------------
@@ -785,6 +902,8 @@ void CCheckBoxButton::OnClickButton(CPoint point)
   bChecked = !bChecked;
   SetValue((_variant_t)bChecked);
   Redraw();
+
+  m_pWndProp->set_update_all();
 }
 
 void CCheckBoxButton::OnDrawButton(CDC* pDC, CRect rect)
@@ -919,7 +1038,8 @@ void CCrossSectCheckBox::OnClickButton(CPoint point)
   m_pWndProp->set_update_all();
 
   pDrawObj->invalidate_contours();
-  pDrawObj->invalidate_hidden();
+  pDrawObj->invalidate_faces();
+  pDrawObj->invalidate_aux();
 
   pDrawObj->draw();
 }
@@ -978,7 +1098,8 @@ void CPlaneYZCalcCheckBox::OnClickButton(CPoint point)
   {
     pPlaneYZCalc->update();
     EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    pDrawObj->invalidate_hidden();
+    pDrawObj->invalidate_faces();
+    pDrawObj->invalidate_aux();
     pDrawObj->draw();
   }
 }

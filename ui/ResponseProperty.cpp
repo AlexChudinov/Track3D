@@ -195,15 +195,23 @@ BOOL CCrossSectionResponer::OnUpdateValue()
   DWORD_PTR pData = GetData();
 
   bool bNeedRedraw = false;
+  EvaporatingParticle::CRegion* pReg = NULL;
+
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   EvaporatingParticle::CCrossSectColl* pPlanes = CParticleTrackingApp::Get()->GetPlanes();
   size_t nPlanesCount = pPlanes->size();
   for(size_t i = 0; i < nPlanesCount; i++)
   {
     EvaporatingParticle::CDomainCrossSection* pObj = pPlanes->at(i);
+    pReg = pObj->get_region();
+    if(pReg == NULL)
+      continue;
 
     if(pData == pObj->get_enable_ptr())
-      bNeedRedraw = pObj->set_enable(GetValue().boolVal);
+    {
+      bNeedRedraw = true;
+      break;
+    }
 
     if(pData == pObj->get_plane_type_ptr())
     {
@@ -213,9 +221,11 @@ BOOL CCrossSectionResponer::OnUpdateValue()
         if(cType == pObj->get_type_name(j))
         {
           bNeedRedraw = pObj->set_plane_type(j);
+          pReg = pObj->get_region();  // the cross-section faces must be re-built.
           break;
         }
       }
+      break;
     }
 
     if(pData == pObj->get_plane_origin_ptr())
@@ -230,6 +240,8 @@ BOOL CCrossSectionResponer::OnUpdateValue()
       }
 
       bNeedRedraw = pObj->set_plane_origin(vPlaneOrigin);
+      pReg = pObj->get_region();  // the cross-section faces must be re-built.
+      break;
     }
   }
 
@@ -237,7 +249,9 @@ BOOL CCrossSectionResponer::OnUpdateValue()
   {
     m_pWndProp->set_update_all();
     pDrawObj->invalidate_contours();
-    pDrawObj->invalidate_hidden();
+    pDrawObj->invalidate_faces();
+    pDrawObj->invalidate_aux();
+
     pDrawObj->draw();
   }
 

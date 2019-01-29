@@ -287,6 +287,7 @@ public:
 
 // DC Field perturbations:
   CFieldPtbCollection&    get_field_ptb();
+  void                    apply_perturbations();
 
 // Mirror Coulomb field support:
   CBarnesHut*             get_BH_object();

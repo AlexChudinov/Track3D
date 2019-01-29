@@ -153,7 +153,8 @@ public:
   void              invalidate_tracks();
   void              invalidate_geometry();
   void              invalidate_contours();
-  void              invalidate_hidden();
+  void              invalidate_faces();
+  void              invalidate_aux();
   void              new_data();             // makes the draw object set the default projection.
 
 // Move and Rotate toolbar support:
@@ -181,7 +182,7 @@ public:
   bool              get_sel_flag() const;
   void              enter_sel_context(CNamesVector* pRegNames, bool bAllowSel = true);
   void              exit_sel_context(CNamesVector* pRegNames);
-  void              clear_selected_faces();
+  void              clear_selected_regions();
   void              hide_selected();
 
   bool              get_ctrl_pressed() const;
@@ -203,6 +204,17 @@ public:
 
   CIdsVector        get_sel_traject_ids() const;
   int               get_traject_under_cursor_id() const;
+
+// Selecting faces support:
+  bool              get_faces_sel_flag() const;
+  void              enter_faces_sel_context();
+  void              exit_faces_sel_context();
+  void              clear_selected_faces();
+
+  CFaceIndices      get_sel_faces_ids() const;
+  CRegFacePair      get_face_under_cursor_id() const;
+  CString           get_sel_faces_square_str() const;
+  double            get_sel_faces_square(bool bSquaredMillimeters = true) const;
 
 // Cross-sections of the calculators suppport:
   void              set_cross_sections_array(CExternalFaces* pFaces); // called from Calculator::update().
@@ -230,8 +242,11 @@ protected:
 
   void              build_arrays();
   void              build_faces_array();
+  void              build_aux_arrays();
+
+  void              build_sel_faces_array();  // build m_vSelFacesVert array.
   void              build_norm_array();
-  void              build_aux_array();
+  void              build_sel_regions_array();
 
   void              draw_tracks();
   void              draw_geometry();
@@ -239,13 +254,16 @@ protected:
   void              draw_axes();
 
   void              draw_flat();
+  void              draw_cs_flat();   // the manually created cross-sections are drawn flat (semi-transparent) in all modes.
   void              draw_wire();
   void              draw_norm();
 
-  void              draw_selected_faces();
+// These two functions do FLAT drawing:
+  void              draw_selected_regions();  // the faces of a selected region as a whole.
+  void              draw_selected_faces();    // manually selected faces, belonging, probably, to different regions.
 
-// These two functions do wireframe drawing:
-  void              draw_sel_region();
+// ... and these two do WIREFRAME drawing:
+  void              draw_region_under_cursor();
   void              draw_cross_sections();
 
   const char*       window_caption() const;
@@ -259,7 +277,7 @@ protected:
   void              set_progress(const char* cJobName, int nPercent) const;
 
   CRay              get_view_dir(const CPoint& point) const;
-  CRegion*          intersect(const CRay& ray) const;
+  CRegion*          intersect(const CRay& ray, CRegFacePair& face) const;
 
   std::string       dbl_to_str(double val) const; // keeps three digits after decimal point.
 
@@ -272,7 +290,9 @@ protected:
 
 private:
   std::vector<CFaceVertex> m_vFaceVert;
-  std::vector<CFaceVertex> m_vSelFaceVert;    // selected faces (regions).
+  std::vector<CFaceVertex> m_vFaceCrossSectVert;     // faces of manually created cross-sections, to be drawn in FLAT mode.
+  std::vector<CFaceVertex> m_vFacesSelRegionVert;    // faces of selected regions.
+  std::vector<CFaceVertex> m_vSelFacesVert;          // manually selected faces, belonging, probably, to different regions.
 
 // Colored Tracks
   CColoredTracks    m_ColoredTracks;
@@ -285,13 +305,15 @@ private:
   CEdgeVertexColl   m_vSelRegVert; // the mesh lines of the highlighted region will be drawn.
 
 // Calculator cross-section(s) drawing:
-  CEdgeVertexColl   m_vCrossSectVert;
+  CEdgeVertexColl   m_vCrossSectVert;   // to be drawn as mesh lines (wireframe).
 // Wireframe lines:
   CEdgeVertexColl   m_vWireFrame;
 // Auxiliary lines (visualization of normals or Dirichlet cells):
   CEdgeVertexColl   m_vAuxLines;
 // Selected Tracks:
   CIdsVector        m_vSelTrackIds;  // the highlighted tracks.
+// Selected faces:
+  CFaceIndices      m_vSelFaces;  // pairs (region ID, face ID) selected manually.
 
   int               m_nDrawMode;  // can be one of the following: dmNone, dmWire and dmFlat.
   bool              m_bDrawTracks,
@@ -335,8 +357,11 @@ private:
                     m_nContext,
                     m_nTrajUnderCursorId;
 
+  CRegFacePair      m_FaceUnderCursor;
+
   bool              m_bSelRegFlag,      // this flag becomes "true" in enter_sel_context(...) and "false" in exit_sel_context(...).
                     m_bSelTrajectFlag,
+                    m_bSelFacesFlag,
                     m_bCtrlPressed;     // true if the Control key is pressed.
 
   CPoint            m_StartPoint;
@@ -352,6 +377,7 @@ private:
   bool              m_bWireframeReady,
                     m_bFacesReady,
                     m_bNormReady,
+                    m_bAuxReady,
                     m_bNewData,
                     m_bBusy;
 
@@ -591,7 +617,8 @@ inline void CTrackDraw::invalidate_all()
   invalidate_tracks();
   invalidate_geometry();
   invalidate_contours();
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 inline void CTrackDraw::invalidate_tracks()
@@ -604,7 +631,7 @@ inline void CTrackDraw::invalidate_geometry()
   m_bWireframeReady = false;
 }
 
-inline void CTrackDraw::invalidate_hidden()
+inline void CTrackDraw::invalidate_faces()
 {
   m_bFacesReady = false;
 }
@@ -616,14 +643,19 @@ inline void CTrackDraw::invalidate_contours()
     m_vContours.at(i)->invalidate();
 }
 
+inline void CTrackDraw::invalidate_aux()
+{
+  m_bAuxReady = false;
+}
+
 inline bool CTrackDraw::is_busy()
 {
   return m_bBusy;
 }
 
-inline void CTrackDraw::clear_selected_faces()
+inline void CTrackDraw::clear_selected_regions()
 {
-  m_vSelFaceVert.clear();
+  m_vFacesSelRegionVert.clear();
 }
 
 // Selecting trajectory support:
@@ -658,6 +690,45 @@ inline CIdsVector CTrackDraw::get_sel_traject_ids() const
 inline int CTrackDraw::get_traject_under_cursor_id() const
 {
   return m_nTrajUnderCursorId;
+}
+
+// Selecting faces support:
+inline bool CTrackDraw::get_faces_sel_flag() const
+{
+  return m_bSelFacesFlag;
+}
+
+inline void CTrackDraw::enter_faces_sel_context()
+{
+  m_bSelFacesFlag = true;
+  m_FaceUnderCursor.nFace = UINT_MAX;
+  m_FaceUnderCursor.nReg = UINT_MAX;
+}
+
+inline void CTrackDraw::exit_faces_sel_context()
+{
+  m_bSelFacesFlag = false;
+  m_FaceUnderCursor.nFace = UINT_MAX;
+  m_FaceUnderCursor.nReg = UINT_MAX;
+}
+
+inline void CTrackDraw::clear_selected_faces()
+{
+  m_vSelFaces.clear();
+  m_FaceUnderCursor.nFace = UINT_MAX;
+  m_FaceUnderCursor.nReg = UINT_MAX;
+  invalidate_faces();
+  invalidate_aux();
+}
+
+inline CFaceIndices CTrackDraw::get_sel_faces_ids() const
+{
+  return m_vSelFaces;
+}
+
+inline CRegFacePair CTrackDraw::get_face_under_cursor_id() const
+{
+  return m_FaceUnderCursor;
 }
 
 };  // namespace EvaporatingParticle

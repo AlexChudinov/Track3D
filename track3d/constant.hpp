@@ -69,12 +69,13 @@ const double
   Const_Angstrem_CGS    = 1.0e-8;       // 1 angstrem, cm.
 
 const double 
-  Const_Charge_CGS      = 4.803e-10,    // electron charge, CGSE units
+  Const_Charge_CGS      = 4.80325e-10,  // electron charge, CGSE units
   Const_Erg_to_EV				= 6.242e+11;		// 1 erg in eV
 
 const double
   Const_C_CGS           = 2.99792458e+10, // speed of light, cm/s.
-  Const_nA_to_CGSE      = 2.99792458;     // current from nA to CGSE.
+  Const_nA_to_CGSE      = 2.99792458,     // current from nA to CGSE.
+  Const_Srf_Charge_Dens = 9.26567e-7;     // 1 CGSE/cm2 = Const_Srf_Charge_Dens nA*hour/mm2.
 
 const COLORREF clMaroon = 128;
 const COLORREF clGreen  = 32768;

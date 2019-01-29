@@ -63,6 +63,27 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CSelectFacesButton.
+//---------------------------------------------------------------------------------------
+class CSelectFacesButton : public CSelectRegionButton
+{
+  DECLARE_DYNAMIC(CSelectFacesButton)
+
+public:
+  CSelectFacesButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CSelectRegionButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual void    OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/);
+	virtual void    OnKillSelection(CMFCPropertyGridProperty* /*pNewSel*/);
+
+  virtual CString ButtonValue();
+};
+
+//---------------------------------------------------------------------------------------
 // CProprtyListButton - a base class for simple buttons attached to the properties list.
 //---------------------------------------------------------------------------------------
 class CProprtyListButton : public CMFCPropertyGridProperty
@@ -176,6 +197,24 @@ public:
   }
 
   virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CClearSelectedFacesButton.
+//---------------------------------------------------------------------------------------
+class CClearSelectedFacesButton : public CRemovePropertyButton
+{
+  DECLARE_DYNAMIC(CClearSelectedFacesButton)
+
+public:
+  CClearSelectedFacesButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CRemovePropertyButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------
@@ -315,6 +354,23 @@ public:
 
   virtual void    OnClickButton(CPoint point);
   virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+};
+
+//---------------------------------------------------------------------------------------
+// CCalcFieldPtbButton.
+//---------------------------------------------------------------------------------------
+class CCalcFieldPtbButton : public CCalcFieldButton
+{
+  DECLARE_DYNAMIC(CCalcFieldPtbButton)
+
+public:
+  CCalcFieldPtbButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CCalcFieldButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
 };
 
 //---------------------------------------------------------------------------------------

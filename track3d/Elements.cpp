@@ -268,7 +268,7 @@ void CRegion::bounding_box()
   box.vMax = vMax;
 }
 
-bool CRegion::intersect(const CRay& ray, double& dist) const
+bool CRegion::intersect(const CRay& ray, double& fDist, UINT& nFaceID) const
 {
   if(!box.intersect(ray))
     return false;
@@ -277,10 +277,14 @@ bool CRegion::intersect(const CRay& ray, double& dist) const
   for(size_t i = 0; i < nFaceCount; i++)
   {
     CFace* pFace = vFaces.at(i);
-    if(pFace->intersect(ray, dist))
+    if(pFace->intersect(ray, fDist))
+    {
+      nFaceID = i;
       return true;
+    }
   }
 
+  nFaceID = UINT_MAX;
   return false;
 }
 

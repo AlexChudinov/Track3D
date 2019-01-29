@@ -388,14 +388,21 @@ bool CColorContour::get_phi() const
 {
   CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
   size_t nFieldCount = pAllFields->size();
-  if(nFieldCount == 0)
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CFieldPtbCollection& vPtbs = pObj->get_field_ptb();
+  size_t nPtbCount = vPtbs.size();
+
+  if((nFieldCount == 0) && (nPtbCount == 0))
     return false;
 
   CNode3D* pNode = NULL;
   CElectricFieldData* pField = NULL;
-  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CFieldPerturbation* pPtb = NULL;
+
   CNodesCollection& vNodes = pObj->get_nodes();
   size_t nNodeCount = vNodes.size();
+
   for(size_t i = 0; i < nNodeCount; i++)
   {
     pNode = vNodes.at(i);
@@ -410,6 +417,13 @@ bool CColorContour::get_phi() const
         else
           pNode->phi += pField->get_clmb_phi(i);
       }
+    }
+
+    for(size_t k = 0; k < nPtbCount; k++)
+    {
+      pPtb = vPtbs.at(k);
+      if(pPtb->get_enable())
+        pNode->phi += pPtb->get_phi(i);
     }
   }
 

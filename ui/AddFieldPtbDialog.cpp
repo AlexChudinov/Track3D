@@ -23,8 +23,10 @@ BOOL CAddFieldPtbDialog::OnInitDialog()
   CDialog::OnInitDialog();
 
   m_PtbSelector.Clear();
+// I use the InsertString function instead of AddString because this does not result in sorting strings even though the 
+// combo-box has been created with the CBS_SORT style.
   for(int i = 0; i < EvaporatingParticle::CFieldPerturbation::ptbCount; i++)
-    m_PtbSelector.AddString(EvaporatingParticle::CFieldPerturbation::perturbation_name(i));
+    m_PtbSelector.InsertString(m_PtbSelector.GetCount(), EvaporatingParticle::CFieldPerturbation::perturbation_name(i));
 
   m_PtbSelector.SetCurSel(EvaporatingParticle::CFieldPerturbation::ptbRing);
   return TRUE;

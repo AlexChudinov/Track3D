@@ -1,6 +1,7 @@
 
 #include "stdafx.h"
 
+#include "ParticleTracking.h"
 #include "Perturbation.h"
 #include <math.h>
 
@@ -17,6 +18,7 @@ CFieldPerturbation* CFieldPerturbation::create(int nType)
     case CFieldPerturbation::ptbRing: return new CChargedRingPerturbation();
     case CFieldPerturbation::ptbStackOfRings: return new CStackRingPerturbation();
     case CFieldPerturbation::ptbUniform: return new CUniformAddField();
+    case CFieldPerturbation::ptbDoubleLayer: return new CDoubleLayerField();
   }
 
   return NULL;
@@ -29,6 +31,7 @@ const char* CFieldPerturbation::perturbation_name(int nType)
     case CFieldPerturbation::ptbRing: return _T("Single Charged Dielectric Ring");
     case CFieldPerturbation::ptbStackOfRings: return _T("Stack of Charged Rings");
     case CFieldPerturbation::ptbUniform: return _T("Uniform Field");
+    case CFieldPerturbation::ptbDoubleLayer: return _T("Thin Charged Dielectric Film");
   }
 
   return _T("None");
@@ -48,6 +51,12 @@ void CFieldPerturbation::load(CArchive& ar)
   ar >> nVersion;
 
   ar >> m_bEnable;
+}
+
+void CFieldPerturbation::invalidate_contours() const
+{
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->invalidate_contours();
 }
 
 //-----------------------------------------------------------------------------
@@ -190,6 +199,18 @@ Vector3D CChargedRingPerturbation::field_ptb(const Vector3D& vPos)
   return Vector3D(Ex, vRad.y * Er, vRad.z * Er);
 }
 
+Vector3D CChargedRingPerturbation::get_field(size_t nNodeId)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CNodesCollection& vNodes = pObj->get_nodes();
+  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId)->pos) : vNull;
+}
+
+float CChargedRingPerturbation::get_phi(size_t nNodeId)
+{
+  return 0;
+}
+
 static const double scfEps = 1e-9;
 
 void CChargedRingPerturbation::calc_dEx_dEr(UINT i, double a, double v, double& dEx, double& dEr) const
@@ -271,6 +292,18 @@ Vector3D CStackRingPerturbation::field_ptb(const Vector3D& vPos)
     return vNull;
 
   return m_vChargedRings.apply(vPos);
+}
+
+Vector3D CStackRingPerturbation::get_field(size_t nNodeId)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CNodesCollection& vNodes = pObj->get_nodes();
+  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId)->pos) : vNull;
+}
+
+float CStackRingPerturbation::get_phi(size_t nNodeId)
+{
+  return 0;
 }
 
 bool CStackRingPerturbation::prepare()
@@ -432,5 +465,220 @@ void CUniformAddField::load(CArchive& ar)
   ar >> m_fAddEdcBegX;
   ar >> m_fAddEdcEndX;
 }
+
+//-----------------------------------------------------------------------------
+// CDoubleLayerField - a model of the field from a charged thin dielectric film.
+//-----------------------------------------------------------------------------
+CDoubleLayerField::CDoubleLayerField()
+{
+  m_nType = CFieldPerturbation::ptbDoubleLayer;
+  set_default();
+}
+
+CDoubleLayerField::~CDoubleLayerField()
+{
+  m_vField.clear();
+  m_vPhi.clear();
+}
+
+void CDoubleLayerField::set_default()
+{
+  m_bReady = false;
+  m_fFilmDepth = 1e-4;  // 1 mcm.
+  set_charge_srf_dens(100 * Const_Srf_Charge_Dens); // 100 nA*hour per square millimeter.
+}
+
+// This function is for backward compatibility only, it would be used in obsolete approach.
+// The modern approach assumes preliminary field calculation at every mesh node.
+Vector3D CDoubleLayerField::field_ptb(const Vector3D& vPos)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CRegionsCollection& regions = pObj->get_regions();
+  size_t nRegCount = regions.size();
+  if(nRegCount == 0)
+    return vNull;
+
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  CFaceIndices vSelFaces = pDrawObj->get_sel_faces_ids();
+  size_t nFacesCount = vSelFaces.size();
+  if(nFacesCount == 0)
+    return vNull;
+
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+  Vector3F vRes(0, 0, 0);
+  float fPhi = 0;
+  for(size_t j = 0; j < nFacesCount; j++)
+  {
+    const CRegFacePair& face = vSelFaces.at(j);
+    if(face.nReg >= nRegCount)
+      continue;
+
+    pReg = regions.at(face.nReg);
+    if(face.nFace >= pReg->vFaces.size())
+      continue;
+
+    pFace = pReg->vFaces.at(face.nFace);
+    calc_field_from_face(pFace, vPos, vRes, fPhi);
+  }
+
+  return vRes;
+}
+
+Vector3D CDoubleLayerField::get_field(size_t nNodeId)
+{
+  if(!m_bReady || !m_bEnable)
+    return vNull;
+
+  return nNodeId < m_vField.size() ? m_fScale * m_vField.at(nNodeId) : vNull;
+}
+
+float CDoubleLayerField::get_phi(size_t nNodeId)
+{
+  if(!m_bReady || !m_bEnable)
+    return 0;
+
+  return nNodeId < m_vPhi.size() ? CGS_to_SI_Voltage * m_fScale * m_vPhi.at(nNodeId) : 0;
+}
+
+bool CDoubleLayerField::calc_field()
+{
+  m_vPhi.clear();
+  m_vField.clear();
+  m_bReady = false;
+  if(!m_bEnable)
+    return false;
+
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  CFaceIndices vSelFaces = pDrawObj->get_sel_faces_ids();
+  size_t nFacesCount = vSelFaces.size();
+  if(nFacesCount == 0)
+  {
+    AfxMessageBox("Field calculation failed: no faces were selected.");
+    return false;
+  }
+
+  CString sJobName = CString(_T("Calculating field from ")) + CString(perturbation_name(ptbDoubleLayer)) + CString(_T("..."));
+  set_job_name((const char*)sJobName);
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CNodesCollection& vNodes = pObj->get_nodes();
+  size_t nNodesCount = vNodes.size();
+  m_vPhi.resize(nNodesCount, 0);
+  m_vField.resize(nNodesCount, Vector3F(vNull));
+
+  const CRegionsCollection& regions = pObj->get_regions();
+  size_t nRegCount = regions.size();
+  if(nRegCount == 0)
+    return false;
+
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+  Vector3D vPos;
+  for(size_t i = 0; i < nNodesCount; i++)
+  {
+    vPos = vNodes.at(i)->pos;
+    if(i % 100 == 0)
+      set_progress(100 * (i + 1) / nNodesCount);
+
+    if(get_terminate_flag())
+      return false;
+
+    for(size_t j = 0; j < nFacesCount; j++)
+    {
+      const CRegFacePair& face = vSelFaces.at(j);
+      if(face.nReg >= nRegCount)
+        continue;
+
+      pReg = regions.at(face.nReg);
+      if(face.nFace >= pReg->vFaces.size())
+        continue;
+
+      pFace = pReg->vFaces.at(face.nFace);
+      calc_field_from_face(pFace, vPos, m_vField[i], m_vPhi[i]);
+    }
+  }
+
+  set_progress(100);
+  m_bReady = true;
+  return true;
+}
+
+bool CDoubleLayerField::calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const
+{
+  Vector3D vC = (pFace->p0->pos + pFace->p1->pos + pFace->p2->pos) * Const_One_Third;
+  Vector3D vR = vPos - vC;
+
+  double fR2 = vR.sqlength();
+  double fR = sqrt(fR2);
+  double fR3 = fR2 * fR;
+  if(fR3 < Const_Almost_Zero)
+    return false;
+
+  vR /= fR; // normalize the radius-vector.
+  Vector3D vN = -pFace->norm; // we need normal vector directed inside the domain.
+  double fDot = vR & vN;
+  if(fDot < -Const_Almost_Zero)
+    return true;  // nothing to add to the field.
+
+  Vector3D e1 = pFace->p1->pos - pFace->p0->pos;
+  Vector3D e2 = pFace->p2->pos - pFace->p0->pos;
+  double fS = 0.5 * (e1 * e2).length(); // square of the face.
+  if(fS < Const_Almost_Zero)
+    return false;
+
+  fPhi += fS * fDot / fR2;
+  vField += Vector3F((3 * fDot * vR - vN) * fS / fR3);  // both vR and vN are normalized.
+  return true;
+}
+
+void CDoubleLayerField::save(CArchive& ar)
+{
+  UINT nVersion = 0;
+  ar << nVersion;
+
+  CFieldPerturbation::save(ar);
+
+  ar << m_fFilmDepth;
+  ar << m_fChargeSrfDens;
+
+  size_t nNodesCount = m_bReady && (m_vPhi.size() == m_vField.size()) ? m_vPhi.size() : 0;
+  ar << nNodesCount;
+  for(size_t i = 0; i < nNodesCount; i++)
+  {
+    ar << m_vPhi[i];
+    ar << m_vField[i].x;
+    ar << m_vField[i].y;
+    ar << m_vField[i].z;
+  }
+}
+
+void CDoubleLayerField::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  CFieldPerturbation::load(ar);
+
+  ar >> m_fFilmDepth;
+  ar >> m_fChargeSrfDens;
+
+  m_fScale = 2 * m_fFilmDepth * m_fChargeSrfDens;
+
+  m_vPhi.clear();
+  m_vField.clear();
+  size_t nNodesCount;
+  ar >> nNodesCount;
+  m_vPhi.resize(nNodesCount, 0.0f);
+  m_vField.resize(nNodesCount, Vector3F(0, 0, 0));
+  for(size_t i = 0; i < nNodesCount; i++)
+  {
+    ar >> m_vPhi[i];
+    ar >> m_vField[i].x;
+    ar >> m_vField[i].y;
+    ar >> m_vField[i].z;
+  }
+}
+
 
 };  // namespace EvaporatingParticle

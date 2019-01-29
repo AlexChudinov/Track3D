@@ -227,6 +227,9 @@ bool CFieldDataColl::calc_fields(bool bMirrorClmb)
     pData->set_handlers(NULL, NULL, NULL);
   }
 
+  if(!bMirrorClmb)
+    pObj->apply_perturbations();  // [MS] 20-01-2019, the perturbations are applied at every node before the tracking starts instead of being called during tracking.
+
   return true;
 }
 

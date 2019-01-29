@@ -1,9 +1,7 @@
 
 #pragma once
 
-#include "Vector3D.hpp"
-#include "constant.hpp"
-#include <vector>
+#include "Elements.h"
 
 namespace EvaporatingParticle
 {
@@ -11,7 +9,7 @@ namespace EvaporatingParticle
 //-----------------------------------------------------------------------------
 // CFieldPerturbation - base class for various field perturbations
 //-----------------------------------------------------------------------------
-class CFieldPerturbation
+class CFieldPerturbation : public CObject
 {
 public:
   CFieldPerturbation()
@@ -28,7 +26,8 @@ public:
     ptbRing         = 0,  // uniformly charged ring of finite radius and negligible width.
     ptbStackOfRings = 1,  // a stack of equidistant charged rings; the rings can carry different charges.
     ptbUniform      = 2,  // simple uniform addition dE = const to the external DC field.
-    ptbCount        = 3
+    ptbDoubleLayer  = 3,  // a model of field produced by a thin charged dielectric film.
+    ptbCount        = 4
   };
 
   static 
@@ -38,6 +37,10 @@ public:
   const char*         perturbation_name(int nType);
 
   virtual Vector3D    field_ptb(const Vector3D& vPos) = 0;
+
+  virtual bool        calc_field() { return true; }
+  virtual Vector3D    get_field(size_t nNodeId) { return Vector3D(); }
+  virtual float       get_phi(size_t nNodeId) { return 0; }
 
   int                 type() const;
   const char*         name() const;
@@ -51,6 +54,8 @@ public:
 protected:
   bool                m_bEnable;
   int                 m_nType;
+
+  void                invalidate_contours() const;
 };
 
 //-----------------------------------------------------------------------------
@@ -78,6 +83,9 @@ public:
   virtual ~CChargedRingPerturbation();
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
+
+  virtual Vector3D    get_field(size_t nNodeId);
+  virtual float       get_phi(size_t nNodeId);
 
   Vector3D            get_ring_pos() const;
   DWORD_PTR           get_ring_pos_ptr() const;
@@ -134,6 +142,9 @@ public:
   };
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
+
+  virtual Vector3D    get_field(size_t nNodeId);
+  virtual float       get_phi(size_t nNodeId);
 
   UINT                get_rings_count() const;
   DWORD_PTR           get_rings_count_ptr() const;
@@ -198,6 +209,9 @@ public:
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
 
+  virtual Vector3D    get_field(size_t nNodeId) { return m_vAddEdc; }
+  virtual float       get_phi(size_t nNodeId)   { return 0; }
+
   Vector3D            get_add_Edc() const;
   DWORD_PTR           get_add_Edc_ptr() const;
   void                set_add_Edc(const Vector3D& vE);
@@ -223,6 +237,49 @@ private:
                       m_fAddEdcEndX;
 };
 
+//-----------------------------------------------------------------------------
+// CDoubleLayerField - a model of the field from a charged thin dielectric film.
+//-----------------------------------------------------------------------------
+class CDoubleLayerField : public CFieldPerturbation
+{
+public:
+  CDoubleLayerField();
+  virtual ~CDoubleLayerField();
+
+  virtual Vector3D      field_ptb(const Vector3D& vPos);
+
+  virtual bool          calc_field();
+  virtual Vector3D      get_field(size_t nNodeId);
+  virtual float         get_phi(size_t nNodeId);
+
+  double                get_film_depth() const;
+  DWORD_PTR             get_film_depth_ptr() const;
+  void                  set_film_depth(double fD);
+
+  double                get_charge_srf_dens() const;
+  DWORD_PTR             get_charge_srf_dens_ptr() const;
+  void                  set_charge_srf_dens(double fD);
+
+  virtual void          save(CArchive& ar);
+  virtual void          load(CArchive& ar);
+
+protected:
+  void                  set_default();
+
+  bool                  calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const;
+
+private:
+  double                m_fFilmDepth,
+                        m_fChargeSrfDens;
+
+// Run-time:
+  std::vector<float>    m_vPhi;   // for field visualization.
+  std::vector<Vector3F> m_vField;
+
+  float                 m_fScale;
+
+  bool                  m_bReady;
+};
 //-----------------------------------------------------------------------------
 // Inline implementation:
 //-----------------------------------------------------------------------------
@@ -488,5 +545,43 @@ inline void CUniformAddField::set_add_Edc_end_x(double fX)
 {
   m_fAddEdcEndX = fX;
 }
+
+//-----------------------------------------------------------------------------
+// CDoubleLayerField - a model of the field from a charged thin dielectric film.
+//-----------------------------------------------------------------------------
+inline double CDoubleLayerField::get_film_depth() const
+{
+  return m_fFilmDepth;
+}
+
+inline DWORD_PTR CDoubleLayerField::get_film_depth_ptr() const
+{
+  return (DWORD_PTR)&m_fFilmDepth;
+}
+
+inline void CDoubleLayerField::set_film_depth(double fD)
+{
+  m_fFilmDepth = fD;
+  m_fScale = 2 * m_fFilmDepth * m_fChargeSrfDens;
+  invalidate_contours();
+}
+
+inline double CDoubleLayerField::get_charge_srf_dens() const
+{
+  return m_fChargeSrfDens;
+}
+
+inline DWORD_PTR CDoubleLayerField::get_charge_srf_dens_ptr() const
+{
+  return (DWORD_PTR)&m_fChargeSrfDens;
+}
+
+inline void CDoubleLayerField::set_charge_srf_dens(double fD)
+{
+  m_fChargeSrfDens = fD;
+  m_fScale = 2 * m_fFilmDepth * m_fChargeSrfDens;
+  invalidate_contours();
+}
+
 
 };  // namespace EvaporatingParticle

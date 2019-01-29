@@ -868,7 +868,7 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
     if(m_bEnableField)
       accel += fEoverM * node.field;
 
-    accel += fEoverM * m_vFieldPtbColl.apply(node.pos); // the perturbations can be swiched off individually.
+//    accel += fEoverM * m_vFieldPtbColl.apply(node.pos); // the perturbations can be swiched off individually.
 
     if(m_bEnableRF)
     {
@@ -879,7 +879,8 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
   }
   else
   {
-    accel += fEoverM * (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
+    accel += fEoverM * (node.rf + node.field);
+//    accel += fEoverM * (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
   }
   
 // Gas-dynamics:
@@ -968,14 +969,15 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
     if(m_bEnableField)  // enable/disable Ansys DC field:
       vE += node.field;
 
-    vE += m_vFieldPtbColl.apply(node.pos);  // DC perturbation field can be swiched on/off individually.
+//    vE += m_vFieldPtbColl.apply(node.pos);  // DC perturbation field can be swiched on/off individually.
 
     if(m_bEnableRF)     // RF field:
       vE += get_rf_field(node, fTime, fPhase);
   }
   else
   {
-    vE += (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
+    vE += (node.rf + node.field);
+//    vE += (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
   }
 
 // Coulomb repulsion:
@@ -1164,6 +1166,18 @@ void CTracker::clear_tracks(bool bFinally)
 #ifndef _DEBUG
   set_status("Ready", -1);
 #endif
+}
+
+void CTracker::apply_perturbations()
+{
+  size_t nPtbCount = m_vFieldPtbColl.size();
+  size_t nNodeCount = m_vNodes.size();
+  for(size_t j = 0; j < nPtbCount; j++)
+  {
+    CFieldPerturbation* pPtb = m_vFieldPtbColl.at(j);
+    for(size_t i = 0; i < nNodeCount; i++)
+      m_vNodes.at(i)->field += pPtb->get_field(i);
+  }
 }
 
 //-------------------------------------------------------------------------------------------------

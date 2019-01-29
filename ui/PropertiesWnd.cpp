@@ -175,7 +175,10 @@ static UINT __stdcall main_thread_func(LPVOID pData)
   if(pObj->get_enable_ansys_field())
   {
     if(pObj->is_ready())
+    {
       pObj->read_gasdyn_data(true); // restore only ANSYS-calculated electric fields, the other node data will be unchanged.
+      pObj->apply_perturbations();  // field perturbations are applied and stored in the mesh nodes.
+    }
   }
   else
   {
@@ -458,7 +461,8 @@ void CPropertiesWnd::OnAddCrossSection()
   set_update_all();
 
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  pDrawObj->invalidate_hidden();
+  pDrawObj->invalidate_faces();
+  pDrawObj->invalidate_aux();
   pDrawObj->draw();
 }
 
@@ -671,7 +675,7 @@ void CPropertiesWnd::OnTabSelChange(NMHDR* pNMHDR, LRESULT* pLResult)
 
     EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->hide_selected();
-    pDrawObj->clear_selected_faces();
+    pDrawObj->clear_selected_regions();
     pDrawObj->draw();
   }
 }

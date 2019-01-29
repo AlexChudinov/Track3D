@@ -33,10 +33,13 @@ CTrackDraw::CTrackDraw()
   m_bWireframeReady = false;
   m_bFacesReady = false;
   m_bNormReady = false;
+  m_bAuxReady = false;
 
   m_bNewData = true;
   m_bSelRegFlag = false;
   m_bSelTrajectFlag = false;
+  m_bSelFacesFlag = false;
+
   m_nTrajUnderCursorId = -1;
 
   m_fScale = 1.;
@@ -69,6 +72,9 @@ CTrackDraw::~CTrackDraw()
 void CTrackDraw::clear()
 {
   m_vFaceVert.clear();
+  m_vFacesSelRegionVert.clear();
+  m_vSelFacesVert.clear();
+
   m_vWireFrame.clear();
   m_vAuxLines.clear();
 
@@ -321,12 +327,8 @@ void CTrackDraw::build_arrays()
   build_wireframe_array();
   build_norm_array();
 
-  if(!m_bFacesReady)
-  {
-    build_faces_array();
-    build_aux_array();
-    m_bFacesReady = true;
-  }
+  build_faces_array();
+  build_aux_arrays();
 
   if(m_bNewData)
   {
@@ -337,6 +339,9 @@ void CTrackDraw::build_arrays()
 
 void CTrackDraw::build_faces_array()
 {
+  if(m_bFacesReady)
+    return;
+
   glFrontFace(GL_CCW);
   glDisable(GL_NORMALIZE);
   glDisable(GL_CULL_FACE);
@@ -345,6 +350,7 @@ void CTrackDraw::build_faces_array()
   CRegion* pReg = NULL;
 
   m_vFaceVert.clear();
+  m_vFaceCrossSectVert.clear();
   const CRegionsCollection& regions = m_pTracker->get_regions();
 
   size_t nRegCount = regions.size();
@@ -356,24 +362,77 @@ void CTrackDraw::build_faces_array()
 
     const CFacesCollection& faces = pReg->vFaces;
     size_t nFaceCount = faces.size();
-    for(size_t j = 0; j < nFaceCount; j++)
+    if(pReg->bCrossSection)
     {
-      pFace = faces.at(j);
-      m_vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
-      m_vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
-      m_vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+      for(size_t j = 0; j < nFaceCount; j++)
+      {
+        pFace = faces.at(j);
+        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+      }
+    }
+    else
+    {
+      for(size_t j = 0; j < nFaceCount; j++)
+      {
+        pFace = faces.at(j);
+        m_vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+        m_vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+        m_vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+      }
     }
 
     set_progress("Building faces", 100 * i / nRegCount);
   }
+
+  m_bFacesReady = true;
 }
 
-void CTrackDraw::build_aux_array()
+void CTrackDraw::build_aux_arrays()
+{
+  if(m_bAuxReady)
+    return;
+
+  build_sel_regions_array();
+  build_sel_faces_array();
+
+  m_bAuxReady = true;
+}
+
+void CTrackDraw::build_sel_faces_array()
 {
   CFace* pFace = NULL;
   CRegion* pReg = NULL;
 
-  m_vSelFaceVert.clear();
+  m_vSelFacesVert.clear();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+
+  size_t nSelFacesCount = m_vSelFaces.size();
+  for(size_t i = 0; i < nSelFacesCount; i++)
+  {
+    const CRegFacePair& face = m_vSelFaces.at(i);
+    if(face.nReg >= nRegCount)
+      continue;
+
+    pReg = regions.at(face.nReg);
+    if(face.nFace >= pReg->vFaces.size())
+      continue;
+
+    pFace = pReg->vFaces.at(face.nFace);
+    m_vSelFacesVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+    m_vSelFacesVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+    m_vSelFacesVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+  }
+}
+
+void CTrackDraw::build_sel_regions_array()
+{
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+
+  m_vFacesSelRegionVert.clear();
   const CRegionsCollection& regions = m_pTracker->get_regions();
   size_t nRegCount = regions.size();
   for(size_t i = 0; i < nRegCount; i++)
@@ -387,9 +446,9 @@ void CTrackDraw::build_aux_array()
     for(size_t j = 0; j < nFaceCount; j++)
     {
       pFace = faces.at(j);
-      m_vSelFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
-      m_vSelFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
-      m_vSelFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+      m_vFacesSelRegionVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+      m_vFacesSelRegionVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+      m_vFacesSelRegionVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
     }
   }
 }
@@ -602,8 +661,9 @@ void CTrackDraw::draw()
     draw_tracks();
 
     draw_contours();
-    draw_sel_region();
+    draw_region_under_cursor();
     draw_cross_sections();
+    draw_selected_faces();
   }
 
   draw_axes();
@@ -625,7 +685,7 @@ void CTrackDraw::draw_tracks()
     m_ColoredTracks.draw();
 }
 
-void CTrackDraw::draw_sel_region()
+void CTrackDraw::draw_region_under_cursor()
 {
   if(m_pRegUnderCursor == NULL || m_vSelRegVert.size() == 0)
     return;
@@ -669,9 +729,9 @@ void CTrackDraw::draw_geometry()
   switch(m_nDrawMode)
   {
     case dmNone: return;
-    case dmWire: draw_selected_faces(); draw_wire(); return;
-    case dmFlatAndWire: draw_flat(); draw_selected_faces(); draw_wire();  draw_norm(); return;
-    case dmFlatOnly: draw_flat(); draw_selected_faces(); draw_norm(); return;
+    case dmWire: draw_selected_regions(); draw_wire(); draw_cs_flat(); return;
+    case dmFlatAndWire: draw_flat(); draw_selected_regions(); draw_wire();  draw_cs_flat(); draw_norm(); return;
+    case dmFlatOnly: draw_flat(); draw_selected_regions(); draw_cs_flat(); draw_norm(); return;
   }
 }
 
@@ -738,9 +798,9 @@ void CTrackDraw::draw_flat()
   glDisableClientState(GL_NORMAL_ARRAY);
 }
 
-void CTrackDraw::draw_selected_faces()
+void CTrackDraw::draw_cs_flat()
 {
-  if(m_vSelFaceVert.size() == 0)
+  if(m_vFaceCrossSectVert.size() == 0)
     return;
 
   set_lights();
@@ -748,12 +808,74 @@ void CTrackDraw::draw_selected_faces()
   glEnableClientState(GL_NORMAL_ARRAY);
 
   UINT nStride = 6 * sizeof(GLdouble);
-  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].x));
-  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vSelFaceVert[0].nx));
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceCrossSectVert[0].x));
+  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceCrossSectVert[0].nx));
+
+  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 200.0f);
+  glColor4ub(200, 200, 0, (unsigned char)(128 * m_fOpacity));
+  glDrawArrays(GL_TRIANGLES, 0, m_vFaceCrossSectVert.size());
+
+  glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void CTrackDraw::draw_selected_regions()
+{
+  if(m_vFacesSelRegionVert.size() == 0)
+    return;
+
+  set_lights();
+  set_materials();
+  glEnableClientState(GL_NORMAL_ARRAY);
+
+  UINT nStride = 6 * sizeof(GLdouble);
+  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFacesSelRegionVert[0].x));
+  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFacesSelRegionVert[0].nx));
 
 //  glColor4ub(130, 200, 130, (unsigned char)(255 * m_fOpacity)); // pale green.
   glColor4ub(0, 200, 200, (unsigned char)(255 * m_fOpacity)); // bright cyan.
-  glDrawArrays(GL_TRIANGLES, 0, m_vSelFaceVert.size());
+  glDrawArrays(GL_TRIANGLES, 0, m_vFacesSelRegionVert.size());
+
+  glDisableClientState(GL_NORMAL_ARRAY);
+}
+
+void CTrackDraw::draw_selected_faces()
+{
+  set_lights();
+  set_materials();
+  glEnableClientState(GL_NORMAL_ARRAY);
+
+// Draw the selected faces...
+  if(m_vSelFacesVert.size() != 0)
+  {
+    UINT nStride = 6 * sizeof(GLdouble);
+    glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelFacesVert[0].x));
+    glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vSelFacesVert[0].nx));
+
+    glColor4ub(0, 0, 255, (unsigned char)(255 * m_fOpacity)); // bright blue.
+    glDrawArrays(GL_TRIANGLES, 0, m_vSelFacesVert.size());
+  }
+
+// ... and the face under the cursor (if any)
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  if(m_FaceUnderCursor.nReg < regions.size())
+  {
+    CRegion* pReg = regions.at(m_FaceUnderCursor.nReg);
+    if(m_FaceUnderCursor.nFace < pReg->vFaces.size())
+    {
+      CFace* pFace = pReg->vFaces.at(m_FaceUnderCursor.nFace);
+      std::vector<CFaceVertex> vFaceVert(3);
+      vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+      vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+      vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+
+      UINT nStride = 6 * sizeof(GLdouble);
+      glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].x));
+      glNormalPointer(GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].nx));
+
+      glColor4ub(255, 0, 0, (unsigned char)(255 * m_fOpacity)); // bright red.
+      glDrawArrays(GL_TRIANGLES, 0, vFaceVert.size());
+    }
+  }
 
   glDisableClientState(GL_NORMAL_ARRAY);
 }
@@ -837,14 +959,15 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
   }
   else if(m_bSelRegFlag)
   {
+    CRegFacePair face;
     CRay ray = get_view_dir(point);
-    CRegion* pReg = intersect(ray);
+    CRegion* pReg = intersect(ray, face);
     set_region_under_cursor(pReg);
 
     if(m_bCtrlPressed && (pReg != NULL))  // if the Control key is down, select all regions, over which the cursor is, on the fly.
     {
       pReg->bSelected = true;
-      invalidate_hidden();
+      invalidate_faces();
     }
 
     draw();
@@ -853,6 +976,12 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
   {
     CTrajectSelector sel(m_pTracker->get_tracks(), point.x, point.y);
     m_nTrajUnderCursorId = sel.find_traject();
+    draw();
+  }
+  else if(m_bSelFacesFlag)
+  {
+    CRay ray = get_view_dir(point);
+    CRegion* pReg = intersect(ray, m_FaceUnderCursor);
     draw();
   }
   else
@@ -928,7 +1057,8 @@ void CTrackDraw::on_left_button_up(const CPoint& point)
   if(m_bSelRegFlag && (m_pRegUnderCursor != NULL) && (m_StartPoint == point))
   {
     m_pRegUnderCursor->bSelected = !m_pRegUnderCursor->bSelected;
-    invalidate_hidden();
+    invalidate_faces();
+    invalidate_aux();
     draw();
   }
   else if(m_bSelTrajectFlag && (m_nTrajUnderCursorId != -1) && (m_StartPoint == point))
@@ -940,6 +1070,20 @@ void CTrackDraw::on_left_button_up(const CPoint& point)
       m_vSelTrackIds.erase(iter);
 
     m_nTrajUnderCursorId = -1;
+    draw();
+  }
+  else if(m_bSelFacesFlag && (m_FaceUnderCursor.nFace != UINT_MAX) && (m_StartPoint == point))
+  {
+   CFaceIndices::iterator iter = std::find(m_vSelFaces.begin(), m_vSelFaces.end(), m_FaceUnderCursor);
+    if(iter == m_vSelFaces.end())
+      m_vSelFaces.push_back(m_FaceUnderCursor);
+    else
+      m_vSelFaces.erase(iter);
+
+    m_FaceUnderCursor.nFace = UINT_MAX;
+    m_FaceUnderCursor.nReg = UINT_MAX;
+    invalidate_faces();
+    invalidate_aux();
     draw();
   }
 }
@@ -1289,7 +1433,7 @@ void CTrackDraw::set_progress(const char* cJobName, int nPercent) const
 // Streaming:
 void CTrackDraw::save(CArchive& ar)
 {
-  const UINT nVersion = 6;  // 6 - m_vSelTrackIds; 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
+  const UINT nVersion = 7;  // 7 - m_vSelFaces; 6 - m_vSelTrackIds; 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
   ar << nVersion;
 
   ar << m_nDrawMode; // ar << m_bDrawFaces;
@@ -1332,6 +1476,15 @@ void CTrackDraw::save(CArchive& ar)
   ar << nSelTracksCount;
   for(size_t m = 0; m < nSelTracksCount; m++)
     ar << m_vSelTrackIds.at(m);
+
+  size_t nSelFacesCount = m_vSelFaces.size();
+  ar << nSelFacesCount;
+  for(size_t n = 0; n < nSelFacesCount; n++)
+  {
+    const CRegFacePair& face = m_vSelFaces.at(n);
+    ar << face.nReg;
+    ar << face.nFace;
+  }
 }
 
 void CTrackDraw::load(CArchive& ar)
@@ -1416,6 +1569,20 @@ void CTrackDraw::load(CArchive& ar)
     }
   }
 
+  if(nVersion >= 7)
+  {
+    m_vSelFaces.clear();
+    size_t nSelFacesCount;
+    ar >> nSelFacesCount;
+    UINT nReg, nFace;
+    for(size_t n = 0; n < nSelFacesCount; n++)
+    {
+      ar >> nReg;
+      ar >> nFace;
+      m_vSelFaces.push_back(CRegFacePair(nReg, nFace));
+    }
+  }
+
   glMatrixMode(GL_MODELVIEW);
   glLoadMatrixd(pMtx);
 
@@ -1432,7 +1599,8 @@ void CTrackDraw::set_hidden_reg_names()
     pReg->bEnabled = std::find(m_vHiddenRegNames.begin(), m_vHiddenRegNames.end(), pReg->sName) == m_vHiddenRegNames.end();
   }
 
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 CString CTrackDraw::get_hidden_names_str() const
@@ -1454,7 +1622,8 @@ void CTrackDraw::enter_sel_context(CNamesVector* pRegNames, bool bAllowSelect)
   }
 
   m_bSelRegFlag = bAllowSelect;
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 void CTrackDraw::exit_sel_context(CNamesVector* pRegNames)
@@ -1480,7 +1649,8 @@ void CTrackDraw::exit_sel_context(CNamesVector* pRegNames)
 
   m_bSelRegFlag = false;
   set_region_under_cursor(NULL);
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 void CTrackDraw::hide_selected()
@@ -1496,7 +1666,8 @@ void CTrackDraw::hide_selected()
     pReg->bSelected = false;
   }
 
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 void CTrackDraw::show_all_regions()
@@ -1516,7 +1687,8 @@ void CTrackDraw::show_all_regions()
     pReg->bEnabled = true;
   }
 
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
 void CTrackDraw::set_visibility_status(CNamesVector* pRegNames, bool bVisible)
@@ -1536,14 +1708,16 @@ void CTrackDraw::set_visibility_status(CNamesVector* pRegNames, bool bVisible)
       pReg->bEnabled = bVisible;
   }
 
-  invalidate_hidden();
+  invalidate_faces();
+  invalidate_aux();
 }
 
-CRegion* CTrackDraw::intersect(const CRay& ray) const
+CRegion* CTrackDraw::intersect(const CRay& ray, CRegFacePair& face) const
 {
   if(m_pTracker == NULL)
     return NULL;
 
+  UINT nFaceID;
   CRegion* pSelReg = NULL;
   double fMinDist = FLT_MAX, fDist;
   const CRegionsCollection& regions = m_pTracker->get_regions();
@@ -1551,8 +1725,10 @@ CRegion* CTrackDraw::intersect(const CRay& ray) const
   for(size_t j = 0; j < nRegCount; j++)
   {
     CRegion* pReg = regions.at(j);
-    if(pReg->bEnabled && pReg->intersect(ray, fDist) && (fDist < fMinDist))
+    if(pReg->bEnabled && pReg->intersect(ray, fDist, nFaceID) && (fDist < fMinDist))
     {
+      face.nReg = j;
+      face.nFace = nFaceID;
       fMinDist = fDist;
       pSelReg = pReg;
     }
@@ -1571,6 +1747,40 @@ const char* CTrackDraw::get_draw_mode_name(int nMode) const
   }
 
   return _T("None");
+}
+
+CString CTrackDraw::get_sel_faces_square_str() const
+{
+  double fS = get_sel_faces_square();
+  CString sVal = dbl_to_str(fS).c_str();
+  return sVal;
+}
+
+double CTrackDraw::get_sel_faces_square(bool bSquaredMillimeters) const
+{
+  if(m_pTracker == NULL)
+    return 0;
+
+  double fS = 0;
+  size_t nSelCount = m_vSelFaces.size();
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+  CRegion* pReg = NULL;
+
+  for(size_t i = 0; i < nSelCount; i++)
+  {
+    CRegFacePair face = m_vSelFaces.at(i);
+    if(face.nReg >= nRegCount)
+      continue;
+
+    pReg = regions.at(face.nReg);
+    if(face.nFace >= pReg->vFaces.size())
+      continue;
+
+    fS += pReg->vFaces.at(face.nFace)->square();
+  }
+
+  return bSquaredMillimeters ? 100 * fS : fS;
 }
 
 //-------------------------------------------------------------------------------------------------
