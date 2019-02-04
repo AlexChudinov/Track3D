@@ -125,7 +125,7 @@ struct CBox
   Vector3D  get_center() const;
 
   bool      intersect(const CRay& ray) const;
-  bool      intersect_plane(const CRay& ray, int nface) const;
+  bool      intersect_plane(const CRay& ray, int nface, Vector3D& vRes) const;
 };
 
 //-------------------------------------------------------------------------------------------------

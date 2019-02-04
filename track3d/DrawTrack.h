@@ -117,12 +117,13 @@ public:
 
   bool              get_rot_center() const;
   DWORD_PTR         get_rot_center_ptr() const;
-  void              set_rot_center(bool bEnable);
 
 // Auxiliary lines (visualization of normals or Dirichlet cells)
   bool              get_enable_draw_norm() const;
   DWORD_PTR         get_enable_draw_norm_ptr() const;
-  void              set_enable_draw_norm(bool bEnable);
+// Enable/disable drawing selected faces.
+  bool              get_enable_sel_faces() const;
+  DWORD_PTR         get_enable_sel_faces_ptr() const;
 
   UINT              get_cell_index() const;
   DWORD_PTR         get_cell_index_ptr() const;
@@ -135,6 +136,9 @@ public:
 
   size_t            get_contours_count() const;
   CColorContour*    get_contour(size_t nIndex) const;
+// Visualization of electric potentials. This function searches over all computed fields, which visualization is enabled
+// and sets the summary potential to all the nodes (node.phi).
+  void              set_phi_to_nodes() const;
 
 // Windows kitchen:
   HWND              get_window_handle();
@@ -175,6 +179,7 @@ public:
 
   void              on_left_button_down(const CPoint& point);
   void              on_left_button_up(const CPoint& point);
+  void              on_left_button_dblclk(const CPoint& point);
 
   void              on_right_button_up(const CPoint& point);
 
@@ -317,7 +322,8 @@ private:
 
   int               m_nDrawMode;  // can be one of the following: dmNone, dmWire and dmFlat.
   bool              m_bDrawTracks,
-                    m_bDrawNorm;  // optional auxiliary lines drawing.
+                    m_bDrawNorm,      // optional auxiliary lines drawing.
+                    m_bDrawSelFaces;  // enable/disable selected faces drawing.
 
   UINT              m_nDrawnCell; // index of the Dirichlet cell to visualize.
 
@@ -549,11 +555,6 @@ inline DWORD_PTR CTrackDraw::get_rot_center_ptr() const
   return (DWORD_PTR)&m_bRotCenter;
 }
 
-inline void CTrackDraw::set_rot_center(bool bEnable)
-{
-  m_bRotCenter = bEnable;
-}
-
 inline bool CTrackDraw::get_enable_draw_norm() const
 {
   return m_bDrawNorm;
@@ -564,13 +565,14 @@ inline DWORD_PTR CTrackDraw::get_enable_draw_norm_ptr() const
   return (DWORD_PTR)&m_bDrawNorm;
 }
 
-inline void CTrackDraw::set_enable_draw_norm(bool bEnable)
+inline bool CTrackDraw::get_enable_sel_faces() const
 {
-  if(m_bDrawNorm != bEnable)
-  {
-    m_bDrawNorm = bEnable;
-    m_bNormReady = false;
-  }
+  return m_bDrawSelFaces;
+}
+
+inline DWORD_PTR CTrackDraw::get_enable_sel_faces_ptr() const
+{
+  return (DWORD_PTR)&m_bDrawSelFaces;
 }
 
 inline UINT CTrackDraw::get_cell_index() const

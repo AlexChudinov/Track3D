@@ -26,19 +26,22 @@ namespace EvaporatingParticle
 CTrackDraw::CTrackDraw()
   : m_pTracker(NULL), m_hWnd(NULL), m_hDC(NULL), m_hRC(NULL), m_Color(clLtGray), m_pRegUnderCursor(NULL)
 {
+// User-defined flags:
   m_bDrawTracks = true;
   m_nDrawMode = dmFlatAndWire;
   m_bDrawNorm = false;
+  m_bDrawSelFaces = true;   // enable/disable selected faces drawing.
 
   m_bWireframeReady = false;
   m_bFacesReady = false;
   m_bNormReady = false;
   m_bAuxReady = false;
 
+// Run-time:
   m_bNewData = true;
   m_bSelRegFlag = false;
   m_bSelTrajectFlag = false;
-  m_bSelFacesFlag = false;
+  m_bSelFacesFlag = false;    // this flag shows whether the faces selection context is ON or OFF.
 
   m_nTrajUnderCursorId = -1;
 
@@ -164,6 +167,7 @@ void CTrackDraw::set_view(int nViewDir)
 
   const CBox& box = m_pTracker->get_box();
   Vector3D vC = box.get_center();
+  m_vCenter = vC;
 
   double fSizeX, fSizeY, fRotX, fRotY, fRotZ;
   switch(nViewDir)
@@ -172,9 +176,6 @@ void CTrackDraw::set_view(int nViewDir)
     {
       fSizeX = box.vMax.x - box.vMin.x;
       fSizeY = box.vMax.y - box.vMin.y;
-//      fRotX = -70;
-//      fRotY = 0;
-//      fRotZ = -135;
       fRotX = 20;
       fRotY = -150;
       fRotZ = 0;
@@ -301,7 +302,7 @@ void CTrackDraw::set_projection()
 
 // Visualization of the Dirichlet cells support.
   vC = Vector3D(0, 0, 0);
-  if(m_bRotCenter && m_bDrawNorm)
+  if(m_bRotCenter)  // && m_bDrawNorm)
   {
     vC = m_vCenter;
     glTranslated(vC.x, vC.y, vC.z);
@@ -840,6 +841,9 @@ void CTrackDraw::draw_selected_regions()
 
 void CTrackDraw::draw_selected_faces()
 {
+  if(!m_bDrawSelFaces)
+    return;
+
   set_lights();
   set_materials();
   glEnableClientState(GL_NORMAL_ARRAY);
@@ -851,9 +855,11 @@ void CTrackDraw::draw_selected_faces()
     glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vSelFacesVert[0].x));
     glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vSelFacesVert[0].nx));
 
-    glColor4ub(0, 0, 255, (unsigned char)(255 * m_fOpacity)); // bright blue.
+    glColor4ub(0, 0, 255, (unsigned char)(192 * m_fOpacity)); // semi-transparent bright blue.
     glDrawArrays(GL_TRIANGLES, 0, m_vSelFacesVert.size());
   }
+
+  glDisableClientState(GL_NORMAL_ARRAY);
 
 // ... and the face under the cursor (if any)
   const CRegionsCollection& regions = m_pTracker->get_regions();
@@ -863,21 +869,32 @@ void CTrackDraw::draw_selected_faces()
     if(m_FaceUnderCursor.nFace < pReg->vFaces.size())
     {
       CFace* pFace = pReg->vFaces.at(m_FaceUnderCursor.nFace);
-      std::vector<CFaceVertex> vFaceVert(3);
-      vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
-      vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
-      vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
 
-      UINT nStride = 6 * sizeof(GLdouble);
+      CEdgeVertexColl vFaceVert(6);
+      vFaceVert.push_back(CEdgeVertex(pFace->p0->pos));
+      vFaceVert.push_back(CEdgeVertex(pFace->p1->pos));
+
+      vFaceVert.push_back(CEdgeVertex(pFace->p1->pos));
+      vFaceVert.push_back(CEdgeVertex(pFace->p2->pos));
+
+      vFaceVert.push_back(CEdgeVertex(pFace->p2->pos));
+      vFaceVert.push_back(CEdgeVertex(pFace->p0->pos));
+
+      glDisable(GL_LIGHTING);
+      glDisable(GL_ALPHA_TEST);
+      glDisable(GL_DEPTH_TEST);
+      glDisable(GL_BLEND);
+      glLineWidth(2);
+
+      glColor3ub(255, 0, 0);
+      UINT nStride = 3 * sizeof(GLdouble);
       glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].x));
-      glNormalPointer(GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].nx));
+      glDrawArrays(GL_LINES, 0, vFaceVert.size());
 
-      glColor4ub(255, 0, 0, (unsigned char)(255 * m_fOpacity)); // bright red.
-      glDrawArrays(GL_TRIANGLES, 0, vFaceVert.size());
+      glLineWidth(1);
+      glEnable(GL_DEPTH_TEST);
     }
   }
-
-  glDisableClientState(GL_NORMAL_ARRAY);
 }
 
 void CTrackDraw::set_global()
@@ -982,6 +999,18 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
   {
     CRay ray = get_view_dir(point);
     CRegion* pReg = intersect(ray, m_FaceUnderCursor);
+
+    if(m_bCtrlPressed && (pReg != NULL) && (m_FaceUnderCursor.nFace != UINT_MAX))  // if the Control key is down, select all faces, over which the cursor is, on the fly.
+    {
+      CFaceIndices::iterator iter = std::find(m_vSelFaces.begin(), m_vSelFaces.end(), m_FaceUnderCursor);
+      if(iter == m_vSelFaces.end())
+      {
+        m_vSelFaces.push_back(m_FaceUnderCursor);
+        invalidate_faces();
+        invalidate_aux();
+      }
+    }
+
     draw();
   }
   else
@@ -1074,7 +1103,7 @@ void CTrackDraw::on_left_button_up(const CPoint& point)
   }
   else if(m_bSelFacesFlag && (m_FaceUnderCursor.nFace != UINT_MAX) && (m_StartPoint == point))
   {
-   CFaceIndices::iterator iter = std::find(m_vSelFaces.begin(), m_vSelFaces.end(), m_FaceUnderCursor);
+    CFaceIndices::iterator iter = std::find(m_vSelFaces.begin(), m_vSelFaces.end(), m_FaceUnderCursor);
     if(iter == m_vSelFaces.end())
       m_vSelFaces.push_back(m_FaceUnderCursor);
     else
@@ -1086,6 +1115,28 @@ void CTrackDraw::on_left_button_up(const CPoint& point)
     invalidate_aux();
     draw();
   }
+}
+
+void CTrackDraw::on_left_button_dblclk(const CPoint& point)
+{
+  if(m_pTracker == NULL || m_bDrawNorm || !m_bRotCenter) // m_bDrawNorm in fact means drawing the selected Dirichlet cell.
+    return;
+
+// If the Dirichlet cell drawing regime is NOT set, the double click will set the rotation center:
+  CRay ray = get_view_dir(point);
+  CBox box = m_pTracker->get_box();
+
+  Vector3D v1, v2;
+  for(int nface = 0; nface < 5; nface += 2)
+  {
+    if(box.intersect_plane(ray, nface, v1) && box.intersect_plane(ray, nface + 1, v2))
+    {
+      m_vCenter = 0.5 * (v1 + v2);
+      return;
+    }
+  }
+
+  m_vCenter = box.get_center();
 }
 
 void CTrackDraw::on_right_button_up(const CPoint& point)
@@ -1596,6 +1647,9 @@ void CTrackDraw::set_hidden_reg_names()
   for(size_t j = 0; j < nRegCount; j++)
   {
     CRegion* pReg = regions.at(j);
+    if(pReg->bCrossSection)
+      continue;   // visibility of cross-sections is controlled ONLY by the "Enable Plane" check box on the "Drawing" tab.
+
     pReg->bEnabled = std::find(m_vHiddenRegNames.begin(), m_vHiddenRegNames.end(), pReg->sName) == m_vHiddenRegNames.end();
   }
 
@@ -1682,11 +1736,12 @@ void CTrackDraw::show_all_regions()
   {
     CRegion* pReg = regions.at(j);
     if(pReg->bCrossSection)
-      continue;
+      continue; // visibility of cross-sections is controlled ONLY by the "Enable Plane" check box on the "Drawing" tab.
 
     pReg->bEnabled = true;
   }
 
+  m_vFacesSelRegionVert.clear();
   invalidate_faces();
   invalidate_aux();
 }
@@ -1702,7 +1757,7 @@ void CTrackDraw::set_visibility_status(CNamesVector* pRegNames, bool bVisible)
   {
     CRegion* pReg = regions.at(j);
     if(pReg->bCrossSection)
-      continue;
+      continue; // visibility of cross-sections is controlled ONLY by the "Enable Plane" check box on the "Drawing" tab.
 
     if(std::find(pRegNames->begin(), pRegNames->end(), pReg->sName) != pRegNames->end())
       pReg->bEnabled = bVisible;
@@ -1827,6 +1882,50 @@ void CTrackDraw::draw_contours()
     CColorContour* pObj = get_contour(i);
     if(pObj->get_enable_image())
       pObj->draw();
+  }
+}
+
+void CTrackDraw::set_phi_to_nodes() const
+{
+  CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
+  size_t nFieldCount = pAllFields->size();
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  CFieldPtbCollection& vPtbs = pObj->get_field_ptb();
+  size_t nPtbCount = vPtbs.size();
+
+  if((nFieldCount == 0) && (nPtbCount == 0))
+    return;
+
+  CNode3D* pNode = NULL;
+  CElectricFieldData* pField = NULL;
+  CFieldPerturbation* pPtb = NULL;
+
+  CNodesCollection& vNodes = pObj->get_nodes();
+  size_t nNodeCount = vNodes.size();
+
+  for(size_t i = 0; i < nNodeCount; i++)
+  {
+    pNode = vNodes.at(i);
+    pNode->phi = 0;
+    for(size_t j = 0; j < nFieldCount; j++)
+    {
+      pField = pAllFields->at(j);
+      if(pField->get_enable_vis())
+      {  
+        if(pField->get_type() != CElectricFieldData::typeMirror)
+          pNode->phi += pField->get_phi(i) * pField->get_scale(); // Note that if the j-th field is not ready, its get_phi(i) returns 0.
+        else
+          pNode->phi += pField->get_clmb_phi(i);
+      }
+    }
+
+    for(size_t k = 0; k < nPtbCount; k++)
+    {
+      pPtb = vPtbs.at(k);
+      if(pPtb->get_enable())
+        pNode->phi += pPtb->get_phi(i);
+    }
   }
 }
 

@@ -1733,7 +1733,9 @@ void CTracker::load(CArchive& ar)
   if(m_bReady)
   {
     CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->set_phi_to_nodes();
     pDrawObj->set_hidden_reg_names();
+    pDrawObj->invalidate_contours();
     pDrawObj->draw();
   }
 }

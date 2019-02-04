@@ -26,16 +26,17 @@ CRay::CRay(const Vector3D& p, const Vector3D& d)
 //------------------------------------------------------------------------------
 bool CBox::intersect(const CRay& ray) const
 {
+  Vector3D vRes;
   for(int i = 0; i < 6; i++)
   {
-    if(intersect_plane(ray, i))
+    if(intersect_plane(ray, i, vRes))
       return true;
   }
 
   return false;
 }
 
-bool CBox::intersect_plane(const CRay& ray, int nface) const
+bool CBox::intersect_plane(const CRay& ray, int nface, Vector3D& vRes) const
 {
   double ksi, x0, y0, z0;
 
@@ -61,6 +62,7 @@ bool CBox::intersect_plane(const CRay& ray, int nface) const
       if(z0 < vMin.z || z0 > vMax.z)
         return false;
 
+      vRes = Vector3D(x0, y0, z0);
       return true;
     }
     case 2:
@@ -83,6 +85,7 @@ bool CBox::intersect_plane(const CRay& ray, int nface) const
       if(z0 < vMin.z || z0 > vMax.z)
         return false;
 
+      vRes = Vector3D(x0, y0, z0);
       return true;
     }
     case 4:
@@ -105,6 +108,7 @@ bool CBox::intersect_plane(const CRay& ray, int nface) const
       if(y0 < vMin.y || y0 > vMax.y)
         return false;
 
+      vRes = Vector3D(x0, y0, z0);
       return true;
     }
   }

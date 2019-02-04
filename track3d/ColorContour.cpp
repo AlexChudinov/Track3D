@@ -39,7 +39,9 @@ bool CColorContour::build_draw_array()
   m_vIsolines.clear();
   m_vFaceColors.clear();
   m_vFaceVert.clear();
-  get_phi();  // the electric potential visualization requires summation over all enabled fields.
+
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->set_phi_to_nodes();  // the electric potential visualization requires summation over all enabled fields.
 
   if(m_nLevelsCount < 2)
     return false;
@@ -382,52 +384,6 @@ double CColorContour::get_node_value(CNode3D* pNode) const
   }
 
   return 0;
-}
-
-bool CColorContour::get_phi() const
-{
-  CFieldDataColl* pAllFields = CParticleTrackingApp::Get()->GetFields();
-  size_t nFieldCount = pAllFields->size();
-
-  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CFieldPtbCollection& vPtbs = pObj->get_field_ptb();
-  size_t nPtbCount = vPtbs.size();
-
-  if((nFieldCount == 0) && (nPtbCount == 0))
-    return false;
-
-  CNode3D* pNode = NULL;
-  CElectricFieldData* pField = NULL;
-  CFieldPerturbation* pPtb = NULL;
-
-  CNodesCollection& vNodes = pObj->get_nodes();
-  size_t nNodeCount = vNodes.size();
-
-  for(size_t i = 0; i < nNodeCount; i++)
-  {
-    pNode = vNodes.at(i);
-    pNode->phi = 0;
-    for(size_t j = 0; j < nFieldCount; j++)
-    {
-      pField = pAllFields->at(j);
-      if(pField->get_enable_vis())
-      {  
-        if(pField->get_type() != CElectricFieldData::typeMirror)
-          pNode->phi += pField->get_phi(i) * pField->get_scale(); // Note that if the j-th field is not ready, its get_phi(i) returns 0.
-        else
-          pNode->phi += pField->get_clmb_phi(i);
-      }
-    }
-
-    for(size_t k = 0; k < nPtbCount; k++)
-    {
-      pPtb = vPtbs.at(k);
-      if(pPtb->get_enable())
-        pNode->phi += pPtb->get_phi(i);
-    }
-  }
-
-  return true;
 }
 
 void CColorContour::save(CArchive& ar)

@@ -260,17 +260,23 @@ public:
   DWORD_PTR             get_charge_srf_dens_ptr() const;
   void                  set_charge_srf_dens(double fD);
 
+  bool                  get_enable_multi_thread() const;
+  DWORD_PTR             get_enable_multi_thread_ptr() const;
+
   virtual void          save(CArchive& ar);
   virtual void          load(CArchive& ar);
 
 protected:
   void                  set_default();
 
-  bool                  calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const;
+  void                  calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const;
+  void                  do_calc_field_from_face(const Vector3D& vPos, const Vector3D& vC, const Vector3D& vN, double fS, Vector3F& vField, float& fPhi) const;
 
 private:
   double                m_fFilmDepth,
                         m_fChargeSrfDens;
+
+  bool                  m_bEnableMultiThreading;
 
 // Run-time:
   std::vector<float>    m_vPhi;   // for field visualization.
@@ -583,5 +589,14 @@ inline void CDoubleLayerField::set_charge_srf_dens(double fD)
   invalidate_contours();
 }
 
+inline bool CDoubleLayerField::get_enable_multi_thread() const
+{
+  return m_bEnableMultiThreading;
+}
+
+inline DWORD_PTR CDoubleLayerField::get_enable_multi_thread_ptr() const
+{
+  return (DWORD_PTR)&m_bEnableMultiThreading;
+}
 
 };  // namespace EvaporatingParticle

@@ -3,7 +3,10 @@
 
 #include "ParticleTracking.h"
 #include "Perturbation.h"
+#include "BarnesHut.h"
 #include <math.h>
+
+#include "../utilities/ParallelFor.h"
 
 namespace EvaporatingParticle
 {
@@ -148,8 +151,6 @@ bool CChargedRingPerturbation::prepare()
   m_bReady = true;
   return true;
 }
-
-static const Vector3D vNull(0, 0, 0);
 
 Vector3D CChargedRingPerturbation::field_ptb(const Vector3D& vPos)
 {
@@ -485,7 +486,8 @@ void CDoubleLayerField::set_default()
 {
   m_bReady = false;
   m_fFilmDepth = 1e-4;  // 1 mcm.
-  set_charge_srf_dens(100 * Const_Srf_Charge_Dens); // 100 nA*hour per square millimeter.
+  set_charge_srf_dens(0.001 / Const_Srf_Charge_Dens); // 0.001 nA*hour per square millimeter.
+  m_bEnableMultiThreading = true;
 }
 
 // This function is for backward compatibility only, it would be used in obsolete approach.
@@ -572,64 +574,132 @@ bool CDoubleLayerField::calc_field()
   if(nRegCount == 0)
     return false;
 
-  CFace* pFace = NULL;
-  CRegion* pReg = NULL;
-  Vector3D vPos;
-  for(size_t i = 0; i < nNodesCount; i++)
+  if(m_bEnableMultiThreading)
   {
-    vPos = vNodes.at(i)->pos;
-    if(i % 100 == 0)
-      set_progress(100 * (i + 1) / nNodesCount);
-
-    if(get_terminate_flag())
-      return false;
-
-    for(size_t j = 0; j < nFacesCount; j++)
+    ThreadPool::splitInPar(vNodes.size(),
+	    [&](size_t i) 
     {
-      const CRegFacePair& face = vSelFaces.at(j);
-      if(face.nReg >= nRegCount)
-        continue;
+      Vector3D vPos = vNodes.at(i)->pos;
+      CFace* pFace = NULL;
+      CRegion* pReg = NULL;
+      for(size_t j = 0; j < nFacesCount; j++)
+      {
+        const CRegFacePair& face = vSelFaces.at(j);
+        if(face.nReg >= nRegCount)
+          continue;
 
-      pReg = regions.at(face.nReg);
-      if(face.nFace >= pReg->vFaces.size())
-        continue;
+        pReg = regions.at(face.nReg);
+        if(face.nFace >= pReg->vFaces.size())
+          continue;
 
-      pFace = pReg->vFaces.at(face.nFace);
-      calc_field_from_face(pFace, vPos, m_vField[i], m_vPhi[i]);
+        pFace = pReg->vFaces.at(face.nFace);
+        calc_field_from_face(pFace, vPos, m_vField[i], m_vPhi[i]);
+      }
+    },
+	    static_cast<CObject*>(this));
+  }
+  else
+  {
+    CFace* pFace = NULL;
+    CRegion* pReg = NULL;
+    Vector3D vPos;
+    for(size_t i = 0; i < nNodesCount; i++)
+    {
+      vPos = vNodes.at(i)->pos;
+      if(i % 100 == 0)
+        set_progress(100 * (i + 1) / nNodesCount);
+
+      if(get_terminate_flag())
+        return false;
+
+      for(size_t j = 0; j < nFacesCount; j++)
+      {
+        const CRegFacePair& face = vSelFaces.at(j);
+        if(face.nReg >= nRegCount)
+          continue;
+
+        pReg = regions.at(face.nReg);
+        if(face.nFace >= pReg->vFaces.size())
+          continue;
+
+        pFace = pReg->vFaces.at(face.nFace);
+        calc_field_from_face(pFace, vPos, m_vField[i], m_vPhi[i]);
+      }
     }
+
+    set_progress(100);
   }
 
-  set_progress(100);
-  m_bReady = true;
-  return true;
+  m_bReady = !get_terminate_flag();
+  return m_bReady;
 }
 
-bool CDoubleLayerField::calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const
+void CDoubleLayerField::calc_field_from_face(CFace* pFace, const Vector3D& vPos, Vector3F& vField, float& fPhi) const
 {
+  double fS = pFace->square();
+  if(fS < Const_Almost_Zero)
+    return;
+
+  Vector3D vN = -pFace->norm; // we need normal vector directed inside the domain.
   Vector3D vC = (pFace->p0->pos + pFace->p1->pos + pFace->p2->pos) * Const_One_Third;
+
+  do_calc_field_from_face(vPos, vC, vN, fS, vField, fPhi);
+
+// Symmetry correction. Note that vPos is position of a mesh node, i.e. it is always inside the domain:
+  Vector3D vCr, vNr;
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  int nSymType = pObj->get_symmetry_type();
+  switch(nSymType)
+  {
+    case CBarnesHut::symXYonly:
+    {
+      vCr = Vector3D(vC.x, vC.y, -vC.z);
+      vNr = Vector3D(vN.x, vN.y, -vN.z);
+      do_calc_field_from_face(vPos, vCr, vNr, fS, vField, fPhi);
+      break;
+    }
+    case CBarnesHut::symXZonly:
+    {
+      vCr = Vector3D(vC.x, -vC.y, vC.z);
+      vNr = Vector3D(vN.x, -vN.y, vN.z);
+      do_calc_field_from_face(vPos, vCr, vNr, fS, vField, fPhi);
+      break;
+    }
+    case CBarnesHut::symBoth:
+    {
+      vCr = Vector3D(vC.x, vC.y, -vC.z);
+      vNr = Vector3D(vN.x, vN.y, -vN.z);
+      do_calc_field_from_face(vPos, vCr, vNr, fS, vField, fPhi);
+
+      vCr = Vector3D(vC.x, -vC.y, vC.z);
+      vNr = Vector3D(vN.x, -vN.y, vN.z);
+      do_calc_field_from_face(vPos, vCr, vNr, fS, vField, fPhi);
+
+      vCr = Vector3D(vC.x, -vC.y, -vC.z);
+      vNr = Vector3D(vN.x, -vN.y, -vN.z);
+      do_calc_field_from_face(vPos, vCr, vNr, fS, vField, fPhi);
+      break;
+    }
+  }
+}
+
+void CDoubleLayerField::do_calc_field_from_face(const Vector3D& vPos, const Vector3D& vC, const Vector3D& vN, double fS, Vector3F& vField, float& fPhi) const
+{
   Vector3D vR = vPos - vC;
 
   double fR2 = vR.sqlength();
   double fR = sqrt(fR2);
   double fR3 = fR2 * fR;
   if(fR3 < Const_Almost_Zero)
-    return false;
+    return;
 
   vR /= fR; // normalize the radius-vector.
-  Vector3D vN = -pFace->norm; // we need normal vector directed inside the domain.
   double fDot = vR & vN;
   if(fDot < -Const_Almost_Zero)
-    return true;  // nothing to add to the field.
-
-  Vector3D e1 = pFace->p1->pos - pFace->p0->pos;
-  Vector3D e2 = pFace->p2->pos - pFace->p0->pos;
-  double fS = 0.5 * (e1 * e2).length(); // square of the face.
-  if(fS < Const_Almost_Zero)
-    return false;
+    return;  // nothing to add to the field.
 
   fPhi += fS * fDot / fR2;
   vField += Vector3F((3 * fDot * vR - vN) * fS / fR3);  // both vR and vN are normalized.
-  return true;
 }
 
 void CDoubleLayerField::save(CArchive& ar)
@@ -678,6 +748,8 @@ void CDoubleLayerField::load(CArchive& ar)
     ar >> m_vField[i].y;
     ar >> m_vField[i].z;
   }
+
+  m_bReady = true;
 }
 
 

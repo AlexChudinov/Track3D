@@ -76,10 +76,6 @@ protected:
   void                add_edge(const Vector3D& v0, const Vector3D& v1);
 
   double              get_multiplier(bool bSI_to_CGS) const;
-
-// Visualization of electric potentials. This function searches over all computed fields, which visualization is enabled
-// and sets the summary potential to all the nodes (node.phi).
-  bool                get_phi() const;
   
 private:
   int                 m_nVar;

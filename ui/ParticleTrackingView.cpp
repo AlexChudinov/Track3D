@@ -22,6 +22,7 @@ BEGIN_MESSAGE_MAP(CParticleTrackingView, CView)
   ON_WM_MOUSEMOVE()
   ON_WM_RBUTTONUP()
   ON_WM_MOUSEWHEEL()
+  ON_WM_LBUTTONDBLCLK()
 END_MESSAGE_MAP()
 
 // CParticleTrackingView construction/destruction
@@ -86,7 +87,6 @@ void CParticleTrackingView::OnMouseMove(UINT nFlags, CPoint point)
 {
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->on_mouse_move(point);
-//  OnDraw(NULL);
 }
 
 BOOL CParticleTrackingView::OnMouseWheel(UINT nFlags, short zDelta, CPoint point)
@@ -105,6 +105,12 @@ void CParticleTrackingView::OnRButtonUp(UINT nFlags, CPoint point)
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->on_right_button_up(point);
   OnDraw(NULL);
+}
+
+void CParticleTrackingView::OnLButtonDblClk(UINT nFlags, CPoint point)
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->on_left_button_dblclk(point);
 }
 
 void CParticleTrackingView::OnContextMenu(CWnd* pWnd, CPoint point)

@@ -24,7 +24,7 @@ void CSelectRegionButton::OnClickButton(CPoint point)
     CSelectRegionButton* pBtn = (CSelectRegionButton*)(m_pWndList->FindItemByData(pDrawObj->get_hidden_reg_names_ptr()));
     if(pBtn != NULL)
     {
-      pBtn->SetValue(CString(""));
+      pBtn->SetValue(CString("0 regions"));
       pBtn->Redraw();
     }
   }

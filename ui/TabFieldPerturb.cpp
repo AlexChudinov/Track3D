@@ -135,18 +135,25 @@ void CPropertiesWnd::add_ptb_ctrls()
 // Enable:
         CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pDblLayer->get_enable(), _T("Turns ON/OFF the field perturbation."), pDblLayer->get_enable_ptr());
         pDblLayerGroup->AddSubItem(pCheckBox);
-// Film depth and surface charge density:
-        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Film Depth, mcm"), COleVariant(1e+4 * pDblLayer->get_film_depth()), _T("The thin dielectric film thickness."), pDblLayer->get_film_depth_ptr());
+// Film thickness ... 
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Film Thickness, mcm"), COleVariant(1e+4 * pDblLayer->get_film_depth()), _T("The thin dielectric film thickness."), pDblLayer->get_film_depth_ptr());
         pDblLayerGroup->AddSubItem(pProp);
-
-        pProp = new CMFCPropertyGridProperty(_T("Surface Charge, nA*hour/mm2"), COleVariant(pDblLayer->get_charge_srf_dens() / Const_Srf_Charge_Dens), _T("The surface charge density in elem. charges per square millimeter."), pDblLayer->get_charge_srf_dens_ptr());
+// ... and surface charge density:
+        pProp = new CMFCPropertyGridProperty(_T("Surface Charge, nA*hour/mm2"), COleVariant(pDblLayer->get_charge_srf_dens() * Const_Srf_Charge_Dens), _T("The surface charge density in elem. charges per square millimeter."), pDblLayer->get_charge_srf_dens_ptr());
         pDblLayerGroup->AddSubItem(pProp);
+// Enable/disable multithreading:
+        pCheckBox = new CCheckBoxButton(this, _T("Enable Multithreading"), (_variant_t)pDblLayer->get_enable_multi_thread(), _T("Click this check-box to enable/disable multithreading during the double layer field calculation."), pDblLayer->get_enable_multi_thread_ptr());
+        pDblLayerGroup->AddSubItem(pCheckBox);
 
 // Faces selection:
         CMFCPropertyGridProperty* pFacesSelGroup = new CMFCPropertyGridProperty(_T("Contaminated Area"));
         CSelectFacesButton* pSelFaceBtn = new CSelectFacesButton(this, _T("Select Faces"), _T(""), _T("Click to enter the faces selection context. Select proper faces in the draw window and click this button again to exit the confirm the selection."), (DWORD_PTR)pPtb);
         pSelFaceBtn->SetValue(pSelFaceBtn->ButtonValue());
         pFacesSelGroup->AddSubItem(pSelFaceBtn);
+
+        EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+        CRedrawCheckBox* pEnableDrawBtn = new CRedrawCheckBox(this, _T("Enable Faces Drawing"), (_variant_t)pDrawObj->get_enable_sel_faces(), _T("Click to enable/disable selected faces drawing."), pDrawObj->get_enable_sel_faces_ptr());
+        pFacesSelGroup->AddSubItem(pEnableDrawBtn);
 
         CString cDummy(_T(" "));
 // Clear selection of all faces:
@@ -289,7 +296,7 @@ void CPropertiesWnd::set_ptb_data()
 
         pProp = m_wndPropList.FindItemByData(pDblLayer->get_charge_srf_dens_ptr());
         if(pProp != NULL)
-          pDblLayer->set_charge_srf_dens(Const_Srf_Charge_Dens * pProp->GetValue().dblVal);
+          pDblLayer->set_charge_srf_dens(pProp->GetValue().dblVal / Const_Srf_Charge_Dens);
 
         break;
       }
