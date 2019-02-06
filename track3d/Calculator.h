@@ -43,7 +43,8 @@ public:
     ctTrackCalc      = 3,
     ctTrackCrossSect = 4,
     ctAlongSelTracks = 5,
-    ctCount          = 6
+    ctCount          = 6,
+	ctTrackFaceCross = 7
   };
 
   static CCalculator* create(int nType);
@@ -527,6 +528,20 @@ private:
 
 // Run-time:
   int                   m_nSelTrackId;
+};
+
+//Calculate faces crossed by tracks
+class CTackFaceCross : public CCalculator
+{
+public:
+	virtual void        run();
+	virtual void        do_calculate();
+	virtual void        update();
+	virtual void        clear();
+
+	virtual int         type() const;
+private:
+
 };
 
 //-------------------------------------------------------------------------------------------------

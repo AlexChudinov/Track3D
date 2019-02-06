@@ -217,6 +217,7 @@ public:
   void              clear_selected_faces();
 
   CFaceIndices      get_sel_faces_ids() const;
+  void append_sel_faces_ids(const CFaceIndices& faceInds);
   CRegFacePair      get_face_under_cursor_id() const;
   CString           get_sel_faces_square_str() const;
   double            get_sel_faces_square(bool bSquaredMillimeters = true) const;
@@ -726,6 +727,16 @@ inline void CTrackDraw::clear_selected_faces()
 inline CFaceIndices CTrackDraw::get_sel_faces_ids() const
 {
   return m_vSelFaces;
+}
+
+inline void CTrackDraw::append_sel_faces_ids(const CFaceIndices & faceInds)
+{
+	invalidate_faces();
+	invalidate_aux();
+	m_vSelFaces.insert(m_vSelFaces.end(), faceInds.begin(), faceInds.end());
+	std::sort(m_vSelFaces.begin(), m_vSelFaces.end());
+	CFaceIndices::iterator _End = std::unique(m_vSelFaces.begin(), m_vSelFaces.end());
+	m_vSelFaces.resize(std::distance(m_vSelFaces.begin(), _End));
 }
 
 inline CRegFacePair CTrackDraw::get_face_under_cursor_id() const

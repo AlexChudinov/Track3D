@@ -8,6 +8,8 @@
 #include "ParticleTracking.h"
 #include "mathematics.h"
 
+#include "..\utilities\ParallelFor.h"
+
 #include <algorithm>
 
 
@@ -126,6 +128,7 @@ CCalculator* CCalculator::create(int nType)
     case ctTrackCalc: return new CTrackCalculator();
     case ctTrackCrossSect: return new CTrackCrossSectionCalculator();
     case ctAlongSelTracks: return new CSelectedTracksCalculator();
+	case ctTrackFaceCross: return new CTackFaceCross();
   }
 
   return NULL;
@@ -141,6 +144,7 @@ const char* CCalculator::calc_name(int nType)
     case ctTrackCalc: return _T("Ion/Droplet Track Calculator");
     case ctTrackCrossSect: return _T("Track's Cross-Section Calculator");
     case ctAlongSelTracks: return _T("Forces at Selected Tracks");
+	case ctTrackFaceCross: return _T("Faces that were crossed by tracks");
   }
 
   return _T("");
@@ -1898,6 +1902,61 @@ void CSelectedTracksCalculator::load(CArchive& ar)
   ar >> m_bDCField;
   ar >> m_bRFField;
   ar >> m_bClmb;
+}
+
+void CTackFaceCross::run()
+{
+	static ThreadPool::Mutex mtx;
+	ThreadPool::Locker lock(mtx);
+	do_calculate();
+}
+
+void CTackFaceCross::do_calculate()
+{
+	EvaporatingParticle::CTrackVector& tracks = m_pObj->get_tracks();
+	const CRegionsCollection& regions = m_pObj->get_regions();
+	CFaceIndices newIdxs(tracks.size());
+	ThreadPool::splitInPar
+	(
+		tracks.size(),
+		[&](size_t trackId)->void
+	{
+		if (tracks[trackId].get_term_reason() == CTrack::ttrNone)
+		{
+			CTrack::const_reverse_iterator last = tracks[trackId].rbegin();
+			const CRay ray((*last)->pos, (*last)->vel);
+			double minDist = DBL_MAX, fDist;
+			UINT faceId;
+			for (size_t regId = 0; regId < regions.size(); ++regId)
+			{
+				bool ok = regions[regId]->intersect(ray, fDist, faceId);
+				if (ok && fDist < minDist)
+				{
+					minDist = fDist;
+					newIdxs[trackId].nReg = regId;
+					newIdxs[trackId].nFace = faceId;
+				}
+			}
+		}
+
+	});
+	CFaceIndices::iterator _End 
+		= std::remove(newIdxs.begin(), newIdxs.end(), CRegFacePair());
+	newIdxs.resize(std::distance(newIdxs.begin(), _End));
+	CParticleTrackingApp::Get()->GetDrawObj()->append_sel_faces_ids(newIdxs);
+}
+
+void CTackFaceCross::update()
+{
+}
+
+void CTackFaceCross::clear()
+{
+}
+
+int CTackFaceCross::type() const
+{
+	return ctTrackFaceCross;
 }
 
 };  // namespace EvaporatingParticle

@@ -37,7 +37,15 @@ struct CRegFacePair
 
   UINT  nReg, nFace;
 
-  bool operator == (const CRegFacePair& face)   { return (nReg == face.nReg) && (nFace == face.nFace); }
+  bool operator == (const CRegFacePair& face) const
+  { 
+	  return (nReg == face.nReg) && (nFace == face.nFace); 
+  }
+
+  bool operator < (const CRegFacePair& face) const
+  {
+	  return nReg < face.nReg || (nReg == face.nReg && nFace < face.nFace);
+  }
 };
 
 struct CFace;
