@@ -232,6 +232,7 @@ public:
   }
 
   virtual void    OnClickButton(CPoint point);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------

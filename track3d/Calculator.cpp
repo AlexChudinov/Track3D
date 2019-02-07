@@ -128,7 +128,7 @@ CCalculator* CCalculator::create(int nType)
     case ctTrackCalc: return new CTrackCalculator();
     case ctTrackCrossSect: return new CTrackCrossSectionCalculator();
     case ctAlongSelTracks: return new CSelectedTracksCalculator();
-	case ctTrackFaceCross: return new CTackFaceCross();
+    case ctTrackFaceCross: return new CTackFaceCross();
   }
 
   return NULL;
@@ -144,7 +144,7 @@ const char* CCalculator::calc_name(int nType)
     case ctTrackCalc: return _T("Ion/Droplet Track Calculator");
     case ctTrackCrossSect: return _T("Track's Cross-Section Calculator");
     case ctAlongSelTracks: return _T("Forces at Selected Tracks");
-	case ctTrackFaceCross: return _T("Faces that were crossed by tracks");
+    case ctTrackFaceCross: return _T("Faces Crossed by Tracks Calculator");
   }
 
   return _T("");
@@ -1904,8 +1904,26 @@ void CSelectedTracksCalculator::load(CArchive& ar)
   ar >> m_bClmb;
 }
 
+//-------------------------------------------------------------------------------------------------
+// CTackFaceCross: calculate faces crossed by tracks in the user-defined range of X
+//-------------------------------------------------------------------------------------------------
+CTackFaceCross::CTackFaceCross()
+{
+  set_default();
+}
+
+void CTackFaceCross::set_default()
+{
+  m_sCalcName = calc_name(ctTrackFaceCross);
+  m_fStartX = 10.0; // cm
+  m_fEndX = 12.0;
+}
+
 void CTackFaceCross::run()
 {
+  if(!get_tracker_ptr())
+    return;
+
 	static ThreadPool::Mutex mtx;
 	ThreadPool::Locker lock(mtx);
 	do_calculate();
@@ -1924,22 +1942,33 @@ void CTackFaceCross::do_calculate()
 		if (tracks[trackId].get_term_reason() == CTrack::ttrNone)
 		{
 			CTrack::const_reverse_iterator last = tracks[trackId].rbegin();
-			const CRay ray((*last)->pos, (*last)->vel);
+      last++; // we have to take the last but one item because the last item is out of the mesh (see Tracker.cpp, CTracker::main_thread_func)
+
+      Vector3D vPos = (*last)->pos, vVel = (*last)->vel, vAccel;
+      m_pObj->sym_corr(vPos, vVel, vAccel); // vAccel is a dummy variable here.
+			const CRay ray(vPos, vVel);
+
 			double minDist = DBL_MAX, fDist;
 			UINT faceId;
+      CFace* pFace = NULL;
 			for (size_t regId = 0; regId < regions.size(); ++regId)
 			{
 				bool ok = regions[regId]->intersect(ray, fDist, faceId);
 				if (ok && fDist < minDist)
 				{
 					minDist = fDist;
-					newIdxs[trackId].nReg = regId;
-					newIdxs[trackId].nFace = faceId;
+          pFace = regions.at(regId)->vFaces.at(faceId);
+          if((pFace->box.vMax.x >= m_fStartX) && (pFace->box.vMin.x <= m_fEndX))
+          {
+            newIdxs[trackId].nReg = regId;
+            newIdxs[trackId].nFace = faceId;
+          }
 				}
 			}
 		}
 
 	});
+
 	CFaceIndices::iterator _End 
 		= std::remove(newIdxs.begin(), newIdxs.end(), CRegFacePair());
 	newIdxs.resize(std::distance(newIdxs.begin(), _End));
@@ -1957,6 +1986,28 @@ void CTackFaceCross::clear()
 int CTackFaceCross::type() const
 {
 	return ctTrackFaceCross;
+}
+
+void CTackFaceCross::save(CArchive& ar)
+{
+  UINT nVersion = 0;
+  ar << nVersion;
+
+  CCalculator::save(ar);
+
+  ar << m_fStartX;
+  ar << m_fEndX;
+}
+
+void CTackFaceCross::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  CCalculator::load(ar);
+
+  ar >> m_fStartX;
+  ar >> m_fEndX;
 }
 
 };  // namespace EvaporatingParticle

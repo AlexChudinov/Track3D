@@ -43,8 +43,8 @@ public:
     ctTrackCalc      = 3,
     ctTrackCrossSect = 4,
     ctAlongSelTracks = 5,
-    ctCount          = 6,
-	ctTrackFaceCross = 7
+    ctTrackFaceCross = 6,
+    ctCount          = 7
   };
 
   static CCalculator* create(int nType);
@@ -530,18 +530,39 @@ private:
   int                   m_nSelTrackId;
 };
 
-//Calculate faces crossed by tracks
+//-------------------------------------------------------------------------------------------------
+// Calculate faces crossed by tracks
+//-------------------------------------------------------------------------------------------------
 class CTackFaceCross : public CCalculator
 {
 public:
-	virtual void        run();
-	virtual void        do_calculate();
-	virtual void        update();
-	virtual void        clear();
+  CTackFaceCross();
 
-	virtual int         type() const;
+  double              get_start_coord() const;
+  DWORD_PTR           get_start_coord_ptr() const;
+  void                set_start_coord(double fX);
+
+  double              get_end_coord() const;
+  DWORD_PTR           get_end_coord_ptr() const;
+  void                set_end_coord(double fX);
+
+  virtual void        run();
+  virtual void        do_calculate();
+  virtual void        update();
+  virtual void        clear();
+
+  virtual int         type() const;
+
+  virtual void        save(CArchive& ar);
+  virtual void        load(CArchive& ar);
+
+protected:
+  void                set_default();
+
 private:
-
+// User-defined restrictions.
+  double              m_fStartX,
+                      m_fEndX;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -980,6 +1001,39 @@ inline bool CSelectedTracksCalculator::get_enable_clmb() const
 inline DWORD_PTR CSelectedTracksCalculator::get_enable_clmb_ptr() const
 {
   return (DWORD_PTR)&m_bClmb;
+}
+
+//-------------------------------------------------------------------------------------------------
+// CTackFaceCross.
+//-------------------------------------------------------------------------------------------------
+inline double CTackFaceCross::get_start_coord() const
+{
+  return m_fStartX;
+}
+
+inline DWORD_PTR CTackFaceCross::get_start_coord_ptr() const
+{
+  return (DWORD_PTR)&m_fStartX;
+}
+
+inline void CTackFaceCross::set_start_coord(double fX)
+{
+  m_fStartX = fX;
+}
+
+inline double CTackFaceCross::get_end_coord() const
+{
+  return m_fEndX;
+}
+
+inline DWORD_PTR CTackFaceCross::get_end_coord_ptr() const
+{
+  return (DWORD_PTR)&m_fEndX;
+}
+
+inline void CTackFaceCross::set_end_coord(double fX)
+{
+  m_fEndX = fX;
 }
 
 };  // namespace EvaporatingParticle

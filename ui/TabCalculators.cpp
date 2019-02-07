@@ -355,6 +355,29 @@ void CPropertiesWnd::add_calc_ctrls()
         pCalcGroup->AddSubItem(pTrackCalcGroup);
         break;
       }
+      case EvaporatingParticle::CCalculator::ctTrackFaceCross:
+      {
+        EvaporatingParticle::CTackFaceCross* pCrossFacesCalc = (EvaporatingParticle::CTackFaceCross*)pCalc;
+        CMFCPropertyGridProperty* pFaceCalcGroup = new CMFCPropertyGridProperty(pCrossFacesCalc->get_name());
+
+        CMFCPropertyGridProperty* pStartPos = new CMFCPropertyGridProperty(_T("Start X, mm"), COleVariant(10 * pCrossFacesCalc->get_start_coord()), _T("Set the X-coordinate of the lower bound of the selection region."), pCrossFacesCalc->get_start_coord_ptr());
+        pFaceCalcGroup->AddSubItem(pStartPos);
+
+        CMFCPropertyGridProperty* pEndPos = new CMFCPropertyGridProperty(_T("End X, mm"), COleVariant(10 * pCrossFacesCalc->get_end_coord()), _T("Set the X-coordinate of the upper bound of the selection region."), pCrossFacesCalc->get_end_coord_ptr());
+        pFaceCalcGroup->AddSubItem(pEndPos);
+
+        CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));
+        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pCrossFacesCalc);
+        pActionsGroup->AddSubItem(pStartCalcBtn);
+
+        CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), _T(""), _T("Click to delete this calculator."), (DWORD_PTR)pCrossFacesCalc);
+        pActionsGroup->AddSubItem(pRemoveCalcBtn);
+
+        pFaceCalcGroup->AddSubItem(pActionsGroup);
+
+        pCalcGroup->AddSubItem(pFaceCalcGroup);
+        break;
+      }
     }
   }
 
@@ -510,6 +533,19 @@ void CPropertiesWnd::set_calc_data()
         {
           pSelTrackCalc->set_skip_points_count((UINT)pProp->GetValue().llVal);
         }
+
+        break;
+      }
+      case EvaporatingParticle::CCalculator::ctTrackFaceCross:
+      {
+        EvaporatingParticle::CTackFaceCross* pCrossFacesCalc = (EvaporatingParticle::CTackFaceCross*)pCalc;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pCrossFacesCalc->get_start_coord_ptr());
+        if(pProp != NULL)
+          pCrossFacesCalc->set_start_coord(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pCrossFacesCalc->get_end_coord_ptr());
+        if(pProp != NULL)
+          pCrossFacesCalc->set_end_coord(0.1 * pProp->GetValue().dblVal);
 
         break;
       }

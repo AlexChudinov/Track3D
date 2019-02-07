@@ -506,6 +506,14 @@ void CRemoveCalcButton::OnClickButton(CPoint point)
   pDrawObj->draw();
 }
 
+bool CRemoveCalcButton::ConfirmRemove() const
+{
+  EvaporatingParticle::CCalculator* pCalc = (EvaporatingParticle::CCalculator*)m_dwData;
+  CString sMsg = CString(_T("Are you sure you want to delete ")) + CString(pCalc->get_name()) + CString(_T("?"));
+  int nRes = AfxMessageBox((const char*)sMsg, MB_YESNO);
+  return nRes == IDYES ? true : false;
+}
+
 //---------------------------------------------------------------------------------------
 // CStartCalcButton.
 //---------------------------------------------------------------------------------------
@@ -538,6 +546,9 @@ void CStartCalcButton::OnClickButton(CPoint point)
   INT_PTR nRes = dlg.DoModal();
 
   m_pWndProp->set_update_all();
+
+  if(pCalc->type() == EvaporatingParticle::CCalculator::ctTrackFaceCross)
+    CParticleTrackingApp::Get()->GetDrawObj()->draw();
 }
 
 void CStartCalcButton::OnDrawButton(CDC* pDC, CRect rectButton)

@@ -184,6 +184,8 @@ public:
   void              on_right_button_up(const CPoint& point);
 
 // Selecting regions support:
+  CRegion*          intersect(const CRay& ray, CRegFacePair& face) const;
+
   bool              get_sel_flag() const;
   void              enter_sel_context(CNamesVector* pRegNames, bool bAllowSel = true);
   void              exit_sel_context(CNamesVector* pRegNames);
@@ -217,7 +219,8 @@ public:
   void              clear_selected_faces();
 
   CFaceIndices      get_sel_faces_ids() const;
-  void append_sel_faces_ids(const CFaceIndices& faceInds);
+  void              append_sel_faces_ids(const CFaceIndices& faceInds);
+
   CRegFacePair      get_face_under_cursor_id() const;
   CString           get_sel_faces_square_str() const;
   double            get_sel_faces_square(bool bSquaredMillimeters = true) const;
@@ -283,7 +286,6 @@ protected:
   void              set_progress(const char* cJobName, int nPercent) const;
 
   CRay              get_view_dir(const CPoint& point) const;
-  CRegion*          intersect(const CRay& ray, CRegFacePair& face) const;
 
   std::string       dbl_to_str(double val) const; // keeps three digits after decimal point.
 
