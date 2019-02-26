@@ -143,27 +143,42 @@ void CPropertiesWnd::add_field_ctrls()
       if(pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsX || pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsY)
       {
         CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Linear Step-Wise Potential"));
+        CMFCPropertyGridProperty* pLinGradGroup = new CMFCPropertyGridProperty(_T("Linear Gradient"));
 
         CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
         CString cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
         pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStartX), cHint, (DWORD_PTR)&(pBC->fStartX));
-        pStepWiseGroup->AddSubItem(pProp);
-
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
-        pStepWiseGroup->AddSubItem(pProp);
+        pLinGradGroup->AddSubItem(pProp);
 
         cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
         cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
         pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fEndX), cHint, (DWORD_PTR)&(pBC->fEndX));
-        pStepWiseGroup->AddSubItem(pProp);
+        pLinGradGroup->AddSubItem(pProp);
 
         cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
         cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
         pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fEndPhi), cHint, (DWORD_PTR)&(pBC->fEndPhi));
-        pStepWiseGroup->AddSubItem(pProp);
+        pLinGradGroup->AddSubItem(pProp);
 
+        pStepWiseGroup->AddSubItem(pLinGradGroup);
+        CMFCPropertyGridProperty* pElectrGroup = new CMFCPropertyGridProperty(_T("Electrodes"));
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitCenterFirst);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitCenterFirst);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fCenterFirstElectr), cHint, (DWORD_PTR)&(pBC->fCenterFirstElectr));
+        pElectrGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
+        pElectrGroup->AddSubItem(pProp);
+
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepsCount);
+        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepsCount);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant((long)(pBC->nStepsCount)), cHint, (DWORD_PTR)&(pBC->nStepsCount));
+        pElectrGroup->AddSubItem(pProp);
+
+        pStepWiseGroup->AddSubItem(pElectrGroup);
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
       }
 
@@ -373,6 +388,20 @@ void CPropertiesWnd::set_field_data()
       if(pProp != NULL)
       {
         if(pBC->set_last_dphi(pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fCenterFirstElectr));
+      if(pProp != NULL)
+      {
+        if(pBC->set_center_first_electr(0.1 * pProp->GetValue().dblVal))
+          pData->invalidate();
+      }
+
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nStepsCount));
+      if(pProp != NULL)
+      {
+        if(pBC->set_steps_count(pProp->GetValue().lVal))
           pData->invalidate();
       }
     }

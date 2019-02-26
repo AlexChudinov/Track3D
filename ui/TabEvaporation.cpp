@@ -14,7 +14,7 @@ void CPropertiesWnd::add_evapor_ctrls()
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
   CMFCPropertyGridProperty* pElectroGroup = new CMFCPropertyGridProperty(_T("Electrostatics"));
-  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Charge, elem. charges"), COleVariant(long(pObj->get_particle_charge() / Const_Charge_CGS)), _T("Electric charge carried by a droplet."), pObj->get_particle_charge_ptr());
+  CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Charge, elem. charges"), COleVariant(pObj->get_particle_charge() / Const_Charge_CGS), _T("Electric charge carried by a droplet."), pObj->get_particle_charge_ptr());
   pElectroGroup->AddSubItem(pProp);
   m_wndPropList.AddProperty(pElectroGroup);
 
@@ -79,7 +79,7 @@ void CPropertiesWnd::set_evapor_data()
 // Electrostatics:
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
   if(pProp != NULL)
-    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
+    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_evapor_model_type_ptr());
   if(pProp != NULL)

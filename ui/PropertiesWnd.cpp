@@ -416,7 +416,7 @@ void CPropertiesWnd::OnCreateContour()
 void CPropertiesWnd::OnUpdateCreateContour(CCmdUI* pCmdUI)
 {
   int nSelTab = m_wndTabCtrl.GetCurSel();
-  bool bProperTab = nSelTab == tabDrawing;
+  bool bProperTab = true; //nSelTab == tabDrawing;
   pCmdUI->Enable(!m_bBusy && CParticleTrackingApp::Get()->GetTracker()->is_ready() && bProperTab);
 }
 
@@ -433,7 +433,7 @@ void CPropertiesWnd::OnCreateCalculator()
 void CPropertiesWnd::OnUpdateCreateCalculator(CCmdUI* pCmdUI)
 {
   int nSelTab = m_wndTabCtrl.GetCurSel();
-  bool bProperTab = nSelTab == tabCalc;
+  bool bProperTab = true; //nSelTab == tabCalc;
   pCmdUI->Enable(!m_bBusy && CParticleTrackingApp::Get()->GetTracker()->is_ready() && bProperTab);
 }
 
@@ -450,7 +450,7 @@ void CPropertiesWnd::OnAddField()
 void CPropertiesWnd::OnUpdateAddField(CCmdUI* pCmdUI)
 {
   int nSelTab = m_wndTabCtrl.GetCurSel();
-  bool bProperTab = nSelTab == tabFields;
+  bool bProperTab = true; //nSelTab == tabFields;
   pCmdUI->Enable(!m_bBusy && CParticleTrackingApp::Get()->GetTracker()->is_ready() && bProperTab);
 }
 
@@ -528,7 +528,12 @@ void CPropertiesWnd::update_prop_list()
   InitPropList();
 
   if(pScrBar != NULL)
+  {
     pScrBar->SetScrollPos(nPos);
+    WPARAM wParam = MAKEWPARAM(SB_THUMBPOSITION, nPos);
+    LPARAM lParam = MAKELPARAM(pScrBar->m_hWnd, NULL);
+    ::SendMessage(m_wndPropList.m_hWnd, WM_VSCROLL, wParam, lParam);
+  }
 
   m_bUpdateAll = false;
 }

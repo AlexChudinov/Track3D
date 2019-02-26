@@ -26,6 +26,8 @@ CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int va
   fEndX = 12.0;
 // Linear potential function:
   fEndPhi = 0;
+  nStepsCount = 10;
+  fCenterFirstElectr = fStartX;
 // Parabolic potential function:
   fStartPhi = 130;    // V.
   fFirstStepPhi = 2;  // V.
@@ -65,12 +67,14 @@ const char* CPotentialBoundCond::get_control_title(int nFixedValType, int nCtrlT
   switch(nCtrlType)
   {
     case uitStartX:       return bX ? _T("Start X, mm") : _T("Start Y, mm");
-    case uitStepX:        return bX ? _T("Step X, mm") : _T("Step Y, mm");
+    case uitStepX:        return bX ? _T("Period X, mm") : _T("Period Y, mm");
     case uitEndX:         return bX ? _T("End X, mm") : _T("End Y, mm");
     case uitStartPhi:     return _T("Start Potential, V");
     case uitEndPhi:       return _T("Dimensionless End Potential");
     case uitFirstStepPhi: return _T("Potential Diff First, V");
     case uitLastStepPhi:  return _T("Potential Diff Last, V");
+    case uitStepsCount:  return _T("Electrodes Count");
+    case uitCenterFirst:  return _T("First Electrode Center, mm");
   }
 
   return _T("");
@@ -83,20 +87,31 @@ const char* CPotentialBoundCond::get_hint(int nFixedValType, int nCtrlType)
   switch(nCtrlType)
   {
     case uitStartX:       return CString(_T("Specify the ")) + csXY + CString(_T("-coordinate (in mm) of the first electrode center in the step-wise potentials set."));
-    case uitStepX:        return CString(_T("Specify the ")) + csXY + CString(_T("-step (in mm) between centers of the electrodes."));
+    case uitStepX:        return CString(_T("Specify the ")) + csXY + CString(_T("-period, i.e. the space between centers of the equidistant electrodes, mm."));
     case uitEndX:         return CString(_T("Specify the ")) + csXY + CString(_T("-coordinate (in mm) of the last electrode center in the step-wise potentials set."));
     case uitStartPhi:     return _T("Specify the start potential value in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
     case uitEndPhi:       return _T("Dimensionless End Potential");
     case uitFirstStepPhi: return _T("Set the potential difference between the second and first electrodes in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
     case uitLastStepPhi:  return _T("Set the potential difference between the last and last but one electrodes in V. Important: Make sure the <Voltage Scale> edit control reads unity!");
+    case uitStepsCount:  return _T("Count of electrodes, on which linear step-like potential is to be set.");
+    case uitCenterFirst:  return _T("The coordinate for the center of the first electrode, on which linear step-like potential is to be set, in mm");
   }
 
   return _T("");
 }
 
+double CPotentialBoundCond::linear_potential(double x)
+{
+  double dx = fEndX - fStartX;
+  if(fabs(dx) < Const_Almost_Zero)
+    return 0;
+
+  return 1 + (fEndPhi - 1) * (x - fStartX) / dx;
+}
+
 void CPotentialBoundCond::save(CArchive& ar)
 {
-  UINT nVersion = 3;  // 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
+  UINT nVersion = 4;  // 4 - nStepsCount and fCenterFirstElectr; 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
   ar << nVersion;
 
   int nIntType = (int)nType;
@@ -123,6 +138,9 @@ void CPotentialBoundCond::save(CArchive& ar)
   ar << fLastStepPhi;
 
   ar << bVisible;
+
+  ar << fCenterFirstElectr;
+  ar << nStepsCount;
 }
 
 void CPotentialBoundCond::load(CArchive& ar)
@@ -165,6 +183,12 @@ void CPotentialBoundCond::load(CArchive& ar)
 
   if(nVersion >= 2)
     ar >> bVisible;
+
+  if(nVersion >= 4)
+  {
+    ar >> fCenterFirstElectr;
+    ar >> nStepsCount;
+  }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -950,12 +974,18 @@ double CElectricFieldData::linear_step_potential(CPotentialBoundCond* pBC, const
   if(dx < Const_Almost_Zero)
     return 0;
 
-  if(x <= x0)
-    return phi0;
-  else if(x <= x1)
-    return phi0 + grad * floor((x - x0) / dx + 0.5)* dx;
+  if(pBC->nStepsCount == 0)
+    return 0;
 
-  return phi1;
+  double xs = pBC->fCenterFirstElectr;
+  double xe = xs + (pBC->nStepsCount - 1) * dx;
+
+  if(x < xs)
+    return pBC->linear_potential(xs);
+  else if(x < xe)
+    return pBC->linear_potential(xs) + grad * floor((x - xs) / dx + 0.5)* dx;
+
+  return pBC->linear_potential(xe);
 }
 
 double CElectricFieldData::quadric_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const

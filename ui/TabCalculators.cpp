@@ -366,9 +366,14 @@ void CPropertiesWnd::add_calc_ctrls()
         CMFCPropertyGridProperty* pEndPos = new CMFCPropertyGridProperty(_T("End X, mm"), COleVariant(10 * pCrossFacesCalc->get_end_coord()), _T("Set the X-coordinate of the upper bound of the selection region."), pCrossFacesCalc->get_end_coord_ptr());
         pFaceCalcGroup->AddSubItem(pEndPos);
 
+// Actions:
         CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));
-        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pCrossFacesCalc);
+        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Auto Faces Selection"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pCrossFacesCalc);
         pActionsGroup->AddSubItem(pStartCalcBtn);
+
+// Clear selection of all faces:
+        CClearSelectedFacesButton* pClearSelBtn = new CClearSelectedFacesButton(this, _T("Clear Faces Selection"), _T(""), _T("Click this button to deselect all previously tagged faces."), (DWORD_PTR)pCrossFacesCalc);
+        pActionsGroup->AddSubItem(pClearSelBtn);
 
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), _T(""), _T("Click to delete this calculator."), (DWORD_PTR)pCrossFacesCalc);
         pActionsGroup->AddSubItem(pRemoveCalcBtn);

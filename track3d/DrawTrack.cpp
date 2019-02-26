@@ -985,6 +985,7 @@ void CTrackDraw::on_mouse_move(const CPoint& point)
     {
       pReg->bSelected = true;
       invalidate_faces();
+      invalidate_aux();
     }
 
     draw();
@@ -1927,6 +1928,61 @@ void CTrackDraw::set_phi_to_nodes() const
         pNode->phi += pPtb->get_phi(i);
     }
   }
+}
+
+bool CTrackDraw::save_sel_faces(const char* pFile)
+{
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, pFile, (const char*)("w"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  size_t nPairsCount = m_vSelFaces.size();
+  fprintf(pStream, "%zd\n", nPairsCount);
+  for(size_t i = 0; i < nPairsCount; i++)
+  {
+    const CRegFacePair& face = m_vSelFaces.at(i);
+    fprintf(pStream, "%d, %d\n", face.nReg, face.nFace);
+  }
+
+  fclose(pStream);
+  return true;
+}
+
+bool CTrackDraw::load_sel_faces(const char* pFile)
+{
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, pFile, (const char*)("r"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  UINT nReg, nFace;
+  size_t nPairsCount = 0;
+  int nRes = fscanf_s(pStream, "%zd\n", &nPairsCount);
+  if(nRes == EOF || nRes == 0 || nPairsCount == 0)
+  {
+    fclose(pStream);
+    return false;
+  }
+
+  m_vSelFaces.clear();
+  m_vSelFaces.resize(nPairsCount, CRegFacePair());
+  for(size_t i = 0; i < nPairsCount; i++)
+  {
+    nRes = fscanf_s(pStream, "%d, %d", &nReg, &nFace);
+    if(nRes == EOF || nRes == 0)
+    {
+      fclose(pStream);
+      return false;
+    }
+
+    m_vSelFaces.at(i).nReg = nReg;
+    m_vSelFaces.at(i).nFace = nFace;
+  }
+
+  fclose(pStream);
+  invalidate_aux();
+  return true;
 }
 
 };  // namespace EvaporatingParticle

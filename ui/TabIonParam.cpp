@@ -20,13 +20,13 @@ void CPropertiesWnd::add_ion_ctrls()
 // General parameters: mass, charge, mobility.
   CMFCPropertyGridProperty* pGeneralGroup = new CMFCPropertyGridProperty(_T("General"));
 
-  long nZ = long(pObj->get_particle_charge() / Const_Charge_CGS);
-  CGeneralResponseProperty* pRespProp = new CGeneralResponseProperty(this, _T("Charge, elem. charges"), COleVariant(nZ), _T("Electric charge carried by a particle."), pObj->get_particle_charge_ptr());
+  double fCharge = pObj->get_particle_charge() / Const_Charge_CGS;
+  CGeneralResponseProperty* pRespProp = new CGeneralResponseProperty(this, _T("Charge, elem. charges"), COleVariant(fCharge), _T("Electric charge carried by a particle."), pObj->get_particle_charge_ptr());
   pGeneralGroup->AddSubItem(pRespProp);
   double fM = pObj->get_ion_mass() / Const_AMU_CGS;
   pRespProp = new CGeneralResponseProperty(this, _T("Mass, a.m.u."), COleVariant(fM), _T("Ion mass, atomic mass units."), pObj->get_ion_mass_ptr());
   pGeneralGroup->AddSubItem(pRespProp);
-  double fMovrZ = fM / nZ;
+  double fMovrZ = fM / fCharge;
   pProp = new CMFCPropertyGridProperty(_T("M/Z,  Da"), COleVariant(fMovrZ), _T("M / Z ratio in Dalton."), NULL);
   pProp->AllowEdit(false);
   pProp->Enable(false);
@@ -132,7 +132,7 @@ void CPropertiesWnd::set_ion_data()
 
   pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
   if(pProp != NULL)
-    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().lVal);
+    pObj->set_particle_charge(Const_Charge_CGS * pProp->GetValue().dblVal);
 
   pProp = m_wndPropList.FindItemByData(pObj->get_ion_mobility_ptr());
   if(pProp != NULL)

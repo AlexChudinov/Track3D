@@ -15,48 +15,55 @@
 //---------------------------------------------------------------------------------------
 IMPLEMENT_DYNAMIC(CSelectRegionButton, CMFCPropertyGridProperty)
 
-void CSelectRegionButton::OnClickButton(CPoint point)
+void CSelectRegionButton::show_all_regions()
 {
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  if(m_dwData == NULL)
+  pDrawObj->show_all_regions();
+  CSelectRegionButton* pBtn = (CSelectRegionButton*)(m_pWndList->FindItemByData(pDrawObj->get_hidden_reg_names_ptr()));
+  if(pBtn != NULL)
   {
-    pDrawObj->show_all_regions();
-    CSelectRegionButton* pBtn = (CSelectRegionButton*)(m_pWndList->FindItemByData(pDrawObj->get_hidden_reg_names_ptr()));
-    if(pBtn != NULL)
-    {
-      pBtn->SetValue(CString("0 regions"));
-      pBtn->Redraw();
-    }
+    pBtn->SetValue(CString("0 regions"));
+    pBtn->Redraw();
+  }
+}
+
+void CSelectRegionButton::process_click()
+{
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  m_pWndProp->set_data_to_model();
+  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)m_dwData;
+  if(pDrawObj->get_sel_flag())
+  {
+    pDrawObj->exit_sel_context(pRegNames);  // here pRegNames is updated using the information stored in the Draw Object.
+    SetValue(EvaporatingParticle::CObject::compile_string(*pRegNames));
+      
+    pDrawObj->invalidate_contour(m_dwData);
+    m_bPressed = FALSE;
+
+    m_pWndProp->set_ignore_idle(false);
+    m_pWndProp->set_update_all();
+    m_pWndProp->enable_tab_ctrl();
   }
   else
   {
-    m_pWndProp->set_data_to_model();
-    EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)m_dwData;
-    if(pDrawObj->get_sel_flag())
-    {
-      pDrawObj->exit_sel_context(pRegNames);  // here pRegNames is updated using the information stored in the Draw Object.
-      SetValue(EvaporatingParticle::CObject::compile_string(*pRegNames));
-      
-      pDrawObj->invalidate_contour(m_dwData);
-      m_bPressed = FALSE;
+    m_pWndProp->set_ignore_idle(true);
+    m_pWndProp->disable_all_but_one(this);
+    m_pWndProp->enable_tab_ctrl(FALSE);
 
-      m_pWndProp->set_ignore_idle(false);
-      m_pWndProp->set_update_all();
-      m_pWndProp->enable_tab_ctrl();
-    }
-    else
-    {
-      m_pWndProp->set_ignore_idle(true);
-      m_pWndProp->disable_all_but_one(this);
-      m_pWndProp->enable_tab_ctrl(FALSE);
-
-      pDrawObj->enter_sel_context(pRegNames);
-      m_bPressed = TRUE;
-      Redraw();
-    }
+    pDrawObj->enter_sel_context(pRegNames);
+    m_bPressed = TRUE;
+    Redraw();
   }
+}
 
-  pDrawObj->draw();
+void CSelectRegionButton::OnClickButton(CPoint point)
+{
+  if(m_dwData == NULL)
+    show_all_regions();
+  else
+    process_click();
+
+  CParticleTrackingApp::Get()->GetDrawObj()->draw();
 }
 
 void CSelectRegionButton::OnSetSelection(CMFCPropertyGridProperty* /*pOldSel*/)
@@ -871,6 +878,7 @@ IMPLEMENT_DYNAMIC(CSaveFieldButton, CProprtyListButton)
 
 void CSaveFieldButton::OnClickButton(CPoint point)
 {
+/*
   CString cFilter = "CSV Data File|*.csv||";
 	CFileDialog dlg(FALSE, NULL, NULL, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_EXPLORER, cFilter);
   dlg.m_ofn.nFilterIndex = 1;
@@ -884,7 +892,9 @@ void CSaveFieldButton::OnClickButton(CPoint point)
 // Add the file extension if the user didn't supply one
 	if(dlg.m_ofn.nFileExtension == 0) 
 		cFileName = cFileName + ".csv";
+*/
 
+  CString cFileName = get_file_name();
   std::string cName((const char*)cFileName);
   bool bFilled = cName.size() != 0;
   if(bFilled)
@@ -894,10 +904,64 @@ void CSaveFieldButton::OnClickButton(CPoint point)
   }
 }
 
+CString CSaveFieldButton::get_file_name(bool bLoadFromFile)
+{
+  CString cFilter = "CSV Data File|*.csv||";
+  DWORD dwFlags = bLoadFromFile ? OFN_EXPLORER : OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT | OFN_EXPLORER;
+	CFileDialog dlg(bLoadFromFile, NULL, NULL, dwFlags, cFilter);
+  dlg.m_ofn.nFilterIndex = 1;
+
+	HRESULT hResult = (int)dlg.DoModal();
+	if(FAILED(hResult))
+		return CString(_T(""));
+
+	CString cFileName = dlg.m_ofn.lpstrFile;
+
+// Add the file extension if the user didn't supply one
+  std::string stdName((const char*)cFileName);
+  size_t nStrLen = stdName.size();
+  bool bHasExt = (nStrLen > 4) &&(stdName[nStrLen - 4] == '.');
+  bool bExtCorrect = bHasExt ? (stdName[nStrLen - 1] == 'v') && (stdName[nStrLen - 2] == 's') && (stdName[nStrLen - 3] == 'c') : false;
+
+  if(bExtCorrect)
+    return CString(stdName.c_str());
+
+  if(bHasExt && !bExtCorrect)
+    stdName.erase(stdName.end() - 4, stdName.end());
+
+	cFileName = CString(stdName.c_str()) + CString(_T(".csv"));
+  return cFileName;
+}
+
 void CSaveFieldButton::OnDrawButton(CDC* pDC, CRect rectButton)
 {
 // TO DO: draw a non-trivial icon here.
   CProprtyListButton::OnDrawButton(pDC, rectButton);
+}
+
+//---------------------------------------------------------------------------------------
+// CSaveLoadSelFacesButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CSaveLoadSelFacesButton, CSaveFieldButton)
+
+void CSaveLoadSelFacesButton::OnClickButton(CPoint point)
+{
+  CString cFileName = get_file_name(!m_bSave);
+  std::string cName((const char*)cFileName);
+  bool bFilled = cName.size() != 0;
+  if(!bFilled)
+    return;
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  if(m_bSave)
+  {
+    pDrawObj->save_sel_faces((const char*)cFileName);
+  }
+  else
+  {
+    pDrawObj->load_sel_faces((const char*)cFileName);
+    pDrawObj->draw();
+  }
 }
 
 //---------------------------------------------------------------------------------------

@@ -38,6 +38,9 @@ public:
 protected:
   virtual BOOL    HasButton() const;
 
+  void            show_all_regions();
+  void            process_click();
+
   CPropertiesWnd* m_pWndProp;
 };
 
@@ -390,6 +393,30 @@ public:
 
   virtual void    OnClickButton(CPoint point);
   virtual void    OnDrawButton(CDC* pDC, CRect rectButton);
+
+protected:
+  CString         get_file_name(bool bLoadFromFile = true);
+};
+
+//---------------------------------------------------------------------------------------
+// CSaveLoadSelFacesButton.
+//---------------------------------------------------------------------------------------
+class CSaveLoadSelFacesButton : public CSaveFieldButton
+{
+  DECLARE_DYNAMIC(CSaveLoadSelFacesButton)
+
+public:
+  CSaveLoadSelFacesButton(bool bSave, CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CSaveFieldButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+    m_bSave = bSave;
+  }
+
+  virtual void    OnClickButton(CPoint point);
+
+protected:
+  bool            m_bSave;
 };
 
 //---------------------------------------------------------------------------------------

@@ -39,8 +39,13 @@ struct CPotentialBoundCond
   std::string                   sName;
 
 // Step-like potential:
+  UINT                          nStepsCount;
+  double                        fCenterFirstElectr,
+                                fStepX;
+
+// For linear potential the following three parameters strongly define the linear function phi(x). The center of the first electrode
+// is not always equal to fStartX. Two or more step-like potentials can be linked to one the same linear phi(x).
   double                        fStartX,
-                                fStepX,
                                 fEndX,
 // Dimensionless value of potential at the end of the interval. Corresponding "fStartPhi" is assumed always to be unity. Linear potential only.
                                 fEndPhi;
@@ -54,9 +59,12 @@ struct CPotentialBoundCond
   bool                          set_bc_type(BoundaryMesh::BoundaryType nNewType);
   bool                          set_fixed_val_type(int nNewType);
 
+  bool                          set_steps_count(UINT nNewCount);
+  bool                          set_center_first_electr(double fNewCenter);
+  bool                          set_step_coord(double fNewStep);
+
   bool                          set_start_coord(double fNewCoord);
   bool                          set_end_coord(double fNewCoord);
-  bool                          set_step_coord(double fNewStep);
 
   bool                          set_start_phi(double fNewPhi);
   bool                          set_end_phi(double fNewPhi);
@@ -64,6 +72,7 @@ struct CPotentialBoundCond
   bool                          set_first_dphi(double fNewdPhi);
   bool                          set_last_dphi(double fNewdPhi);
 
+  double                        linear_potential(double x);
 
   static const char*            get_bc_type_name(BoundaryMesh::BoundaryType nType);
   static const char*            get_fixed_value_name(int nType);
@@ -76,7 +85,9 @@ struct CPotentialBoundCond
     uitStartPhi     = 3,
     uitEndPhi       = 4,
     uitFirstStepPhi = 5,
-    uitLastStepPhi  = 6
+    uitLastStepPhi  = 6,
+    uitStepsCount   = 7,
+    uitCenterFirst  = 8
   };
 
   static const char*            get_control_title(int nFixedValType, int nCtrlType);
@@ -171,6 +182,26 @@ inline bool CPotentialBoundCond::set_last_dphi(double fNewdPhi)
   if(fLastStepPhi != fNewdPhi)
   {
     fLastStepPhi = fNewdPhi;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_steps_count(UINT nNewCount)
+{
+  if(nStepsCount != nNewCount)
+  {
+    nStepsCount = nNewCount;
+    return true;
+  }
+  return false;
+}
+
+inline bool CPotentialBoundCond::set_center_first_electr(double fNewCenter)
+{
+  if(fCenterFirstElectr != fNewCenter)
+  {
+    fCenterFirstElectr = fNewCenter;
     return true;
   }
   return false;

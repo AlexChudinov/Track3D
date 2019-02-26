@@ -147,7 +147,7 @@ void CPropertiesWnd::add_ptb_ctrls()
 
 // Faces selection:
         CMFCPropertyGridProperty* pFacesSelGroup = new CMFCPropertyGridProperty(_T("Contaminated Area"));
-        CSelectFacesButton* pSelFaceBtn = new CSelectFacesButton(this, _T("Select Faces"), _T(""), _T("Click to enter the faces selection context. Select proper faces in the draw window and click this button again to exit the confirm the selection."), (DWORD_PTR)pPtb);
+        CSelectFacesButton* pSelFaceBtn = new CSelectFacesButton(this, _T("Select Faces"), _T(""), _T("Click to enter the faces selection context. Select proper faces in the draw window and click this button again to exit the context and to confirm the selection."), (DWORD_PTR)pPtb);
         pSelFaceBtn->SetValue(pSelFaceBtn->ButtonValue());
         pFacesSelGroup->AddSubItem(pSelFaceBtn);
 
@@ -159,6 +159,11 @@ void CPropertiesWnd::add_ptb_ctrls()
 // Clear selection of all faces:
         CClearSelectedFacesButton* pClearSelBtn = new CClearSelectedFacesButton(this, _T("Clear Faces Selection"), cDummy, _T("Click this button to deselect all previously tagged faces."), (DWORD_PTR)pPtb);
         pFacesSelGroup->AddSubItem(pClearSelBtn);
+// Save and load selected faces:
+        CSaveLoadSelFacesButton* pSaveFacesBtn = new CSaveLoadSelFacesButton(true, this, _T("Save Selected Faces"), cDummy, _T("Click this button to save all selected faces."), (DWORD_PTR)pPtb);
+        pFacesSelGroup->AddSubItem(pSaveFacesBtn);
+        CSaveLoadSelFacesButton* pLoadFacesBtn = new CSaveLoadSelFacesButton(false, this, _T("Import Selected Faces"), cDummy, _T("Click this button to import previously saved faces from a file. Note: all current selections will be cleaned."), (DWORD_PTR)pPtb);
+        pFacesSelGroup->AddSubItem(pLoadFacesBtn);
         pDblLayerGroup->AddSubItem(pFacesSelGroup);
 // Actions:
         CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));

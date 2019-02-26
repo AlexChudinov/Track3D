@@ -225,6 +225,9 @@ public:
   CString           get_sel_faces_square_str() const;
   double            get_sel_faces_square(bool bSquaredMillimeters = true) const;
 
+  bool              save_sel_faces(const char* pFilename);
+  bool              load_sel_faces(const char* pFilename);
+
 // Cross-sections of the calculators suppport:
   void              set_cross_sections_array(CExternalFaces* pFaces); // called from Calculator::update().
 
