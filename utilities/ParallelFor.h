@@ -9,64 +9,54 @@
 #include <future>
 #include "../track3d/CObject.h"
 
+
+
 //A pool of threads
 class ThreadPool
 {
 public:
 	
+	class Mutex
+	{
+		CRITICAL_SECTION mCritSec;
+	public:
+		Mutex();
+		~Mutex();
+		void lock();
+		void unlock();
+	};
+
 	using Fun = std::function<void()>;
 	using Task = std::packaged_task<void()>;
 	using Tasks = std::queue<Task>;
-	using Future = std::shared_ptr<std::future<void>>;
-	using Thread = std::thread;
-	using Threads = std::vector<Thread>;
-	using Mutex = std::mutex;
+	using Future = std::future<void>;
 	using Locker = std::unique_lock<Mutex>;
-	using ConditionVar = std::condition_variable;
-	using String = std::string;
 	using Progress = EvaporatingParticle::CObject;
 
 private:
-	//True if thread pool is valid
-	bool m_bValid;
-
-	Mutex m_startMutex;
-	ConditionVar m_startCondition;
-
-	size_t m_nThreadNumber;
-	bool m_bStopFlag;
-	Threads m_threads;
-
-	Tasks m_tasks;
-
-	String m_sErrorDescription;
-
-	Mutex m_globalLock;
-	Mutex m_initLock;
-
+	
 	ThreadPool();
 	ThreadPool(const ThreadPool&) = delete;
 	ThreadPool& operator=(const ThreadPool&) = delete;
 
+	static Mutex mMtx;
+	static Tasks mTasks;
+public:
 	//Returns thread pool global instance
 	static ThreadPool& getInstance();
-public:
 	~ThreadPool();
 
 	//Adds task to task queue
-	static Future addTask(Fun&& task);
+	Future addTask(Fun&& task);
 
-	//Gets next task from queue
-	static Task getTask();
+	static void pushTask(Task&& task);
+	static Task popTask();
 
 	//Splits array into subarray and does parallel operation on it
 	static void splitInPar(size_t n, const std::function<void(size_t)>& atomicOp);
 	static void splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, 
 		Progress* progress, 
 		size_t nThreads = 0);
-
-	//Returns error string from a thread pool
-	static String error();
 
 	//Oarallel computation of max element
 	template<class Iterator> static Iterator max_element(Iterator _First, Iterator _Last, 
@@ -75,22 +65,21 @@ public:
 	template<class Iterator> static Iterator max_element(Iterator _First, Iterator _Last);
 
 private:
-	void threadEvtLoop();
+	static void CALLBACK workCallback
+	(
+		PTP_CALLBACK_INSTANCE,
+		PVOID,
+		PTP_WORK
+	);
+
+	PTP_POOL mPool;
+	TP_CALLBACK_ENVIRON mCbe;
+	DWORD nThreadCnt;
+
+	static Mutex mMutex;
 
 	//Returns a number of current threads
-	static size_t threadNumber();
-
-	//Starts thread event loops
-	void start();
-
-	//Stops thread event loops
-	void stop();
-
-	//Joins to all current threads
-	void joinAll();
-
-	//Initialises thread pool
-	void init();
+	DWORD threadNumber();
 };
 
 template<class Iterator>
@@ -98,24 +87,24 @@ inline Iterator ThreadPool::max_element(Iterator _First, Iterator _Last,
 	std::random_access_iterator_tag)
 {
 	size_t dist = static_cast<size_t>(std::distance(_First, _Last));
-	if (dist > ThreadPool::threadNumber())
+	if (dist > getInstance().threadNumber())
 	{
-		size_t n = dist / ThreadPool::threadNumber() + 1;
-		std::vector<Iterator> results(ThreadPool::threadNumber());
-		std::vector<ThreadPool::Future> futures(ThreadPool::threadNumber());
+		size_t n = dist / getInstance().threadNumber() + 1;
+		std::vector<Iterator> results(getInstance().threadNumber());
+		std::vector<ThreadPool::Future> futures(getInstance().threadNumber());
 
 		for (size_t i = 0; i < futures.size(); ++i)
 		{
 			n = n > std::distance(_First, _Last) ? std::distance(_First, _Last) : n;
 			Iterator _Next = _First + n;
-			futures[i] = ThreadPool::addTask([&results, i, _First, _Next]()
+			futures[i] = getInstance().addTask([&results, i, _First, _Next]()
 			{
 				results[i] = std::max_element(_First, _Next);
 			});
 			_First = _Next;
 		}
 
-		for (auto f : futures) f->wait();
+		for (auto& f : futures) f.wait();
 
 		std::vector<Iterator>::iterator pRes = std::max_element
 		(

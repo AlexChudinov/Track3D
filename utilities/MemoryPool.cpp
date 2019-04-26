@@ -11,6 +11,6 @@ void BlockPoolInterface::insert(BlockPoolInterface * p){
 
 void BlockPoolInterface::cleanUpEveryPool(){
 	for (BlockPoolInterface* p : s_blockPools) {
-		ThreadPool::addTask([&]() { p->cleanUp(); });
+		ThreadPool::getInstance().addTask([&]() { p->cleanUp(); });
 	}
 }
