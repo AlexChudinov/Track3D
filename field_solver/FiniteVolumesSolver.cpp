@@ -210,8 +210,13 @@ float CFiniteVolumesSolver::one_iter()
         vF = mMtx * vNorm;
         for(size_t j = 0; j < nNbrCount; j++)
         {
-          vNbr = m_pTess->get_neighbor_vector(i, j);  // note: in this function i is the global node index, but j is the local neighbor index of this node.
-          vNbr /= (pCell->pNbrDist[j] * pCell->pNbrDist[j]);
+// Normalized neighbor vector. Note: in this function i is the global node index, but j is the local neighbor index of this node.
+          vNbr = m_pTess->get_neighbor_vector(i, j) / pCell->pNbrDist[j];
+// Take into account only those neighbours, for which (vNorm, vNbr) < eps.
+          if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
+            continue;
+
+          vNbr /= pCell->pNbrDist[j];   // divide vNbr by pCell->pNbrDist[j] once again, OK, see equations.
           vB += vNbr * m_vU0[pNode->vNbrNodes.at(j)];
         }
 
@@ -250,8 +255,13 @@ float CFiniteVolumesSolver::single_node_iter(CNode3D* pNode, CDirichletCell* pCe
       for(size_t j = 0; j < nNbrCount; j++)
       {
         nNbr = pNode->vNbrNodes.at(j);
-        vNbr = vNodes.at(nNbr)->pos - pNode->pos;
-        vNbr /= (pCell->pNbrDist[j] * pCell->pNbrDist[j]);
+// Normalized neighbour vector.
+        vNbr = (vNodes.at(nNbr)->pos - pNode->pos) / pCell->pNbrDist[j];
+// Take into account only those neighbours, for which (vNorm, vNbr) < eps.
+        if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
+            continue;
+
+        vNbr /= pCell->pNbrDist[j]; // divide vNbr by pCell->pNbrDist[j] once again, OK, see equations.
         vB += vNbr * vU0.at(nNbr);
       }
 
@@ -267,7 +277,6 @@ void CFiniteVolumesSolver::prepare()
   size_t nNodesCount = m_pMesh->get_nodes().size();
   m_vDiagCoeff.assign(nNodesCount, 0);
 
-  calc_boundary_normals();
   calc_diag();
 
 // Initialize run-time arrays:
@@ -317,8 +326,13 @@ void CFiniteVolumesSolver::calc_diag()
         vB = scvNull;
         for(size_t j = 0; j < pCell->nFaceCount; j++)
         {
-          vNbr = m_pTess->get_neighbor_vector(i, j);
-          vNbr /= (pCell->pNbrDist[j] * pCell->pNbrDist[j]);
+// Normalized neighbor vector.
+          vNbr = m_pTess->get_neighbor_vector(i, j) / pCell->pNbrDist[j];
+// Take into account only those neighbours, for which (vNorm, vNbr) < eps.
+          if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
+            continue;
+
+          vNbr /= pCell->pNbrDist[j];
           vB += vNbr;
         }
 
@@ -327,6 +341,7 @@ void CFiniteVolumesSolver::calc_diag()
       }
     }
   }
+/*
 // DEBUG
   int nIndMin = 0, nIndMax = 0, nIndAbsMin = 0;
   float fDiagCoeffMin = FLT_MAX, fDiagCoeffMax = -FLT_MAX, fAbsCoeffMin = FLT_MAX, fCoeff;
@@ -388,60 +403,7 @@ void CFiniteVolumesSolver::calc_diag()
     fclose(pStream);
   }
 // END DEBUG
-}
-
-void CFiniteVolumesSolver::calc_boundary_normals()
-{
-  Vector3D vNorm;
-  CDirichletCell* pCell = NULL;
-  size_t nNodesCount = m_pMesh->get_nodes().size();
-  for(size_t i = 0; i < nNodesCount; i++)
-  {
-    const CNodeInfo& info = m_vRes.at(i);
-    if(info.nType != 2)
-      continue;
-
-    vNorm = get_bound_norm(i);
-    pCell = m_pTess->get_cell(i);
-    pCell->pFaceSquare[7] = vNorm.x;
-    pCell->pFaceSquare[8] = vNorm.y;
-    pCell->pFaceSquare[9] = vNorm.z;
-  }
-}
-
-Vector3D CFiniteVolumesSolver::get_bound_norm(size_t nNodeId) const
-{
-  CNode3D* pNode = m_pMesh->get_nodes().at(nNodeId);
-  size_t nNbrCount = pNode->vNbrFaces.size();
-  if(nNbrCount == 0)
-    return scvNull;
-
-  const CRegionsCollection& vRegs = m_pMesh->get_regions();
-  size_t nRegCount = vRegs.size();
-
-  UINT nReg, nFace;
-  CFace* pFace = NULL;
-  Vector3D vNorm(0, 0, 0);
-  for(size_t i = 0; i < nNbrCount; i++)
-  {
-    nReg = pNode->vNbrFaces.at(i).nReg;
-    if(nReg >= nRegCount)
-      continue;
-
-    nFace = pNode->vNbrFaces.at(i).nFace;
-    if(nFace >= vRegs.at(nReg)->vFaces.size())
-      continue;
-
-    pFace = vRegs.at(nReg)->vFaces.at(nFace);
-// Take into account only those faces (except the first one), in all vertices of which the zero gradient condition is set.
-    if((i > 0) && (m_vRes.at(pFace->p0->nInd).nType != 2 || m_vRes.at(pFace->p1->nInd).nType != 2 || m_vRes.at(pFace->p2->nInd).nType != 2))
-      continue;
-
-    vNorm += pFace->norm;
-  }
-
-  vNorm.normalize();
-  return vNorm;
+*/
 }
 
 float CFiniteVolumesSolver::get_max_relative_error()

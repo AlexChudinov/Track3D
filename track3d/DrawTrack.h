@@ -9,8 +9,8 @@
 
 #include "vector2d.hpp"
 #include "matrix3d.hpp"
-#include <string>
-#include <vector>
+//#include <string>
+//#include <vector>
 
 namespace EvaporatingParticle
 {
@@ -69,7 +69,7 @@ typedef std::vector<size_t> CIdsVector;
 //-------------------------------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------------------------------
-class CTrackDraw
+class CTrackDraw : public CObject
 {
 public:
   CTrackDraw();
@@ -244,7 +244,7 @@ public:
   void              load(CArchive& archive);
 
   void              clear();
-  void              build_wireframe_array();  // public because it can be called from CTracker::load().
+  void              build_arrays();
 
 protected:
   void              set_projection();
@@ -252,8 +252,8 @@ protected:
 
   void              get_resolution(long& nx, long& ny) const;
 
-  void              build_arrays();
   void              build_faces_array();
+  void              build_wireframe_array();
   void              build_aux_arrays();
 
   void              build_sel_faces_array();  // build m_vSelFacesVert array.

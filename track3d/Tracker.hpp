@@ -364,7 +364,13 @@ protected:
                                             double          fIonMob,  // random diffusion velocity jumps support.
                                             double          fTime) const;
 // Coulomb effects:
-  void                    init_currents();  // before integration runs over all track items and initializes item.curr members.
+// Special case of axial symmetry of the whole system (m_bAxialSymm == true).
+// Before integration initialize item.curr members by the current being inside the stream tube this track belongs to. The current
+// is assumed to be the full current which enters the system.
+  void                    init_currents();
+// Special case when the end of the interface is approximately axially symmetric. This function is called at every iteration nIter >= 1.
+// The current is calculated at the beginning cross-section X = m_fRadialCoulombX.
+  void                    init_currents_iter(double fCurrPerTrack);
 
   void                    get_output_freq(UINT& nOutFreq) const;
 
@@ -375,7 +381,11 @@ protected:
   bool                    accumulate_clmb_field(UINT nIter);
   void                    accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter);
 
-  double                  get_full_current_at(UINT nIter);  // the full current is gradually increasing with iteration number.
+// In the course of iterations the full current gradually increases from zero to the user-defined value. 
+  UINT                    get_const_curr_iter_count() const { return 10; } // during the last 10 iterations the current remains constant, m_fFullCurrent.
+  double                  get_correction_coeff() const; // the correction coefficient due to accumulation of the space charge field.
+  double                  get_full_current_at(UINT nIter) const;  // full current at nIter-th iteration without correction.
+
   bool                    capture_save_image(UINT nIter);   // capture and save screenshot with tracks after nIter-th iteration.
 
 public:

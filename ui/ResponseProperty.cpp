@@ -399,3 +399,4 @@ BOOL CElectricFieldResponder::OnUpdateValue()
 
   return bRes;
 }
+

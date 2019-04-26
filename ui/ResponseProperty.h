@@ -109,3 +109,4 @@ public:
 
   virtual BOOL    OnUpdateValue();
 };
+

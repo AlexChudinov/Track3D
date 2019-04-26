@@ -326,6 +326,7 @@ void CTrackDraw::build_arrays()
     return; // nothing to draw.
 
   build_wireframe_array();
+
   build_norm_array();
 
   build_faces_array();
@@ -342,6 +343,9 @@ void CTrackDraw::build_faces_array()
 {
   if(m_bFacesReady)
     return;
+
+  set_job_name("Building faces");
+  CObject::set_progress(0);
 
   glFrontFace(GL_CCW);
   glDisable(GL_NORMALIZE);
@@ -384,7 +388,8 @@ void CTrackDraw::build_faces_array()
       }
     }
 
-    set_progress("Building faces", 100 * i / nRegCount);
+//    set_progress("Building faces", 100 * i / nRegCount);
+    CObject::set_progress(100 * i / nRegCount);
   }
 
   m_bFacesReady = true;
@@ -544,16 +549,27 @@ void CTrackDraw::build_wireframe_array()
 
   m_vWireFrame.clear();
 #ifndef _DEBUG
+  set_job_name("Building regions from planes");
+  CObject::set_progress(0);
   const CRegionsCollection& regions = m_pTracker->get_regions();
 
   CFace* pFace = NULL;
   CRegion* pReg = NULL;
 
+  set_job_name("Building wireframe");
+  CObject::set_progress(0);
+
   size_t nRegCount = regions.size();
+  size_t nTotalCount = 0;
   for(size_t i = 0; i < nRegCount; i++)
   {
-    set_progress("Building wireframe", 100 * i / nRegCount);
+    pReg = regions.at(i);
+    nTotalCount += pReg->bCrossSection ? 0 : pReg->vFaces.size(); // for set_progress() only.
+  }
 
+  size_t nProcessedCount = 0;
+  for(size_t i = 0; i < nRegCount; i++)
+  {
     pReg = regions.at(i);
     if(pReg->bCrossSection)
       continue;
@@ -575,6 +591,10 @@ void CTrackDraw::build_wireframe_array()
         else
           vEdges.push_back(edges[k]);
       }
+
+      nProcessedCount++;
+      if(nProcessedCount % 100 == 0)
+        CObject::set_progress(100 * nProcessedCount / nTotalCount);
     }
 
     size_t nEdgeCount = vEdges.size();
@@ -731,7 +751,7 @@ void CTrackDraw::draw_geometry()
   {
     case dmNone: return;
     case dmWire: draw_selected_regions(); draw_wire(); draw_cs_flat(); return;
-    case dmFlatAndWire: draw_flat(); draw_selected_regions(); draw_wire();  draw_cs_flat(); draw_norm(); return;
+    case dmFlatAndWire: draw_wire(); draw_flat(); draw_selected_regions(); draw_cs_flat(); draw_norm(); return;
     case dmFlatOnly: draw_flat(); draw_selected_regions(); draw_cs_flat(); draw_norm(); return;
   }
 }
@@ -744,8 +764,10 @@ void CTrackDraw::draw_wire()
 
   glDisable(GL_LIGHTING);
   glDisable(GL_ALPHA_TEST);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_BLEND);
+//  glDisable(GL_DEPTH_TEST);
+//  glDisable(GL_BLEND);
+//  glLineWidth(1.5);
+//  glEnable(GL_LINE_SMOOTH);
 
   glColor3ub(200, 200, 200);
   UINT nStride = 3 * sizeof(GLdouble);
@@ -753,7 +775,9 @@ void CTrackDraw::draw_wire()
 
   glDrawArrays(GL_LINES, 0, nSize);
 
-  glEnable(GL_DEPTH_TEST);
+//  glEnable(GL_DEPTH_TEST);
+//  glLineWidth(1);
+//  glDisable(GL_LINE_SMOOTH);
 }
 
 void CTrackDraw::draw_norm()
@@ -900,6 +924,8 @@ void CTrackDraw::draw_selected_faces()
 void CTrackDraw::set_global()
 {
   glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glShadeModel(GL_FLAT);
 }
 
 void CTrackDraw::set_lights()
@@ -910,7 +936,7 @@ void CTrackDraw::set_lights()
   float pLight_0_Dir[4] = { -0.5f, -1.0f, -1.0f, 0.0f };  // this is direction of the parallel type of light.
   float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.3f, 1.0f };
   float pLight_0_Diffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-  float pLight_0_Spec[4] = { 1.8f, 1.8f, 1.8f, 1.0f };
+  float pLight_0_Spec[4] = { 3.0f, 3.0f, 3.0f, 1.0f };
 
   glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
   glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
@@ -919,7 +945,7 @@ void CTrackDraw::set_lights()
 
   glEnable(GL_LIGHT0);
 
-  float pLight_1_Dir[4] = { 0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
+  float pLight_1_Dir[4] = { -0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
   float pLight_1_Ambient[4] = { 0.12f, 0.1f, 0.1f, 1.0f };
   float pLight_1_Diffuse[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
   float pLight_1_Spec[4] = { 1.8f, 1.8f, 1.8f, 1.0f };
@@ -944,7 +970,7 @@ void CTrackDraw::set_materials()
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  glShadeModel(GL_FLAT);
+//  glShadeModel(GL_FLAT); moved to set_global().
 }
 
 // Mouse events support

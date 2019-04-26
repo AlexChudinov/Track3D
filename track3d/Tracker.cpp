@@ -475,7 +475,12 @@ bool CTracker::create_BH_object(UINT nIter)
   get_BH_cube(vCenter, fEdge, fMinX, fMaxX);
   m_pBarnesHut->create_main_cell(vCenter, fEdge); 
 
-  double fCurrPerTrack = get_full_current_at(nIter) / nTrackCount;   // CGSE.
+  double fCurrPerTrack = get_full_current_at(nIter) / nTrackCount;   // CGSE, WITHOUT correction for space charge accumulation.
+
+// Note: we need this call in the case of axial symmetry (full or partial) only. As Gabovich formula is direct, we do not need current correction here.
+  init_currents_iter(fCurrPerTrack);
+
+  fCurrPerTrack *= get_correction_coeff();  // correction for space charge accumulation for further usage in iterational approach.
 
   if(get_terminate_flag() || m_hJobNameHandle == NULL || m_hProgressBarHandle == NULL)
     return false;
@@ -983,18 +988,15 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
 // Coulomb repulsion:
   if(m_bEnableCoulomb)
   {
-    if(m_bAxialSymm)
+// Note: fCurr was previously initialized in either init_currents() or init_currents_iter(). It is the current within the stream tube this track belongs to.
+    if(m_bAxialSymm || (m_bUseRadialCoulomb && (node.pos.x > m_fRadialCoulombX)))
     {
       if(vVel.x > Const_Almost_Zero)
         vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
     }
     else
     {
-      Vector3D vClmb = node.clmb;
-      if(m_bUseRadialCoulomb && (node.pos.x > m_fRadialCoulombX))
-        vClmb.x = 0;  // This is a workaround. I hope to get rid of in later.
-
-      vE += vClmb;
+      vE += node.clmb;
     }
   }
 
@@ -1048,7 +1050,7 @@ Vector3D CTracker::get_rf_field(const CNode3D& node, double fTime, double fPhase
 
 void CTracker::init_currents()
 {
-  if(m_nType != CTrack::ptIon || !m_bEnableCoulomb || m_fInitBunchRadius < Const_Almost_Zero)
+  if(!m_bAxialSymm || m_nType != CTrack::ptIon || !m_bEnableCoulomb || m_fInitBunchRadius < Const_Almost_Zero)
     return;
 
   size_t nIonCount = m_Tracks.size();
@@ -1061,8 +1063,61 @@ void CTracker::init_currents()
     CBaseTrackItem* pItem = track.at(0);
     double fR2 = pItem->pos.y * pItem->pos.y + pItem->pos.z * pItem->pos.z;
     double fR02 = m_fInitBunchRadius * m_fInitBunchRadius;
-    if(m_bAxialSymm)
-      track.set_current(m_fFullCurrent * fR2 / fR02);
+    track.set_current(m_fFullCurrent * fR2 / fR02);
+  }
+}
+
+void CTracker::init_currents_iter(double fCurrPerTrack)
+{
+  if(m_bAxialSymm || !m_bUseRadialCoulomb || m_nType != CTrack::ptIon || !m_bEnableCoulomb)
+    return;
+
+  Vector3D v0, v1;
+  double ksi, dx, y, z, r2max = 0, fCurrent = 0;
+  
+  size_t nTracksCount = m_Tracks.size();
+  std::vector<double> vR2(nTracksCount, 0);
+
+  for(size_t i = 0; i < nTracksCount; i++)
+  {
+    const CTrack& track = m_Tracks.at(i);
+    size_t nItemsCount = track.size();
+    if(nItemsCount < 1)
+      continue;
+
+    v0 = track.at(0)->pos;
+    for(size_t j = 1; j < nItemsCount; j++)
+    {
+      v1 = track.at(j)->pos;
+      if((v0.x <= m_fRadialCoulombX) && (v1.x > m_fRadialCoulombX))
+      {
+        dx = v1.x - v0.x;
+        if(fabs(dx) < Const_Almost_Zero)
+          ksi = 0;
+        else
+          ksi = (m_fRadialCoulombX - v0.x) / dx;
+
+        y = v0.y + ksi * (v1.y - v0.y);
+        z = v0.z + ksi * (v1.z - v0.z);
+        vR2[i] = y * y + z * z;
+        if(vR2[i] > r2max)
+          r2max = vR2[i];
+
+        fCurrent += fCurrPerTrack;
+        break;
+      }
+
+      v0 = v1;
+    }
+  }
+
+  if(r2max < Const_Almost_Zero)
+    return;
+
+  for(size_t i = 0; i < nTracksCount; i++)
+  {
+    CTrack& track = m_Tracks.at(i);
+    track.set_current(fCurrent * vR2.at(i) / r2max);
   }
 }
 
@@ -1251,21 +1306,25 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   return true;
 }
 
-double CTracker::get_full_current_at(UINT nIter)
+double CTracker::get_full_current_at(UINT nIter) const
 {
-  const UINT nMaxCurrentIterCount = 10;
+  const UINT nMaxCurrentIterCount = get_const_curr_iter_count();
   const UINT nVarIterCount = m_nIterCount > nMaxCurrentIterCount ? m_nIterCount - nMaxCurrentIterCount : 0;
   if(nVarIterCount == 0)
     return m_fFullCurrent;
 
-// An attempt to introduce a correction coefficient.
-  double fCoeff = 2.0 * m_nIterCount / (m_nIterCount + nMaxCurrentIterCount); // must be > 1.
-
   if(nIter > nVarIterCount)
-    return fCoeff * m_fFullCurrent;
+    return m_fFullCurrent;
 
   double fKsi = double(nIter) / nVarIterCount;
-  return fCoeff * m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
+  return m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
+//  return m_fFullCurrent * fKsi; // try the linear grouth with iteration number.
+}
+
+double CTracker::get_correction_coeff() const
+{
+  double fCoeff = 2.0 * m_nIterCount / (m_nIterCount + get_const_curr_iter_count()); // must be > 1.
+  return fCoeff > 1.0 ? fCoeff : 1.0;
 }
 
 void CTracker::calc_cross_section()

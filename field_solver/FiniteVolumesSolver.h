@@ -62,9 +62,6 @@ protected:
   void                    prepare();
   void                    calc_diag();  // calculation of diagonal components of the system matrix.
 
-  void                    calc_boundary_normals();
-  Vector3D                get_bound_norm(size_t nNodeId) const;
-
 // Returns maximal relative discrepancy between U(r) at current (m_vRes) and previous (m_vU0) iterations.
   float                   get_max_relative_error();
 

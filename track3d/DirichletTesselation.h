@@ -64,6 +64,12 @@ public:
 // Returns a neighbor vector (not normalized) drawn from the nNodeId-th vertex to its nNbrId-th neighbor.
   Vector3D            get_neighbor_vector(size_t nNodeId, size_t nNbrId) const;
 
+// Returns normal vector at a boundary node. Do not mix with "get_norm" declared above, which merely normalizes the vector drawn from this node to a neighbor node. 
+  Vector3D            get_bound_norm(CNode3D* pBoundNode) const;
+
+// This condition is used for overdetermined system of equations. We take into account only those nodes, for which (e, vNorm) < Const_Almost_Zero.
+  static bool         bound_deriv_calc_cond(const Vector3D& vNorm, const Vector3D& e);
+
   double              get_coeff(size_t nNodeId, size_t nNbrId) const;
 
   size_t              get_abs_nbr_node_index(size_t nNodeId, size_t nNbrId) const;

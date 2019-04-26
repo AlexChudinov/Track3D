@@ -294,6 +294,10 @@ void CColorContour::get_glob_min_max()
   m_fMinVal = FLT_MAX;
   m_fMaxVal = -FLT_MAX;
 
+// DEBUG
+  Vector3D vPosMin, vPosMax;
+// END DEBUG
+
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   CNodesCollection& vNodes = pObj->get_nodes();
   CNode3D* pNode = NULL;
@@ -304,11 +308,46 @@ void CColorContour::get_glob_min_max()
   {
     pNode = vNodes.at(i);
     fVal = get_node_value(pNode);
+// DEBUG
+    if(m_fMinVal > fVal)
+    {
+      m_fMinVal = fVal;
+      vPosMin = pNode->pos;
+    }
+    if(m_fMaxVal < fVal)
+    {
+      m_fMaxVal = fVal;
+      vPosMax = pNode->pos;
+    }
+// END DEBUG
+/*
     if(m_fMinVal > fVal)
       m_fMinVal = fVal;
     if(m_fMaxVal < fVal)
       m_fMaxVal = fVal;
+*/
   }
+// DEBUG
+  COutputEngine& out_engine = pObj->get_output_engine();
+  std::string cPath = out_engine.get_full_path(pObj->get_filename());
+  std::string cName("Min_Max_Values");
+  std::string cExt(".csv");
+  std::string cFileName = cPath + cName + cExt;
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
+  if((nErr == 0) && (pStream != NULL))
+  {
+    fputs("Min,      Max\n", pStream);
+    fprintf(pStream, "%f,        %f\n\n", m_fMinVal, m_fMaxVal);
+    fputs("Pos Min (x,y,z),         Pos Max (x,y,z)\n", pStream);
+    vPosMin *= 10;
+    vPosMax *= 10;
+    fprintf(pStream, "%f, %f, %f,        %f, %f, %f\n", vPosMin.x, vPosMin.y, vPosMin.z, vPosMax.x, vPosMax.y, vPosMax.z);
+
+    fclose(pStream);
+  }
+// END DEBUG
 }
 
 void CColorContour::reorder_vertices(CFace* pFace, Vector3D* pFaceVert, double* pVal) const

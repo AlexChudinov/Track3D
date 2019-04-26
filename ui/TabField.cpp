@@ -32,6 +32,7 @@ void CPropertiesWnd::add_field_ctrls()
   CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
   if(pData != NULL)
   {
+    CMFCPropertyGridProperty* pProp = NULL;
     CMFCPropertyGridProperty* pGenGroup = new CMFCPropertyGridProperty(_T("General Field Properties"));
 
     CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable Field"), (_variant_t)pData->get_enable_field(), _T("Click this check-box to enable / disable this field."), pData->get_enable_field_ptr());
@@ -44,7 +45,7 @@ void CPropertiesWnd::add_field_ctrls()
 
     pGenGroup->AddSubItem(pFieldType);
 
-    CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
+    pProp = new CMFCPropertyGridProperty(_T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
     pGenGroup->AddSubItem(pProp);
 
     if(pData->get_type() == CElectricFieldData::typeFieldRF)

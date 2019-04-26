@@ -344,6 +344,13 @@ double CDirichletTesselation::angle_0_360(const Vector3D& vA, const Vector3D& vB
   return fProj > 0 ? fPhi : Const_2PI - fPhi;
 }
 
+bool CDirichletTesselation::bound_deriv_calc_cond(const Vector3D& vNorm, const Vector3D& e)
+{
+  static const double fEps = 0.1;
+  return (e & vNorm) < fEps;
+}
+
+
 void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* pNode, const CNodesCollection& vNodes) const
 {
   CNode3D* pNbrNode = NULL;
@@ -356,6 +363,15 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
   pCell->pNbrDist = new float[nNbrCount];
   pCell->pFaceSquare = new float[10];      // Cxx, Cxy, Cxz, Cyy, Cyz, Czz, fDet, nx, ny, nz.
 
+  Vector3D vNorm = get_bound_norm(pNode);
+  pCell->pFaceSquare[7] = (float)vNorm.x;
+  pCell->pFaceSquare[8] = (float)vNorm.y;
+  pCell->pFaceSquare[9] = (float)vNorm.z;
+
+// DEBUG
+  int nCount = 0;
+// END DEBUG
+
   for(size_t i = 0; i < nNbrCount; i++)
   {
     pNbrNode = vNodes.at(pNode->vNbrNodes.at(i));
@@ -364,13 +380,26 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
     pCell->pNbrDist[i] = fDist;
     e /= fDist;
 
+// Take into account only those neighbours, for which (vNorm, e) < -Const_Almost_Zero.
+    if(!bound_deriv_calc_cond(vNorm, e))
+      continue;
+
     Axx += e.x * e.x;
     Axy += e.x * e.y;
     Axz += e.x * e.z;
     Ayy += e.y * e.y;
     Ayz += e.y * e.z;
     Azz += e.z * e.z;
+
+// DEBUG
+    nCount++;
+// END DEBUG
   }
+
+// DEBUG
+  if(nCount < 3)
+    AfxMessageBox("Too little items in the overdetermined system's sum.");
+// END DEBUG
 
   Matrix3D m(Axx, Axy, Axz, Axy, Ayy, Ayz, Axz, Ayz, Azz);
   fDet = m.det();
@@ -391,6 +420,35 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
   pCell->pFaceSquare[6] = fDet;
 }
 
+Vector3D CDirichletTesselation::get_bound_norm(CNode3D* pBoundNode) const
+{
+  size_t nNbrCount = pBoundNode->vNbrFaces.size();
+  if(nNbrCount == 0)
+    return scvNull;
+
+  const CRegionsCollection& vRegs = m_pMesh->get_regions();
+  size_t nRegCount = vRegs.size();
+
+  UINT nReg, nFace;
+  CFace* pFace = NULL;
+  Vector3D vNorm(0, 0, 0);
+  for(size_t i = 0; i < nNbrCount; i++)
+  {
+    nReg = pBoundNode->vNbrFaces.at(i).nReg;
+    if(nReg >= nRegCount)
+      continue;
+
+    nFace = pBoundNode->vNbrFaces.at(i).nFace;
+    if(nFace >= vRegs.at(nReg)->vFaces.size())
+      continue;
+
+    vNorm += vRegs.at(nReg)->vFaces.at(nFace)->norm;
+  }
+
+  vNorm.normalize();
+  return vNorm;
+}
+
 Matrix3D CDirichletTesselation::get_bound_cell_mtx(CDirichletCell* pCell) const
 {
   Matrix3D m(pCell->pFaceSquare[0], pCell->pFaceSquare[1], pCell->pFaceSquare[2],
@@ -403,12 +461,14 @@ Matrix3D CDirichletTesselation::get_bound_cell_mtx(CDirichletCell* pCell) const
 Vector3D CDirichletTesselation::get_bound_cell_grad(CDirichletCell* pCell, CNode3D* pNode, const std::vector<float>& vScalarField) const
 {
   float fPhi, fPhiC = vScalarField.at(pNode->nInd);
-  Vector3D b(0, 0, 0), e;
+  Vector3D b(0, 0, 0), vNrm(pCell->pFaceSquare[7], pCell->pFaceSquare[8], pCell->pFaceSquare[9]), e;
   for(size_t i = 0; i < pCell->nFaceCount; i++)
   {
     fPhi = vScalarField.at(pNode->vNbrNodes.at(i));
 
     e = get_neighbor_vector(pNode->nInd, i) / pCell->pNbrDist[i];
+    if(!bound_deriv_calc_cond(vNrm, e))
+      continue;
 
     b += e * ((fPhi - fPhiC) / pCell->pNbrDist[i]);
   }
