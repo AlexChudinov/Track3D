@@ -16,7 +16,7 @@ public:
 	virtual Hist applyToFieldNTimes(Field& f0, size_t N, ThreadPool::Progress * p) const;
 
 private:
-
+	Eigen::SparseMatrix<double> mMatrix;
 	Eigen::VectorXd mB;
 	Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> mSolver;
 };

@@ -4,10 +4,10 @@
 
 EigenSolver::EigenSolver(const CFieldOperator::Matrix & matrix, const CMeshAdapter& mesh)
 	:
-	mB(matrix.size())
+	mB(matrix.size()),
+	mMatrix(matrix.size(), matrix.size())
 {
 	const size_t n = matrix.size();
-	Eigen::SparseMatrix<double> local(n, n);
 	std::vector<Eigen::Triplet<double>> triplets;
 	triplets.reserve(n);
 	for (size_t i = 0; i < n; ++i)
@@ -19,14 +19,14 @@ EigenSolver::EigenSolver(const CFieldOperator::Matrix & matrix, const CMeshAdapt
 			triplets.push_back(Eigen::Triplet<double>(nRow, nCol, c.second));
 		}
 	}
-	local.setFromTriplets(triplets.begin(), triplets.end());
+	mMatrix.setFromTriplets(triplets.begin(), triplets.end());
 	Field f(matrix.size());
 	mesh.boundaryMesh()->applyBoundaryVals(f);
 	for (size_t i = 0; i < f.size(); ++i)
 	{
 		mB(static_cast<Eigen::Index>(i)) = f[i];
 	}
-	mSolver.compute(local);
+	mSolver.compute(mMatrix);
 }
 
 EigenSolver::~EigenSolver()
