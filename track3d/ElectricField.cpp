@@ -430,6 +430,7 @@ bool CElectricFieldData::calc_field()
     case cmLaplacian3: return calc_lap3();
     case cmDirTessLap3: return calc_dirichlet_lap3();
     case cmFinVolJacobi: return calc_finite_vol_jacobi();
+	case cmEigenLibSolver: return calc_eigen_lib_lap();
   }
 
   return false;
@@ -654,6 +655,69 @@ bool CElectricFieldData::calc_finite_vol_jacobi()
   notify_scene();
 
   return get_result();
+}
+
+bool CElectricFieldData::calc_eigen_lib_lap()
+{
+	try
+	{
+		terminate(false);
+		EvaporatingParticle::CTracker * pObj = CParticleTrackingApp::Get()->GetTracker();
+		CMeshAdapter mesh(pObj->get_elems(), pObj->get_nodes());
+		mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
+
+		check_regions();
+		if (!set_default_boundary_conditions(mesh) || !set_boundary_conditions(mesh))
+			return false;
+
+		size_t nNodesCount = pObj->get_nodes().size();
+		std::vector<double> field(nNodesCount, 0.0);
+
+		// Laplacian Solver:
+		mesh.boundaryMesh()->applyBoundaryVals(field);
+		DCMeshAdapter::PScalFieldOp pOp = mesh.createOperator(CMeshAdapter::EigenLibLaplacian, NULL);
+		if (pOp == NULL)
+			return false;
+
+		set_job_name(job_name(jobCalcField));
+		double fErr;
+		set_progress(50);
+		pOp->applyToField(field, &fErr);
+		set_progress(100);
+
+		// Gradient calculation:
+		CMeshAdapter::PScalFieldOp pGrad = mesh.createOperator(CMeshAdapter::GradX, NULL);
+		std::vector<double> dPhiDx(field);
+		pGrad->applyToField(dPhiDx);
+
+		pGrad = mesh.createOperator(CMeshAdapter::GradY, NULL);
+		std::vector<double> dPhiDy(field);
+		pGrad->applyToField(dPhiDy);
+
+		pGrad = mesh.createOperator(CMeshAdapter::GradZ, NULL);
+		std::vector<double> dPhiDz(field);
+		pGrad->applyToField(dPhiDz);
+
+		CNode3D* pNode = NULL;
+		m_vPhi.resize(nNodesCount, 0);
+		m_vField.resize(nNodesCount);
+		for (size_t i = 0; i < nNodesCount; i++)
+		{
+			m_vPhi[i] = (float)field[i];
+			m_vField[i] = Vector3F(-(float)dPhiDx[i], -(float)dPhiDy[i], -(float)dPhiDz[i]);
+
+		}
+
+		m_bNeedRecalc = m_nType == typeMirror;
+
+	}
+	catch (const std::exception& ex)
+	{
+		AfxMessageBox(ex.what());
+	}
+
+	notify_scene();
+	return get_result();
 }
 
 void CElectricFieldData::output_convergence_history(const std::vector<float>& vMaxRelErr)
@@ -1125,6 +1189,8 @@ const char* CElectricFieldData::get_calc_method_name(int nCalcMethod)
     case cmLaplacian3: return _T("Laplacian Solver #3");
     case cmDirTessLap3: return _T("Advanced Laplacian Solver");
     case cmFinVolJacobi:  return _T("Finite Volume (Jacobi)");
+	//Eigen lib solver
+	case cmEigenLibSolver: return _T("Eigen lib laplacian");
   }
 
   return _T("None");

@@ -223,7 +223,8 @@ public:
     cmLaplacian3    = 0,
     cmDirTessLap3   = 1,
     cmFinVolJacobi  = 2,
-    cmCount         = 3
+	cmEigenLibSolver= 3,
+    cmCount         = 4
   };
 
   enum
@@ -350,6 +351,7 @@ protected:
   bool                    calc_lap3();
   bool                    calc_dirichlet_lap3();
   bool                    calc_finite_vol_jacobi();
+  bool					  calc_eigen_lib_lap();
 
   enum  { jobDfltCond  = 0, jobUserCond  = 1,  jobCalcField = 2 };
 

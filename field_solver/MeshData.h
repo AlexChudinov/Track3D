@@ -6,7 +6,6 @@
 #include <map>
 #include <string>
 #include <cassert>
-
 #include <linearAlgebra/matrixTemplate.h>
 
 #include "BoundaryMesh.h"
@@ -94,6 +93,8 @@ public:
 	Hist applyToFieldNTimes(Field& f0, size_t N, ThreadPool::Progress * p) const;
 
 	void calcFastMatrix();
+
+	const Matrix& matrix() const { return m_matrix; }
 };
 
 // Addapts mesh to an external usage
@@ -106,7 +107,7 @@ public:
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double,
 		std::less<uint32_t>, Allocator<std::pair<uint32_t, double>>>;
-	using Label = uint32_t;
+	using Label = UINT;
 	using Labels = std::vector<Label>;
 	using Vector3D = BoundaryMesh::Vector3D;
 	using Vector3DOp = std::array<std::vector<double>, 3>;
@@ -183,6 +184,8 @@ protected:
 	ScalarFieldOperator laplacianSolver2() const;
 	//Creates solver which uses equal steps
 	ScalarFieldOperator laplacianSolver3() const;
+	//Calculates laplacian solver on base of eigen lib
+	PScalFieldOp eigenLibLap() const;
 	//Calculates laplacian operator
 	ScalarFieldOperator laplacian() const;
 	//Directed derivative calculation
@@ -234,6 +237,7 @@ public:
 		LaplacianSolver1,
 		LaplacianSolver2,
 		LaplacianSolver3,
+		EigenLibLaplacian,
 		GradX,
 		GradY,
 		GradZ

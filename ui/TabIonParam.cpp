@@ -33,6 +33,10 @@ void CPropertiesWnd::add_ion_ctrls()
   pGeneralGroup->AddSubItem(pProp);
   pProp = new CMFCPropertyGridProperty(_T("Mobility, cm2/s/V"), COleVariant(pObj->get_ion_mobility() * SI_to_CGS_Voltage), _T("Ion mobility at STP."), pObj->get_ion_mobility_ptr());
   pGeneralGroup->AddSubItem(pProp);
+// DEBUG
+  CCheckBoxButton* pDbgCheckBox = new CCheckBoxButton(this, _T("Ignore Environ. Gas"), (_variant_t)pObj->get_ignore_env_gas(), _T("For test purposes only. If checked the ions will move in vacuum."), pObj->get_ignore_env_gas_ptr());
+  pGeneralGroup->AddSubItem(pDbgCheckBox);
+// END DEBUG
 
   m_wndPropList.AddProperty(pGeneralGroup);
 

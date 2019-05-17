@@ -109,6 +109,10 @@ void CTracker::set_default()
   m_nMaxRecDepth = 12;
   m_bEnableQuadTerms = false;
 
+// DEBUG
+  m_bIgnoreEnvGas = false;
+// END DEBUG
+
 // Radio-frequency field:
   m_bEnableRF = false;
   m_fAmplRF = 80.;          // V, this is only a scaling factor.
@@ -974,15 +978,12 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
     if(m_bEnableField)  // enable/disable Ansys DC field:
       vE += node.field;
 
-//    vE += m_vFieldPtbColl.apply(node.pos);  // DC perturbation field can be swiched on/off individually.
-
     if(m_bEnableRF)     // RF field:
       vE += get_rf_field(node, fTime, fPhase);
   }
   else
   {
     vE += (node.rf + node.field);
-//    vE += (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
   }
 
 // Coulomb repulsion:
@@ -991,14 +992,20 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
 // Note: fCurr was previously initialized in either init_currents() or init_currents_iter(). It is the current within the stream tube this track belongs to.
     if(m_bAxialSymm || (m_bUseRadialCoulomb && (node.pos.x > m_fRadialCoulombX)))
     {
-      if(vVel.x > Const_Almost_Zero)
-        vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vVel.x, fCurr);
+      Vector3D vIonVel = node.vel + fMob * vE;  // a model ion velocity is used here to make the radial Coulomb force regular. [MS] 25-04-2019.
+      if(vIonVel.x > Const_Almost_Zero)
+        vE += CSpaceChargeDistrib::radial_coulomb_field(node.pos, vIonVel.x, fCurr);
     }
     else
     {
       vE += node.clmb;
     }
   }
+
+// DEBUG
+  if(m_bIgnoreEnvGas)
+    return vE * m_fChargeMassRatio;
+// END DEBUG
 
   if(m_bEnableCollisions && can_be_applied(m_nRndCollisionType, node.pos))
     return vE * m_fChargeMassRatio;
@@ -1293,7 +1300,7 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   for(size_t j = 0; j < nFieldsCount; j++)
   {
     pField = pColl->at(j);
-    if(pField->get_type() != CElectricFieldData::typeFieldRF)
+    if(pField->get_type() != CElectricFieldData::typeFieldRF || !pField->get_enable_field())
       continue;
 
     vFieldRF = vNull;

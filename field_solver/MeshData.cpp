@@ -1,7 +1,9 @@
+#include "stdafx.h"
 #include <queue>
 #include <cassert>
-#include "stdafx.h"
 #include "MeshData.h"
+#include "EigenSolver.h"
+#include "ParticleTracking.h"
 
 double CMeshAdapter::s_fEpsilon;
 
@@ -527,6 +529,60 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 	return result;
 }
 
+CMeshAdapter::PScalFieldOp CMeshAdapter::eigenLibLap() const
+{
+	progressBar()->set_job_name("Creating eigenlib laplacian operator...");
+	progressBar()->set_progress(0);
+
+	CFieldOperator oldOp;
+	oldOp.m_matrix.resize(m_nodes.size());
+	std::vector<NodeType> vNodeTypes(nodeTypes());
+
+	const EvaporatingParticle::CDirichletTesselation * tess
+		= CParticleTrackingApp::Get()->GetDirichletTess();
+
+	ThreadPool::splitInPar(m_nodes.size(),
+		[&](size_t nNodeIdx)->void
+	{
+		switch (vNodeTypes[nNodeIdx])
+		{
+		case FirstTypeBoundaryNode: //Fixed value BC
+			oldOp.m_matrix[nNodeIdx][nNodeIdx] = 1.0;
+			break;
+		case SecondTypeBoundaryNode: //Zero gradient
+		{
+			const Vector3D& n = boundaryMesh()->normal(nNodeIdx);
+			InterpCoefs coefs = std::move(add(
+				mul(n.x, gradX(nNodeIdx)),
+				add(mul(n.y, gradY(nNodeIdx)),
+					mul(n.z, gradZ(nNodeIdx)))));
+			oldOp.m_matrix[nNodeIdx] = std::move(coefs);
+			break;
+		}
+		default: //It is inner point
+		{
+			InterpCoefs coefs;
+			double fNorm = 0.0;
+
+			for (uint32_t nFaceIdx = 0; nFaceIdx < m_nodes[nNodeIdx]->vNbrNodes.size(); ++nFaceIdx)
+			{
+				size_t l = m_nodes[nNodeIdx]->vNbrNodes[nFaceIdx];
+				double fWeight = tess->get_cell(nNodeIdx)->pFaceSquare[nFaceIdx]
+					/ (m_nodes[l]->pos - m_nodes[nNodeIdx]->pos).length();
+				coefs[l] = fWeight;
+				fNorm += fWeight;
+			}
+			coefs[nNodeIdx] = fNorm;
+			oldOp.m_matrix[nNodeIdx] = std::move(coefs);
+			break;
+		}
+		}
+	},
+		progressBar());
+
+	return PScalFieldOp(new EigenSolver(oldOp.matrix(), *this));
+}
+
 CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacian() const
 {
 	ScalarFieldOperator opGradComp1 = gradX(), opGradComp2 = opGradComp1, opLaplace;
@@ -750,6 +806,8 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::createOperator(ScalarOperatorType type,
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver2()));
 	case CMeshAdapter::LaplacianSolver3:
 		return PScalFieldOp(new ScalarFieldOperator(laplacianSolver3()));
+	case CMeshAdapter::EigenLibLaplacian:
+		return PScalFieldOp(eigenLibLap().release());
 	case CMeshAdapter::GradX:
 		return PScalFieldOp(new ScalarFieldOperator(gradX()));
 	case CMeshAdapter::GradY:

@@ -83,7 +83,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)\</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
+    <IncludePath>C:\Eigen;$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)\output\$(Configuration)\exe\</OutDir>
@@ -95,7 +95,7 @@
     <IntDir>$(SolutionDir)\$(Platform)\$(Configuration)</IntDir>
     <EnableManagedIncrementalBuild>false</EnableManagedIncrementalBuild>
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\;</IncludePath>
+    <IncludePath>C:\Eigen;$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Boost\</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Midl>
@@ -224,6 +224,7 @@
   <ItemGroup>
     <ClInclude Include="field_solver\BoundaryMesh.h" />
     <ClInclude Include="field_solver\DCMeshAdapter.h" />
+    <ClInclude Include="field_solver\EigenSolver.h" />
     <ClInclude Include="field_solver\FiniteVolumesSolver.h" />
     <ClInclude Include="field_solver\MeshData.h" />
     <ClInclude Include="MathPhys\Symmetry.hpp" />
@@ -279,6 +280,7 @@
   <ItemGroup>
     <ClCompile Include="field_solver\BoundaryMesh.cpp" />
     <ClCompile Include="field_solver\DCMeshAdapter.cpp" />
+    <ClCompile Include="field_solver\EigenSolver.cpp" />
     <ClCompile Include="field_solver\FiniteVolumesSolver.cpp" />
     <ClCompile Include="field_solver\MeshData.cpp" />
     <ClCompile Include="RandomProcess\RandomProcess.cpp" />

@@ -253,6 +253,11 @@ public:
   bool                    get_enable_save_tracks() const;
   DWORD_PTR               get_enable_save_tracks_ptr() const;
 
+// DEBUG
+  bool                    get_ignore_env_gas() const;
+  DWORD_PTR               get_ignore_env_gas_ptr() const;
+// END DEBUG
+
 //-------------------------------------------------------------------------------------------------
 // Multi-threading support.
 //-------------------------------------------------------------------------------------------------
@@ -518,6 +523,9 @@ protected:
 // If true, the Gabovich radial formula for the Coulomb field will be used for x > m_fRadialCoulombX.
   bool                    m_bUseRadialCoulomb;
   double                  m_fRadialCoulombX;
+// DEBUG
+  bool                    m_bIgnoreEnvGas;  // this flag will never be saved.
+// END DEBUG
 
 // DC Field perturbations:
   CFieldPtbCollection     m_vFieldPtbColl;
@@ -1349,6 +1357,18 @@ inline CBarnesHut* CTracker::get_BH_object()
 {
   return m_pBarnesHut;
 }
+
+// DEBUG
+inline bool CTracker::get_ignore_env_gas() const
+{
+  return m_bIgnoreEnvGas;
+}
+
+inline DWORD_PTR CTracker::get_ignore_env_gas_ptr() const
+{
+  return (DWORD_PTR)&m_bIgnoreEnvGas;
+}
+// END DEBUG
 
 }; // namespace EvaporatingParticle
 
