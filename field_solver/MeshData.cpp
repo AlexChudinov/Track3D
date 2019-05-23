@@ -572,7 +572,7 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::eigenLibLap() const
 				coefs[l] = fWeight;
 				fNorm += fWeight;
 			}
-			coefs[nNodeIdx] = fNorm;
+			coefs[nNodeIdx] = - fNorm;
 			oldOp.m_matrix[nNodeIdx] = std::move(coefs);
 			break;
 		}
