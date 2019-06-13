@@ -34,6 +34,10 @@ struct CPotentialBoundCond
 
   CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
   bool                          bVisible;       // visibility status of the selected regions.
+// A flag showing how to merge the existing regions with the ones contained in the selected Named Area. Can be "add", "substitute" and "remove", see SelectedAreas.h.
+  int                           nMergeOpt;
+// The name of the Named Area last merged:
+  CString                       sLastMerged;
 
   int                           nFixedValType;  // the value at the boundary can be +1V, -1V, step-wise potential or Coulomb potential.
   std::string                   sName;

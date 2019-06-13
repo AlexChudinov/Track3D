@@ -100,6 +100,7 @@ public:
   void            set_sym_type(int nSymType);
 
   void            scale_all_charges(double fCoeff);
+  void            set_dimesion_flag(bool b2D);
 
 protected:
   double          coulomb_phi_cell(const Vector3D& vPos, OctoTreeCell* pCell);
@@ -144,6 +145,7 @@ private:
   double          m_fCritRadius;
 
 // Run-time:
+  bool            m_b2D;
   bool            m_bReady;
   double          m_fOne_ovr_R3;  // 1./ m_fCritRadius^3.
   
@@ -187,6 +189,11 @@ inline int CBarnesHut::get_sym_type() const
 inline void CBarnesHut::set_sym_type(int nSymType)
 {
   m_nSymmType = nSymType;
+}
+
+inline void CBarnesHut::set_dimesion_flag(bool b2D)
+{
+  m_b2D = b2D;
 }
 
 inline bool CBarnesHut::get_enable_quad_terms() const

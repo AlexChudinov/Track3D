@@ -258,6 +258,7 @@ RandomProcess* CTracker::create_random_jump(UINT nSeed) const
   param.ionMobility = get_ion_mobility();
   param.ionMass = get_ion_mass();
   param.seed = nSeed;
+  param.b2D = get_2D_flag();  // [MS] 30-05-2019 2D support.
 
   if(m_nRndDiffType == RandomProcess::DIFFUSION_VELOCITY_JUMP)
     return new DiffusionVelocityJump(param);
@@ -277,6 +278,7 @@ RandomProcess* CTracker::create_collisions(UINT nSeed) const
   param.ionCrossSection = get_ion_cross_section();
   param.ionMass = get_ion_mass(); 
   param.seed = nSeed;
+  param.b2D = get_2D_flag();  // [MS] 30-05-2019 2D support.
 
   if(m_nRndCollisionType == RandomProcess::COLLISION)
     return new Collision(param);
@@ -473,6 +475,7 @@ bool CTracker::create_BH_object(UINT nIter)
   m_pBarnesHut->set_max_rec_depth(m_nMaxRecDepth);
   m_pBarnesHut->set_enable_quad_terms(false);
   m_pBarnesHut->set_sym_type(get_symmetry_type());
+  m_pBarnesHut->set_dimesion_flag(get_2D_flag());
 
   Vector3D vCenter;
   double fEdge, fMinX, fMaxX;
@@ -1384,7 +1387,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 29;  // 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 30;  // 30 - Named Areas; 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
   CAnsysMesh::save(ar);
@@ -1491,6 +1494,9 @@ void CTracker::save(CArchive& ar)
   ar << nRndCollisionType;
   ar << m_fCrossSection;
   ar << m_bUserDefCS;
+
+  CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  pSelAreasColl->save(ar);  // since version 30.
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1776,6 +1782,12 @@ void CTracker::load(CArchive& ar)
 
   if(nVersion >= 29)
     ar >> m_bUserDefCS;
+
+  if(nVersion >= 30)
+  {
+    CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+    pSelAreasColl->load(ar);
+  }
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);
@@ -2034,6 +2046,10 @@ void CTracker::clear_scene()
 
   clear_tracks();
   m_sDataFile.clear();
+
+// Clear collection of Named Areas:
+  CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  pSelAreasColl->clear_all();
 
   set_default();
   m_Src.set_default();

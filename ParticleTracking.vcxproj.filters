@@ -216,6 +216,9 @@
     <ClInclude Include="field_solver\EigenSolver.h">
       <Filter>field_solver\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="track3d\SelectedAreas.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">
@@ -394,6 +397,12 @@
     </ClCompile>
     <ClCompile Include="field_solver\EigenSolver.cpp">
       <Filter>field_solver\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\TabAreas.cpp">
+      <Filter>ui\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\SelectedAreas.cpp">
+      <Filter>track3d\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

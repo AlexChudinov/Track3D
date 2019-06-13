@@ -14,6 +14,7 @@ using namespace EvaporatingParticle;
 //---------------------------------------------------------------------------------------
 void CPropertiesWnd::add_field_ctrls()
 {
+  CMFCPropertyGridProperty* pMainFieldProp = new CMFCPropertyGridProperty(_T("Electric Fields"));
   CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
   size_t nFieldsCount = pFields->size();
   int nCurrFieldId = pFields->get_curr_field_index();
@@ -27,7 +28,8 @@ void CPropertiesWnd::add_field_ctrls()
   }
 
   pFieldSelector->AllowEdit(TRUE);
-  m_wndPropList.AddProperty(pFieldSelector);
+  pMainFieldProp->AddSubItem(pFieldSelector);
+  m_wndPropList.AddProperty(pMainFieldProp);
 
   CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
   if(pData != NULL)
@@ -123,7 +125,7 @@ void CPropertiesWnd::add_field_ctrls()
     for(size_t j = 0; j < nBoundCondCount; j++)
     {
       CPotentialBoundCond* pBC = pData->get_bc(j);
-      CMFCPropertyGridProperty* pBoundCondGroup = new CMFCPropertyGridProperty(pBC->sName.c_str());
+      CMFCPropertyGridProperty* pBoundCondGroup = new CMFCPropertyGridProperty(pBC->sName.c_str(), (DWORD_PTR)pBC); // the pBC will be used in CNamedAreasSelResponder::OnUpdateValue().
 
       COleVariant var1(CPotentialBoundCond::get_bc_type_name(pBC->nType));
       CGeneralResponseProperty* pBCType = new CGeneralResponseProperty(this, _T("Boundary Conditions Type"), var1, _T("Set the boundary conditions type (fixed value or zero normal derivative)."), (DWORD_PTR)&(pBC->nType));
@@ -226,13 +228,35 @@ void CPropertiesWnd::add_field_ctrls()
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
       }
 
-// Select boundary regions group:
-      CMFCPropertyGridProperty* pBoundRegsGroup = new CMFCPropertyGridProperty(_T("Boundary Regions"));
+// Select boundary regions group. NOTE: the GetData() of this group control will return, in fact, the pointer to pBC->vRegNames. This will be used in CHideShowRegsCheckBox.
+      CMFCPropertyGridProperty* pBoundRegsGroup = new CMFCPropertyGridProperty(_T("Boundary Regions"), (DWORD_PTR)&(pBC->vRegNames));
 
+// Manual selection:
       CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
-      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Select Regions"), cRegNames, _T("Click to select 2D regions in the main view window for boundary conditions."), (DWORD_PTR)&(pBC->vRegNames));
+      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Select Regions Manually"), cRegNames, _T("Click to select 2D regions in the main view window."), (DWORD_PTR)&(pBC->vRegNames));
       pBoundRegsGroup->AddSubItem(pSelRegButton);
+
+// Merging with Named Areas:
+      CNamedAreasSelResponder* pNamedAreasSelector = new CNamedAreasSelResponder(this, _T("Select Named Areas"), pBC->sLastMerged, _T("Select the existing Named Areas to use these surfaces for boundary condtions setting."), (DWORD_PTR)&(pBC->vRegNames));
+      pNamedAreasSelector->AllowEdit(FALSE);
+      pNamedAreasSelector->AddOption(_T("None"));
+      EvaporatingParticle::CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+      size_t nSelAreasCount = pSelAreasColl->size();
+      for(size_t k = 0; k < nSelAreasCount; k++)
+        pNamedAreasSelector->AddOption(pSelAreasColl->at(k)->get_name());
+
+      pBoundRegsGroup->AddSubItem(pNamedAreasSelector);
+
+// Merging options:
+      CString sMergeOpt = CSelectedAreas::merge_opt_name(pBC->nMergeOpt);
+      CMFCPropertyGridProperty* pMergeOptSelector = new CMFCPropertyGridProperty(_T("Merge Options"), sMergeOpt, _T("Select one of three allowed merge options: add, substitute and subtract."), (DWORD_PTR)&(pBC->nMergeOpt));
+      for(int l = EvaporatingParticle::CSelectedAreas::optAdd; l < EvaporatingParticle::CSelectedAreas::optCount; l++)
+        pMergeOptSelector->AddOption(EvaporatingParticle::CSelectedAreas::merge_opt_name(l));
+
+      pBoundRegsGroup->AddSubItem(pMergeOptSelector);
       
+
+// Hide/Show selected regions:
       CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->bVisible, _T("Change the visibility status of the selected regions"), (DWORD_PTR)&(pBC->bVisible));
       pBoundRegsGroup->AddSubItem(pHideShowBtn);
       
@@ -404,6 +428,21 @@ void CPropertiesWnd::set_field_data()
       {
         if(pBC->set_steps_count(pProp->GetValue().lVal))
           pData->invalidate();
+      }
+
+// Merge options:
+      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nMergeOpt));
+      if(pProp != NULL)
+      {
+        CString sOptSel = pProp->GetValue();
+        for(int i = CSelectedAreas::optAdd; i < CSelectedAreas::optCount; i++)
+        {
+          if(sOptSel == CSelectedAreas::merge_opt_name(i))
+          {
+            pBC->nMergeOpt = i;
+            break;
+          }
+        }
       }
     }
   }

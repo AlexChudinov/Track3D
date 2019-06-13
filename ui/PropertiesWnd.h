@@ -36,7 +36,8 @@ public:
     tabCalc     = 8,
     tabPtb      = 9,
     tabFields   = 10,
-    nTabCount   = 11
+    tabAreas    = 11,
+    nTabCount   = 12
   };
 
 // Attributes
@@ -90,6 +91,7 @@ protected:
   void          add_calc_ctrls();
   void          add_ptb_ctrls();
   void          add_field_ctrls();
+  void          add_areas_ctrls();
 
   void          set_type_data();
   void          set_source_data();
@@ -103,6 +105,7 @@ protected:
   void          set_calc_data();
   void          set_ptb_data();
   void          set_field_data();
+  void          set_areas_data();
 
   void          update_type_ctrls();
   void          update_source_ctrls();
@@ -117,6 +120,7 @@ protected:
   void          update_calc_ctrls();
   void          update_ptb_ctrls();
   void          update_field_ctrls();
+  void          update_areas_ctrls();
 
 	afx_msg int   OnCreate(LPCREATESTRUCT lpCreateStruct);
 	afx_msg void  OnSize(UINT nType, int cx, int cy);

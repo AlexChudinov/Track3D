@@ -15,6 +15,7 @@ CAnsysMesh::CAnsysMesh(bool bAux)
   m_bReady = false;
   m_bConv2CGS = true;
   m_nSymPlanes = spXY | spXZ;
+  m_bMesh2D = false;
 }
 
 CAnsysMesh::~CAnsysMesh()
@@ -732,7 +733,7 @@ bool CAnsysMesh::sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool
 //-------------------------------------------------------------------------------------------------
 void CAnsysMesh::save(CArchive& ar)
 {
-  UINT nVersion = 0;
+  UINT nVersion = 1;  // 1 - m_bMesh2D flag.
   ar << nVersion;
 
   CString cFileName(m_sDataFile.c_str());
@@ -741,6 +742,8 @@ void CAnsysMesh::save(CArchive& ar)
   ar << m_nSymPlanes;
 
   m_Transform.save(ar);
+
+  ar << m_bMesh2D;
 }
 
 void CAnsysMesh::load(CArchive& ar)
@@ -755,6 +758,9 @@ void CAnsysMesh::load(CArchive& ar)
   ar >> m_nSymPlanes;
 
   m_Transform.load(ar);
+
+  if(nVersion >= 1)
+    ar >> m_bMesh2D;
 
   CDirichletTesselation* pTessObj = CParticleTrackingApp::Get()->GetDirichletTess();
   pTessObj->invalidate();

@@ -1,88 +1,58 @@
 #include <stdafx.h>
 #include "ParallelFor.h"
 
-ThreadPool::Mutex ThreadPool::mMtx;
-ThreadPool::Tasks ThreadPool::mTasks;
-
 ThreadPool::ThreadPool()
-{
-	SYSTEM_INFO sysInfo;
-	if (!(mPool = CreateThreadpool(NULL)))
-		goto exception;
-
-	GetSystemInfo(&sysInfo);
-	nThreadCnt = sysInfo.dwNumberOfProcessors;
-	SetThreadpoolThreadMinimum(mPool, nThreadCnt);
-	SetThreadpoolThreadMaximum(mPool, nThreadCnt);
-
-	InitializeThreadpoolEnvironment(&mCbe);
-	SetThreadpoolCallbackPool(&mCbe, mPool);
-
-	return; 
-
-exception:
-	CloseThreadpool(mPool);
-	std::string s("Exception #");
-	s += std::to_string(GetLastError());
-	throw(std::runtime_error(s));
-}
-
-ThreadPool & ThreadPool::getInstance()
-{
-	static ThreadPool sThreadPool;
-	return sThreadPool;
-}
+	:
+	m_bValid(false),
+	m_nThreadNumber(Thread::hardware_concurrency()),
+	m_bStopFlag(false)
+{}
 
 ThreadPool::~ThreadPool()
 {
-	CloseThreadpool(mPool);
+	stop();
+}
+
+ThreadPool& ThreadPool::getInstance()
+{
+	static ThreadPool g_pThreadPool;
+	g_pThreadPool.init();
+	return g_pThreadPool;
 }
 
 ThreadPool::Future ThreadPool::addTask(Fun&& task)
 {
-	PTP_WORK threadPoolWork = CreateThreadpoolWork(workCallback, NULL, &mCbe);
-	if (!threadPoolWork)
-		throw(std::runtime_error(std::string("Error #") + std::to_string(GetLastError())));
-	Task work = Task(task);
-	Future fut = work.get_future();
-	pushTask(std::move(work));
-	SubmitThreadpoolWork(threadPoolWork);
-	CloseThreadpoolWork(threadPoolWork);
-	return fut;
+	Locker lock(getInstance().m_startMutex);
+	getInstance().m_tasks.push(Task(task));
+	Future future = 
+		std::make_shared<std::future<void>>(getInstance().m_tasks.back().get_future());
+	lock.unlock();
+	getInstance().m_startCondition.notify_one();
+	return future;
 }
 
-void ThreadPool::pushTask(Task&& task)
+ThreadPool::Task ThreadPool::getTask()
 {
-	Locker lock(mMtx);
-	mTasks.push(std::move(task));
-}
-
-ThreadPool::Task ThreadPool::popTask()
-{
-	Locker lock(mMtx);
-	Task task;
-	if (!mTasks.empty())
-	{
-		task = std::move(mTasks.front());
-		mTasks.pop();
-	}
-	return std::move(task);
+	Locker lock(getInstance().m_startMutex);
+	Task task(std::move(getInstance().m_tasks.front()));
+	getInstance().m_tasks.pop();
+	return task;
 }
 
 void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicOp)
 {
-	size_t nn = n / getInstance().threadNumber() + 1;
+	size_t nn = n / threadNumber() + 1;
 	std::vector<Future> vFutures;
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
-			vFutures.push_back(getInstance().addTask([=]() { atomicOp(i); }));
+			vFutures.push_back(addTask([=]() { atomicOp(i); }));
 	}
 	else
 	{
 		for(size_t i = 0; i < n; i += nn)
 			vFutures.push_back(
-				getInstance().addTask([=]()
+			addTask([=]() 
 		{
 			size_t end = i + nn < n ? i + nn : n;
 			for (size_t j = i; j < end; ++j)
@@ -90,12 +60,12 @@ void ThreadPool::splitInPar(size_t n, const std::function<void(size_t)>& atomicO
 		}));
 	}
 	std::for_each(vFutures.begin(), vFutures.end(), 
-		[](Future& future) { future.wait(); });
+		[](Future& future) { future->wait(); });
 }
 
 void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Progress * progress, size_t nThreads)
 {
-	nThreads = nThreads == 0 ? getInstance().threadNumber() : nThreads;
+	nThreads = nThreads == 0 ? threadNumber() : nThreads;
 	size_t
 		nn = n / nThreads + 1,
 		nProgressStep = n / 90,
@@ -113,13 +83,13 @@ void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Pr
 	if (nn == 1)
 	{
 		for (size_t i = 0; i < n; ++i)
-			vFutures.push_back(getInstance().addTask([=]() { atomicOp(i); }));;
+			vFutures.push_back(addTask([=]() { atomicOp(i); }));;
 	}
 	else
 	{
 		for (size_t i = 0; i < n; i += nn)
 			vFutures.push_back(
-				getInstance().addTask([=]()
+				addTask([=]()
 		{
 			size_t end = i + nn < n ? i + nn : n;
 			for (size_t j = i; j < end; ++j)
@@ -129,39 +99,73 @@ void ThreadPool::splitInPar(size_t n, std::function<void(size_t)>&& atomicOp, Pr
 			}
 		}));
 	}
-	std::for_each(vFutures.begin(), vFutures.end(), [&](Future& future) { future.wait(); });
+	std::for_each(vFutures.begin(), vFutures.end(), [&](Future& future) { future->wait(); });
 }
 
-void ThreadPool::workCallback(PTP_CALLBACK_INSTANCE, PVOID, PTP_WORK)
+std::string ThreadPool::error()
 {
-	Task task;
-	while ((task = popTask()).valid())
+	Locker lock(getInstance().m_globalLock);
+	return getInstance().m_sErrorDescription;
+}
+
+void ThreadPool::threadEvtLoop()
+{
+	try 
 	{
-		task();
+		while (!m_bStopFlag)
+		{
+			Locker lock(m_globalLock);
+			m_startCondition.wait(lock, [&]()->bool { return !m_tasks.empty() || m_bStopFlag; });
+
+			if (m_bStopFlag) break;
+			else
+			{
+				Task task = getTask();
+				lock.unlock();
+				task();
+			}
+		}
+	}
+	catch (const std::exception& ex)
+	{
+		Locker lock(m_globalLock);
+		(m_sErrorDescription += "\n") += ex.what();
 	}
 }
 
-DWORD ThreadPool::threadNumber()
+size_t ThreadPool::threadNumber()
 {
-	return nThreadCnt;
+	return getInstance().m_nThreadNumber;
 }
 
-ThreadPool::Mutex::Mutex()
+void ThreadPool::start()
 {
-	InitializeCriticalSection(&mCritSec);
+	m_threads = Threads(m_nThreadNumber);
+	for (size_t i = 0; i < m_nThreadNumber; ++i)
+		m_threads[i] = Thread(&ThreadPool::threadEvtLoop, this);
 }
 
-ThreadPool::Mutex::~Mutex()
+void ThreadPool::stop()
 {
-	DeleteCriticalSection(&mCritSec);
+	Locker lock(m_globalLock);
+	std::swap(m_tasks, Tasks());
+	m_bStopFlag = true;
+	m_startCondition.notify_all();
+	lock.unlock();
+	joinAll();
 }
 
-void ThreadPool::Mutex::lock()
+void ThreadPool::joinAll()
 {
-	EnterCriticalSection(&mCritSec);
+	std::for_each(m_threads.begin(), m_threads.end(), [](Thread& t) { t.join(); });
 }
 
-void ThreadPool::Mutex::unlock()
+void ThreadPool::init()
 {
-	LeaveCriticalSection(&mCritSec);
+	Locker lock(m_initLock);
+	if (!m_bValid)
+	{
+		m_bValid = true;
+		start();
+	}
 }

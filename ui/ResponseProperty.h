@@ -110,3 +110,17 @@ public:
   virtual BOOL    OnUpdateValue();
 };
 
+//---------------------------------------------------------------------------------------
+//  CNamedAreasSelResponder
+//---------------------------------------------------------------------------------------
+class CNamedAreasSelResponder : public CGeneralResponseProperty
+{
+public:
+  CNamedAreasSelResponder(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0)
+    : CGeneralResponseProperty(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual BOOL    OnUpdateValue();
+};
+

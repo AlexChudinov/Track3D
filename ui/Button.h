@@ -309,6 +309,23 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CAddNamedAreaButton - a class for adding named areas (analog of Named Selections in Ansys).
+//---------------------------------------------------------------------------------------
+class CAddNamedAreaButton : public CAddFieldBoundCondButton
+{
+  DECLARE_DYNAMIC(CAddNamedAreaButton)
+
+public:
+  CAddNamedAreaButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CAddFieldBoundCondButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // CRemoveFieldBoundCondButton.
 //---------------------------------------------------------------------------------------
 class CRemoveFieldBoundCondButton : public CRemovePropertyButton
@@ -323,6 +340,24 @@ public:
   }
 
   virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CRemoveNamedAreaButton.
+//---------------------------------------------------------------------------------------
+class CRemoveNamedAreaButton : public CRemovePropertyButton
+{
+  DECLARE_DYNAMIC(CRemoveNamedAreaButton)
+
+public:
+  CRemoveNamedAreaButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CRemovePropertyButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+  virtual bool    ConfirmRemove() const;
 };
 
 //---------------------------------------------------------------------------------------

@@ -253,6 +253,7 @@
     <ClInclude Include="track3d\ParticleSource.h" />
     <ClInclude Include="track3d\Perturbation.h" />
     <ClInclude Include="track3d\ScreenCapture.h" />
+    <ClInclude Include="track3d\SelectedAreas.h" />
     <ClInclude Include="track3d\Tracker.hpp" />
     <ClInclude Include="track3d\TrackItem.h" />
     <ClInclude Include="track3d\TrajectSelector.h" />
@@ -307,6 +308,7 @@
     <ClCompile Include="track3d\ParticleSource.cpp" />
     <ClCompile Include="track3d\Perturbation.cpp" />
     <ClCompile Include="track3d\ScreenCapture.cpp" />
+    <ClCompile Include="track3d\SelectedAreas.cpp" />
     <ClCompile Include="track3d\Tracker.cpp" />
     <ClCompile Include="track3d\TrackItem.cpp" />
     <ClCompile Include="track3d\TrajectSelector.cpp" />
@@ -329,6 +331,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="ui\TabAreas.cpp" />
     <ClCompile Include="ui\TabCalculators.cpp" />
     <ClCompile Include="ui\TabDrawing.cpp" />
     <ClCompile Include="ui\TabEvaporation.cpp" />

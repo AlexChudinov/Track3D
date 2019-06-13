@@ -242,6 +242,11 @@ EvaporatingParticle::CCrossSectColl* CParticleTrackingApp::GetPlanes()
   return &m_vPlanes;
 }
 
+EvaporatingParticle::CSelAreasColl* CParticleTrackingApp::GetSelAreas()
+{
+  return &m_vSelAreas;
+}
+
 void CParticleTrackingApp::SelectedRegionChanged(EvaporatingParticle::CNamesVector* pRegNames)
 {
   if(pRegNames == (EvaporatingParticle::CNamesVector*)(m_Tracker.get_src()->get_selected_rgn_names_ptr()))

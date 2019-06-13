@@ -706,6 +706,21 @@ void CAddFieldBoundCondButton::OnDrawButton(CDC* pDC, CRect rectButton)
 }
 
 //---------------------------------------------------------------------------------------
+// CAddNamedAreaButton - a class for adding named areas (analog of Named Selections in Ansys).
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CAddNamedAreaButton, CAddFieldBoundCondButton)
+
+void CAddNamedAreaButton::OnClickButton(CPoint point)
+{
+  m_pWndProp->set_data_to_model();
+
+  EvaporatingParticle::CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  pSelAreasColl->push_back(new EvaporatingParticle::CSelectedAreas());
+
+  m_pWndProp->set_update_all();
+}
+
+//---------------------------------------------------------------------------------------
 // CRemoveFieldBoundCondButton.
 //---------------------------------------------------------------------------------------
 IMPLEMENT_DYNAMIC(CRemoveFieldBoundCondButton, CRemovePropertyButton)
@@ -725,6 +740,37 @@ void CRemoveFieldBoundCondButton::OnClickButton(CPoint point)
     EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->draw();
   }
+}
+
+//---------------------------------------------------------------------------------------
+// CRemoveNamedAreaButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CRemoveNamedAreaButton, CRemovePropertyButton)
+
+void CRemoveNamedAreaButton::OnClickButton(CPoint point)
+{
+  if(!ConfirmRemove())
+    return;
+
+  EvaporatingParticle::CSelectedAreas* pSelArea = (EvaporatingParticle::CSelectedAreas*)m_dwData;
+  EvaporatingParticle::CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  std::vector<EvaporatingParticle::CSelectedAreas*>::iterator iter = std::find(pSelAreasColl->begin(), pSelAreasColl->end(), pSelArea);
+  if(iter != pSelAreasColl->end())
+    pSelAreasColl->erase(iter);
+
+  delete pSelArea;
+
+  m_pWndProp->set_update_all();
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+    pDrawObj->draw();
+}
+
+bool CRemoveNamedAreaButton::ConfirmRemove() const
+{
+  EvaporatingParticle::CSelectedAreas* pSelArea = (EvaporatingParticle::CSelectedAreas*)m_dwData;
+  CString sMsg = CString(_T("Are you sure you want to remove ")) + CString(pSelArea->get_name()) + CString(_T("?"));
+  int nRes = AfxMessageBox((const char*)sMsg, MB_YESNO);
+  return nRes == IDYES ? true : false;
 }
 
 //---------------------------------------------------------------------------------------
@@ -1189,12 +1235,7 @@ void CHideShowRegsCheckBox::OnClickButton(CPoint point)
   CCheckBoxButton::OnClickButton(point);
   bool bVisible = *((bool*)GetData());
 
-  CMFCPropertyGridProperty* pParent = GetParent();
-  int nSubCount = pParent->GetSubItemsCount();
-  if(nSubCount != 2 || pParent->GetSubItem(1) != (CMFCPropertyGridProperty*)this)
-    return;
-
-  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)(pParent->GetSubItem(0)->GetData());
+  EvaporatingParticle::CStringVector* pRegNames = (EvaporatingParticle::CStringVector*)(GetParent()->GetData());
 
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->set_visibility_status(pRegNames, bVisible);

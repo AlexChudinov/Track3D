@@ -92,7 +92,7 @@ void CPropertiesWnd::AdjustLayout()
 }
 
 static const char* scTabItemNames[CPropertiesWnd::nTabCount] = 
-{ "Main", "Source", "Tracking", "Droplet Param", "Ion Param", "Drawing", "Export", "Import", "Calculators", "Perturbations", "Field" };
+{ "Main", "Source", "Tracking", "Droplet Param", "Ion Param", "Drawing", "Export", "Import", "Calculators", "Perturbations", "Field", "Areas" };
 
 int CPropertiesWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 {
@@ -561,6 +561,7 @@ void CPropertiesWnd::InitPropList()
     case tabCalc:     add_calc_ctrls();     break;
     case tabPtb:      add_ptb_ctrls();      break;
     case tabFields:   add_field_ctrls();    break;
+    case tabAreas:    add_areas_ctrls();    break;
   }
 }
 
@@ -580,6 +581,7 @@ void CPropertiesWnd::set_data_to_model()
     case tabCalc:     set_calc_data();      break;
     case tabPtb:      set_ptb_data();       break;
     case tabFields:   set_field_data();     break;
+    case tabAreas:    set_areas_data();     break;
   }
 }
 
@@ -599,6 +601,7 @@ void CPropertiesWnd::update_ctrls()
     case tabCalc:     update_calc_ctrls();      break;
     case tabPtb:      update_ptb_ctrls();       break;
     case tabFields:   update_field_ctrls();     break;
+    case tabAreas:    update_areas_ctrls();     break;
   }
 }
 

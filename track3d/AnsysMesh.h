@@ -33,6 +33,9 @@ public:
   DWORD_PTR               get_sym_plane_ptr() const;
   void                    set_sym_plane(int nPlane);
 
+  bool                    get_2D_flag() const;
+  DWORD_PTR               get_2D_flag_ptr() const;
+
   bool                    get_convert_to_cgs() const;
   void                    set_convert_to_cgs(bool bEnable);
 
@@ -115,6 +118,8 @@ protected:
   bool                    m_bConv2CGS;    // a flag showing whether ANSYS data, which are normally in SI must be 
                                           // converted to the CGS system; this is always "true" so far.
 
+  bool                    m_bMesh2D;      // a flag which is normally false but can be set to true if the mesh is 1 element wide.
+
   int                     m_nSymPlanes;
 
 // Mesh transformation (applied in read_geometry()).
@@ -161,6 +166,16 @@ inline DWORD_PTR CAnsysMesh::get_sym_plane_ptr() const
 inline void CAnsysMesh::set_sym_plane(int nPlane)
 {
   m_nSymPlanes = nPlane;
+}
+
+inline bool CAnsysMesh::get_2D_flag() const
+{
+  return m_bMesh2D;
+}
+
+inline DWORD_PTR CAnsysMesh::get_2D_flag_ptr() const
+{
+  return (DWORD_PTR)&m_bMesh2D;
 }
 
 inline bool CAnsysMesh::get_convert_to_cgs() const

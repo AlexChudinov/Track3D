@@ -39,24 +39,7 @@ void CPropertiesWnd::add_type_ctrls()
   pDataGroup->AddSubItem(pGasProp);
 
   m_wndPropList.AddProperty(pDataGroup);
-/*
-// File output:
-  EvaporatingParticle::COutputEngine& outEng = pObj->get_output_engine();
 
-  CMFCPropertyGridProperty* pOutGroup = new CMFCPropertyGridProperty(_T("Output to a File"));
-  CCheckBoxButton* pOutProp = new CCheckBoxButton(this, _T("Enable File Output"), (_variant_t)outEng.get_enable_file_output(), _T("Turns ON/OFF the file output."), outEng.get_enable_file_output_ptr());
-  pOutGroup->AddSubItem(pOutProp);
-
-  CMFCPropertyGridProperty* pOutTypeProp = new CMFCPropertyGridProperty(_T("Collect tracks by initial radius"), (_variant_t)outEng.get_enable_ens_by_radius(), _T("If this is 'true' the output tracks are grouped into bins by their initial radii."), outEng.get_enable_ens_by_radius_ptr());
-  pOutGroup->AddSubItem(pOutTypeProp);
-
-  CMFCPropertyGridProperty* pCountProp = new CMFCPropertyGridProperty(_T("Count of radial ranges"), COleVariant((long)outEng.get_ens_by_radius_count()), _T("Count of initial radius bins, by which the output ensembles will be built."), outEng.get_ens_by_radius_count_ptr());
-  pOutGroup->AddSubItem(pCountProp);
-
-  CCheckBoxButton* pQ00Prop = new CCheckBoxButton(this, _T("Output only Q00 tracks"), (_variant_t)outEng.get_restrict_output(), _T("If true, only those tracks will be output to a file which have passed to the Q00 region."), outEng.get_restrict_output_ptr());
-  pOutGroup->AddSubItem(pQ00Prop);
-  m_wndPropList.AddProperty(pOutGroup);
-*/
 // Saving track data to the *.tsk file:
   CMFCPropertyGridProperty* pSaveTrackGroup = new CMFCPropertyGridProperty(_T("Save track data onto the disk"));
   CCheckBoxButton* pEnableSaveTrack = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_enable_save_tracks(), _T("If this flag is ON the File/Save... command saves the full tracks data on the disk."), pObj->get_enable_save_tracks_ptr());
@@ -64,7 +47,12 @@ void CPropertiesWnd::add_type_ctrls()
   m_wndPropList.AddProperty(pSaveTrackGroup);
 
 // Symmetry:
-  CMFCPropertyGridProperty* pSymGroup = new CMFCPropertyGridProperty(_T("Symmetry"));
+  CMFCPropertyGridProperty* pSymGroup = new CMFCPropertyGridProperty(_T("Dimensionality and Symmetry"));
+
+// Dimensionality:
+  CCheckBoxButton* pCheck2D = new CCheckBoxButton(this, _T("2D Mesh"), (_variant_t)pObj->get_2D_flag(), _T("If this flag is ON the mesh is supposed to have only 1 element in Z-direction. This emulates the 2D case."), pObj->get_2D_flag_ptr());
+  pSymGroup->AddSubItem(pCheck2D);
+
   int nSymPlanes = pObj->get_sym_plane();
   if((nSymPlanes & EvaporatingParticle::CTracker::spXY) && (nSymPlanes & EvaporatingParticle::CTracker::spXZ))
     var = COleVariant(_T(cSymPlanes[3]));

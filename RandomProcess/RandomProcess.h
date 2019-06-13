@@ -26,6 +26,7 @@ public:
 	//Base params for random process initialisation
 	struct RandomProcessParams {
 		RandomProcess::RndGenResult seed;
+    bool b2D;   // [MS] 29-05-2019, 2D support.
 	};
 
 	//Random process type
@@ -73,11 +74,14 @@ protected:
 	//Returns random molecule with respect to a given ion velocity
 	Vector3D rndMol(const Vector3D& vrel, double Tgas, double Mgas);
 
+  void set_2D(bool b2D)  { m_b2D = b2D; }   // [MS] 29-05-2019, 2D support.
+
 private:
 	RndGen m_generator;
 	UniformDistribution m_uniDistrib;
 	NormalDistribution m_normalDistrib;
 	PoissonDistribution m_poisonDistrib;
+  bool m_b2D;   // [MS] 29-05-2019, 2D support.
 };
 
 struct DiffusionParams : public RandomProcess::RandomProcessParams {

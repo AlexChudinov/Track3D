@@ -346,7 +346,7 @@ double CDirichletTesselation::angle_0_360(const Vector3D& vA, const Vector3D& vB
 
 bool CDirichletTesselation::bound_deriv_calc_cond(const Vector3D& vNorm, const Vector3D& e)
 {
-  static const double fEps = 0.1;
+  static const double fEps = 0.15;
   return (e & vNorm) < fEps;
 }
 
@@ -369,7 +369,7 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
   pCell->pFaceSquare[9] = (float)vNorm.z;
 
 // DEBUG
-  int nCount = 0;
+//  int nCount = 0;
 // END DEBUG
 
   for(size_t i = 0; i < nNbrCount; i++)
@@ -380,7 +380,7 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
     pCell->pNbrDist[i] = fDist;
     e /= fDist;
 
-// Take into account only those neighbours, for which (vNorm, e) < -Const_Almost_Zero.
+// Take into account only those neighbours, for which (vNorm, e) < some eps.
     if(!bound_deriv_calc_cond(vNorm, e))
       continue;
 
@@ -392,13 +392,13 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
     Azz += e.z * e.z;
 
 // DEBUG
-    nCount++;
+//    nCount++;
 // END DEBUG
   }
 
 // DEBUG
-  if(nCount < 3)
-    AfxMessageBox("Too little items in the overdetermined system's sum.");
+//  if(nCount < 3)
+//    AfxMessageBox("Too little items in the overdetermined system's sum.");
 // END DEBUG
 
   Matrix3D m(Axx, Axy, Axz, Axy, Ayy, Ayz, Axz, Ayz, Azz);

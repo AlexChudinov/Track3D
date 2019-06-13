@@ -7,6 +7,7 @@
 #include "ElectricField.h"
 #include "ParticleTracking.h"
 #include "BarnesHut.h"
+#include "SelectedAreas.h"
 
 #include "../field_solver/DCMeshAdapter.h"
 #include "../field_solver/FiniteVolumesSolver.h"
@@ -32,6 +33,9 @@ CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int va
   fStartPhi = 130;    // V.
   fFirstStepPhi = 2;  // V.
   fLastStepPhi = 4.7; // V.
+// Merging options (if a Named Area is selected in addition to existing, manually selected regions).
+  nMergeOpt = CSelectedAreas::optAdd;
+  sLastMerged = _T("None");
 }
 
 const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nType)
@@ -111,7 +115,7 @@ double CPotentialBoundCond::linear_potential(double x)
 
 void CPotentialBoundCond::save(CArchive& ar)
 {
-  UINT nVersion = 4;  // 4 - nStepsCount and fCenterFirstElectr; 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
+  UINT nVersion = 5;  // 5 - Merging option; 4 - nStepsCount and fCenterFirstElectr; 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
   ar << nVersion;
 
   int nIntType = (int)nType;
@@ -141,6 +145,9 @@ void CPotentialBoundCond::save(CArchive& ar)
 
   ar << fCenterFirstElectr;
   ar << nStepsCount;
+
+  ar << nMergeOpt;
+  ar << sLastMerged;
 }
 
 void CPotentialBoundCond::load(CArchive& ar)
@@ -188,6 +195,12 @@ void CPotentialBoundCond::load(CArchive& ar)
   {
     ar >> fCenterFirstElectr;
     ar >> nStepsCount;
+  }
+
+  if(nVersion >= 5)
+  {
+    ar >> nMergeOpt;
+    ar >> sLastMerged;
   }
 }
 

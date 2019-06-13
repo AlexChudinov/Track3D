@@ -325,13 +325,13 @@ void CPropertiesWnd::update_ion_ctrls()
   if(pProp != NULL)
   {
     bool bEnableSelector = bEnable && bEnableCoulomb && !bAxialSymm;
-    pProp->Enable(bEnableSelector && !bPreCalcClmb);
+    pProp->Enable(bEnableSelector);
     bEnableRadialCoulomb = bEnableSelector && pProp->GetValue().boolVal;
   }
 
   pProp = m_wndPropList.FindItemByData(pObj->get_radial_coulomb_trans_ptr());
   if(pProp != NULL)
-    pProp->Enable(bEnableRadialCoulomb && !bPreCalcClmb);
+    pProp->Enable(bEnableRadialCoulomb);
 
   bool bEnablePreCalc = false;
   pProp = m_wndPropList.FindItemByData(pObj->get_use_pre_calc_coulomb_ptr());

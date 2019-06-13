@@ -60,6 +60,10 @@ unsigned long long RandomProcess::randPoisson(double lamdba)
 EP::Vector3D RandomProcess::randOnSphere()
 {
 	double phi = 2. * Const_PI * rand();
+// [MS] 29-05-2019, 2D support. 
+  if(m_b2D)
+    return Vector3D(sin(phi), cos(phi), 0);
+// [/MS]
 	double thetta = acos(1 - 2 * rand());
 	return Vector3D{ sin(phi)*sin(thetta), cos(phi)*sin(thetta), cos(thetta) };
 }
@@ -72,7 +76,9 @@ RandomProcess::Vector3D RandomProcess::rndMol(const Vector3D & vrel, double Tgas
 	double vbig = sqrt((vrel & vrel) + 9.0 * sigma * sigma);
 
 	do {
-		res = sigma * Vector3D{ randn(), randn(), randn() };
+// [MS] 29-05-2019, 2D support. 
+		res = m_b2D ? sigma * Vector3D{ randn(), randn(), 0 } : sigma * Vector3D{ randn(), randn(), randn() };
+// [/MS]
 	} while ((res - vrel).length() < vbig * rand());
 
 	return res;
@@ -86,6 +92,7 @@ DiffusionVelocityJump::DiffusionVelocityJump(const DiffusionParams & params)
 	m_fIonMobility(params.ionMobility),
 	m_fIonCharge(params.ionCharge)
 {
+  set_2D(params.b2D); // [MS] 29-05-2019, 2D support.
 }
 
 const char * DiffusionVelocityJump::rndProcName() const
@@ -160,6 +167,7 @@ DiffusionCoordJump::DiffusionCoordJump(const DiffusionParams & params)
 	m_fIonMobility(params.ionMobility),
 	m_fIonCharge(params.ionCharge)
 {
+  set_2D(params.b2D); // [MS] 29-05-2019, 2D support.
 }
 
 const char * DiffusionCoordJump::rndProcName() const
@@ -233,6 +241,7 @@ Collision::Collision(const CollisionParams & params)
 	m_fIonMass(params.ionMass),
 	m_fGasMass(params.gasMass)
 {
+  set_2D(params.b2D); // [MS] 29-05-2019, 2D support.
 }
 
 const char * Collision::rndProcName() const
@@ -297,6 +306,7 @@ CollisionAnyPress::CollisionAnyPress(const CollisionParams & params)
 	:
 	Collision(params)
 {
+  set_2D(params.b2D); // [MS] 29-05-2019, 2D support.
 }
 
 const char * CollisionAnyPress::rndProcName() const

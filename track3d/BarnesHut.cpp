@@ -39,7 +39,8 @@ CBarnesHut::CBarnesHut()
   : m_pTree(NULL),
     m_fDistCoeff(1.5),
     m_bEnableQuadTerms(false),
-    m_bReady(false)
+    m_bReady(false),
+    m_b2D(false)
 {
   set_crit_radius(0.001);  // default value of m_fCritRadius is 0.001 cm.
   set_max_rec_depth(12);
@@ -332,7 +333,11 @@ double CBarnesHut::quad_phi_cell(const Vector3D c, double r5, OctoTreeCell* pCel
 
 Vector3D CBarnesHut::coulomb_force(const Vector3D& vPos)
 {
-  return coulomb_force_cell(vPos, m_pTree); // E, field strength in CGS (to get force this must be multiplied by a probe charge).
+  Vector3D f = coulomb_force_cell(vPos, m_pTree); // E, field strength in CGS (to get force this must be multiplied by a probe charge).
+  if(m_b2D)
+    f.z = 0;
+
+  return f;
 }
 
 Vector3D CBarnesHut::coulomb_force_cell(const Vector3D& vPos, OctoTreeCell* pCell)

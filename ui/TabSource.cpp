@@ -43,12 +43,12 @@ void CPropertiesWnd::add_source_ctrls()
   pPosGroup->AddSubItem(pProp);
   pSrcGroup->AddSubItem(pPosGroup);
 
-  CMFCPropertyGridProperty* pDirGroup = new CMFCPropertyGridProperty(_T("Direction"), pSrc->get_inject_dir_ptr());
-  pProp = new CMFCPropertyGridProperty(_T("X"), COleVariant(pSrc->get_inject_dir().x), _T("Main source direction, X."));
+  CMFCPropertyGridProperty* pDirGroup = new CMFCPropertyGridProperty(_T("Normal Direction"), pSrc->get_inject_dir_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("X"), COleVariant(pSrc->get_inject_dir().x), _T("X component of normal vector to the Spot or Rectangle plane."));
   pDirGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Y"), COleVariant(pSrc->get_inject_dir().y), _T("Main source direction, Y."));
+  pProp = new CMFCPropertyGridProperty(_T("Y"), COleVariant(pSrc->get_inject_dir().y), _T("Y component of normal vector to the Spot or Rectangle plane."));
   pDirGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Z"), COleVariant(pSrc->get_inject_dir().z), _T("Main source direction, Z."));
+  pProp = new CMFCPropertyGridProperty(_T("Z"), COleVariant(pSrc->get_inject_dir().z), _T("Z component of normal vector to the Spot or Rectangle plane."));
   pDirGroup->AddSubItem(pProp);
   pSrcGroup->AddSubItem(pDirGroup);
 
@@ -80,7 +80,7 @@ void CPropertiesWnd::add_source_ctrls()
   pSrcGroup->AddSubItem(pSelRegGroup);
 
   CMFCPropertyGridProperty* pVelGroup = new CMFCPropertyGridProperty(_T("Initial Velocity, m/s"));
-  CSourceCheckBox* pCheckBox = new CSourceCheckBox(this, _T("Use Gas Velocity"), (_variant_t)pSrc->get_use_initial_gas_vel(), _T("If ON the initial velocity is taken from the gas-dynamic data."), pSrc->get_use_initial_gas_vel_ptr());
+  CSourceCheckBox* pCheckBox = new CSourceCheckBox(this, _T("Use Gas Velocity"), (_variant_t)pSrc->get_use_initial_gas_vel(), _T("If ON the initial velocity is taken from the gas-dynamic data. Otherwise, the velocity direction is defined by normal to Spot and Rectangle planes."), pSrc->get_use_initial_gas_vel_ptr());
   pVelGroup->AddSubItem(pCheckBox);
   pProp = new CMFCPropertyGridProperty(_T("Abs. Velocity"), COleVariant(0.01 * pSrc->get_abs_vel()), _T("Absolute value of the starting velocity of a particle."), pSrc->get_abs_vel_ptr());
   pVelGroup->AddSubItem(pProp);
@@ -295,7 +295,7 @@ void CPropertiesWnd::update_source_ctrls()
     pProp->GetSubItem(1)->Enable(!bSelReg);
     pProp->GetSubItem(2)->Enable(!bSelReg);
   }
-
+/*
   pProp = m_wndPropList.FindItemByData(pSrc->get_inject_dir_ptr());
   if(pProp != NULL)
   {
@@ -305,4 +305,5 @@ void CPropertiesWnd::update_source_ctrls()
     pProp->GetSubItem(2)->Enable(!bUseGasVel);
     pProp->Enable(!bUseGasVel);
   }
+*/
 }

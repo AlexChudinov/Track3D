@@ -15,6 +15,7 @@
 #include "DirichletTesselation.h"
 #include "DomainCrossSection.h"
 #include "DrawTrack.h"
+#include "SelectedAreas.h"
 
 // CParticleTrackingApp:
 // See ParticleTracking.cpp for the implementation of this class
@@ -34,6 +35,7 @@ public:
   EvaporatingParticle::CCalcCollection*       GetCalcs();
   EvaporatingParticle::CFieldDataColl*        GetFields();
   EvaporatingParticle::CCrossSectColl*        GetPlanes();
+  EvaporatingParticle::CSelAreasColl*         GetSelAreas();
 
   bool                                        is_terminated() const { return m_bTerminate; }
   void                                        terminate(bool bTerm) { m_bTerminate = bTerm; }
@@ -65,6 +67,7 @@ private:
   EvaporatingParticle::CCalcCollection        m_vCalcs;
   EvaporatingParticle::CFieldDataColl         m_vFields;
   EvaporatingParticle::CCrossSectColl         m_vPlanes;
+  EvaporatingParticle::CSelAreasColl          m_vSelAreas;
 
   bool                                        m_bTerminate;
 

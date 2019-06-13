@@ -400,3 +400,39 @@ BOOL CElectricFieldResponder::OnUpdateValue()
   return bRes;
 }
 
+//---------------------------------------------------------------------------------------
+//  CNamedAreasSelResponder
+//---------------------------------------------------------------------------------------
+BOOL CNamedAreasSelResponder::OnUpdateValue()
+{
+  m_pWndProp->set_data_to_model();
+  BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+
+  CStringVector* pRegNames = (CStringVector*)GetData();
+  CString sNamedArea = (CString)GetValue();   // user selected this string, it can be "None".
+
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+
+  CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  size_t nSelAreasCount = pSelAreasColl->size();
+  for(size_t i = 0; i < nSelAreasCount; i++)
+  {
+    CSelectedAreas* pSelArea = pSelAreasColl->at(i);
+    CString sName = pSelArea->get_name();
+    if(sName == sNamedArea)
+    {
+      CMFCPropertyGridProperty* pGrandParent = GetParent()->GetParent();
+      CPotentialBoundCond* pBC = (CPotentialBoundCond*)(pGrandParent->GetData());
+
+      pSelArea->merge_items(*pRegNames, pBC->nMergeOpt);
+      pDrawObj->enter_sel_context(pRegNames);
+      pDrawObj->exit_sel_context(pRegNames);
+      pBC->sLastMerged = sNamedArea;
+      break;
+    }
+  }
+
+  m_pWndProp->set_update_all();
+  pDrawObj->draw();
+  return bRes;
+}
