@@ -20,25 +20,25 @@ namespace EvaporatingParticle
 // CPotentialBoundCond
 //---------------------------------------------------------------------------------------
 CPotentialBoundCond::CPotentialBoundCond(BoundaryMesh::BoundaryType type, int val)
-  : nType(type), nFixedValType(val), bVisible(true)
+  : m_nType(type), m_nFixedValType(val), m_bVisible(true)
 {
-  fStartX = 6.0;
-  fStepX = 0.1;
-  fEndX = 12.0;
+  m_fStartX = 6.0;
+  m_fStepX = 0.1;
+  m_fEndX = 12.0;
 // Linear potential function:
-  fEndPhi = 0;
-  nStepsCount = 10;
-  fCenterFirstElectr = fStartX;
+  m_fEndPhi = 0;
+  m_nStepsCount = 10;
+  m_fCenterFirstElectr = m_fStartX;
 // Parabolic potential function:
-  fStartPhi = 130;    // V.
-  fFirstStepPhi = 2;  // V.
-  fLastStepPhi = 4.7; // V.
+  m_fStartPhi = 130;    // V.
+  m_fFirstStepPhi = 2;  // V.
+  m_fLastStepPhi = 4.7; // V.
 // Merging options (if a Named Area is selected in addition to existing, manually selected regions).
-  nMergeOpt = CSelectedAreas::optAdd;
-  sLastMerged = _T("None");
+  m_nMergeOpt = CSelectedAreas::optAdd;
+  m_sLastMerged = _T("None");
 }
 
-const char* CPotentialBoundCond::get_bc_type_name(BoundaryMesh::BoundaryType nType)
+const char* CPotentialBoundCond::get_bc_type_name(int nType)
 {
   switch(nType)
   {
@@ -106,11 +106,11 @@ const char* CPotentialBoundCond::get_hint(int nFixedValType, int nCtrlType)
 
 double CPotentialBoundCond::linear_potential(double x)
 {
-  double dx = fEndX - fStartX;
+  double dx = m_fEndX - m_fStartX;
   if(fabs(dx) < Const_Almost_Zero)
     return 0;
 
-  return 1 + (fEndPhi - 1) * (x - fStartX) / dx;
+  return 1 + (m_fEndPhi - 1) * (x - m_fStartX) / dx;
 }
 
 void CPotentialBoundCond::save(CArchive& ar)
@@ -118,36 +118,35 @@ void CPotentialBoundCond::save(CArchive& ar)
   UINT nVersion = 5;  // 5 - Merging option; 4 - nStepsCount and fCenterFirstElectr; 3 - linear and quadric stepwise potentials; 2 - hide/show regions; 1 - step-like potential is supported.
   ar << nVersion;
 
-  int nIntType = (int)nType;
-  ar << nIntType;
-  ar << nFixedValType;
+  ar << m_nType;
+  ar << m_nFixedValType;
 
   CString cStr;
-  size_t nCount = vRegNames.size();
+  size_t nCount = m_vRegNames.size();
   ar << nCount;
 
   for(size_t i = 0; i < nCount; i++)
   {
-    cStr = CString(vRegNames.at(i).c_str());
+    cStr = CString(m_vRegNames.at(i).c_str());
     ar << cStr;
   }
 
-  ar << fStartX;
-  ar << fStepX;
-  ar << fEndX;
+  ar << m_fStartX;
+  ar << m_fStepX;
+  ar << m_fEndX;
 
-  ar << fStartPhi;
-  ar << fEndPhi;
-  ar << fFirstStepPhi;
-  ar << fLastStepPhi;
+  ar << m_fStartPhi;
+  ar << m_fEndPhi;
+  ar << m_fFirstStepPhi;
+  ar << m_fLastStepPhi;
 
-  ar << bVisible;
+  ar << m_bVisible;
 
-  ar << fCenterFirstElectr;
-  ar << nStepsCount;
+  ar << m_fCenterFirstElectr;
+  ar << m_nStepsCount;
 
-  ar << nMergeOpt;
-  ar << sLastMerged;
+  ar << m_nMergeOpt;
+  ar << m_sLastMerged;
 }
 
 void CPotentialBoundCond::load(CArchive& ar)
@@ -155,52 +154,49 @@ void CPotentialBoundCond::load(CArchive& ar)
   UINT nVersion;
   ar >> nVersion;
 
-  int nIntType;
-  ar >> nIntType;
-  nType = (BoundaryMesh::BoundaryType)nIntType;
-
-  ar >> nFixedValType;
+  ar >> m_nType;
+  ar >> m_nFixedValType;
 
   CString cStr;
   size_t nCount;
   ar >> nCount;
-  vRegNames.reserve(nCount);
+  m_vRegNames.reserve(nCount);
 
   for(size_t i = 0; i < nCount; i++)
   {
     ar >> cStr;
     std::string sRegName((const char*)cStr);
-    vRegNames.push_back(sRegName);
+    m_vRegNames.push_back(sRegName);
   }
 
   if(nVersion >= 1)
   {
-    ar >> fStartX;
-    ar >> fStepX;
-    ar >> fEndX;
+    ar >> m_fStartX;
+    ar >> m_fStepX;
+    ar >> m_fEndX;
   }
 
   if(nVersion >= 3)
   {
-    ar >> fStartPhi;
-    ar >> fEndPhi;
-    ar >> fFirstStepPhi;
-    ar >> fLastStepPhi;
+    ar >> m_fStartPhi;
+    ar >> m_fEndPhi;
+    ar >> m_fFirstStepPhi;
+    ar >> m_fLastStepPhi;
   }
 
   if(nVersion >= 2)
-    ar >> bVisible;
+    ar >> m_bVisible;
 
   if(nVersion >= 4)
   {
-    ar >> fCenterFirstElectr;
-    ar >> nStepsCount;
+    ar >> m_fCenterFirstElectr;
+    ar >> m_nStepsCount;
   }
 
   if(nVersion >= 5)
   {
-    ar >> nMergeOpt;
-    ar >> sLastMerged;
+    ar >> m_nMergeOpt;
+    ar >> m_sLastMerged;
   }
 }
 
@@ -302,7 +298,7 @@ bool CFieldDataColl::sel_region_changed(CStringVector* pRegNames)
     for(size_t j = 0; j < nBoundCondCount; j++)
     {
       CPotentialBoundCond* pBC = pData->get_bc(j);
-      if(pRegNames == &(pBC->vRegNames))
+      if((DWORD_PTR)pRegNames == pBC->get_region_names_ptr())
       {
         pData->invalidate();
         return true;
@@ -327,7 +323,8 @@ bool CFieldDataColl::remove_bound_cond(CPotentialBoundCond* pBC)
       if(pBC == pData->get_bc(j))
       {
 // Set "true" for the visibility flag of all the regions belonging to this BC before deleting the BC.
-        pDrawObj->set_visibility_status(&(pBC->vRegNames), true);
+        CStringVector* pRegNames = (CStringVector*)(pBC->get_region_names_ptr());
+        pDrawObj->set_visibility_status(pRegNames, true);
         pData->remove_bc(j);
         return true;
       }
@@ -350,7 +347,8 @@ void CFieldDataColl::update_visibility_status()
     for(size_t j = 0; j < nBoundCondCount; j++)
     {
       pBC = pData->get_bc(j);
-      pDrawObj->set_visibility_status(&(pBC->vRegNames), pBC->bVisible);
+      CStringVector* pRegNames = (CStringVector*)(pBC->get_region_names_ptr());
+      pDrawObj->set_visibility_status(pRegNames, pBC->get_visibility_flag());
     }
   }
 }
@@ -768,7 +766,7 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
   for(size_t i = 0; i < nCount; i++)
   {
     pBC = m_vBoundCond.at(i);
-    nRegCount = pBC->vRegNames.size();
+    nRegCount = pBC->get_region_names().size();
     int nPart = 100 * i / nCount;
     for(size_t j = 0; j < nRegCount; j++)
     {
@@ -776,19 +774,19 @@ bool CElectricFieldData::set_boundary_conditions(CFiniteVolumesSolver& solver)
       if(get_terminate_flag())
         return false;
 
-      pReg = CAnsysMesh::get_region(pBC->vRegNames.at(j));
+      pReg = CAnsysMesh::get_region(pBC->get_region_names().at(j));
       if(pReg == NULL)  // if the geometry file has been changed in the project, some region names can be not relevant.
         continue;
 
       CIndexVector vRegNodeInd = get_reg_nodes(pReg);   // global indices of nodes, belonging to region pReg.
 
-      if(pBC->nType == BoundaryMesh::ZERO_GRAD)
+      if(pBC->get_bc_type() == BoundaryMesh::ZERO_GRAD)
       {
         solver.set_boundary_conditions(vRegNodeInd);    // boundary conditions of the 2-nd type.
       }
-      else if(pBC->nType == BoundaryMesh::FIXED_VAL)
+      else if(pBC->get_bc_type() == BoundaryMesh::FIXED_VAL)
       {
-        switch(pBC->nFixedValType)
+        switch(pBC->get_fixed_val_type())
         {
           case CPotentialBoundCond::fvPlusUnity:
           {
@@ -905,20 +903,20 @@ bool CElectricFieldData::set_boundary_conditions(CMeshAdapter& mesh)
   CRegion* pReg = NULL;
   size_t i, j, nBoundCondCount = m_vBoundCond.size(), nRegCount, nSumRegCount = 0;
   for(i = 0; i < nBoundCondCount; i++)
-    nSumRegCount += m_vBoundCond.at(i)->vRegNames.size();
+    nSumRegCount += m_vBoundCond.at(i)->get_region_names().size();
 
   size_t k = 0;
   for(i = 0; i < nBoundCondCount; i++)
   {
     CPotentialBoundCond* pBC = m_vBoundCond.at(i);
-    nRegCount = pBC->vRegNames.size();
+    nRegCount = pBC->get_region_names().size();
     for(j = 0; j < nRegCount; j++)
     {
       if(get_terminate_flag())
         return false;
 
       k++;
-      const std::string& sName = pBC->vRegNames.at(j);
+      const std::string& sName = pBC->get_region_names().at(j);
       pReg = CAnsysMesh::get_region(sName);
       if(pReg == NULL)
         continue;
@@ -982,7 +980,7 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
   const std::string& sName = pReg->sName;
   mesh.boundaryMesh()->addBoundary(sName, vNodeIds, vNorms);
 
-  BoundaryMesh::BoundaryType nType = pBC != NULL ? pBC->nType : BoundaryMesh::FIXED_VAL;
+  BoundaryMesh::BoundaryType nType = pBC != NULL ? (BoundaryMesh::BoundaryType)(pBC->get_bc_type()) : BoundaryMesh::FIXED_VAL;
   mesh.boundaryMesh()->boundaryType(sName, nType);
 
   if(nType != BoundaryMesh::FIXED_VAL)
@@ -994,7 +992,7 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
   double fVal = 0;
   if((pBC != NULL) && (nType == BoundaryMesh::FIXED_VAL))
   {
-    if(pBC->nFixedValType == CPotentialBoundCond::fvCoulomb)  // mirror Coulomb field.
+    if(pBC->get_fixed_val_type() == CPotentialBoundCond::fvCoulomb)  // mirror Coulomb field.
     {
       CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
       CBarnesHut* pBHObj = pObj->get_BH_object();
@@ -1017,7 +1015,7 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
       return;
     }
 
-    switch(pBC->nFixedValType)
+    switch(pBC->get_fixed_val_type())
     {
       case CPotentialBoundCond::fvPlusUnity: fVal = 1.0; break;
       case CPotentialBoundCond::fvMinusUnity: fVal = -1.0; break;
@@ -1035,27 +1033,27 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
 
 double CElectricFieldData::linear_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
 {
-  double x = pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsX ? vPos.x : vPos.y;
+  double x = pBC->get_fixed_val_type() == CPotentialBoundCond::fvLinearStepsX ? vPos.x : vPos.y;
 
-  bool bCorrect = pBC->fStartX < pBC->fEndX;
+  bool bCorrect = pBC->get_start_coord() < pBC->get_end_coord();
 
-  double x0 = bCorrect ? pBC->fStartX : pBC->fEndX;
-  double x1 = bCorrect ? pBC->fEndX : pBC->fStartX;
+  double x0 = bCorrect ? pBC->get_start_coord() : pBC->get_end_coord();
+  double x1 = bCorrect ? pBC->get_end_coord() : pBC->get_start_coord();
   if(fabs(x1 - x0) < Const_Almost_Zero)
     return 0;
 
-  double phi0 = bCorrect ? 1.0 : pBC->fEndPhi;
-  double phi1 = bCorrect ? pBC->fEndPhi : 1.0;
+  double phi0 = bCorrect ? 1.0 : pBC->get_end_phi();
+  double phi1 = bCorrect ? pBC->get_end_phi() : 1.0;
   double grad = (phi1 - phi0) / (x1 - x0);
-  double dx = fabs(pBC->fStepX);
+  double dx = fabs(pBC->get_step_coord());
   if(dx < Const_Almost_Zero)
     return 0;
 
-  if(pBC->nStepsCount == 0)
+  if(pBC->get_steps_count() == 0)
     return 0;
 
-  double xs = pBC->fCenterFirstElectr;
-  double xe = xs + (pBC->nStepsCount - 1) * dx;
+  double xs = pBC->get_center_first_electr();
+  double xe = xs + (pBC->get_steps_count() - 1) * dx;
 
   if(x < xs)
     return pBC->linear_potential(xs);
@@ -1067,18 +1065,18 @@ double CElectricFieldData::linear_step_potential(CPotentialBoundCond* pBC, const
 
 double CElectricFieldData::quadric_step_potential(CPotentialBoundCond* pBC, const Vector3D& vPos) const
 {
-  double x = pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsX ? vPos.x : vPos.y;
+  double x = pBC->get_fixed_val_type() == CPotentialBoundCond::fvQuadricStepsX ? vPos.x : vPos.y;
 
-  bool bCorrect = pBC->fStartX < pBC->fEndX;
+  bool bCorrect = pBC->get_start_coord() < pBC->get_end_coord();
   if(!bCorrect)
     return 0;
 
-  double x0 = pBC->fStartX;
-  double x1 = pBC->fEndX;
+  double x0 = pBC->get_start_coord();
+  double x1 = pBC->get_end_coord();
   if(fabs(x1 - x0) < Const_Almost_Zero)
     return 0;
 
-  double dx = fabs(pBC->fStepX);
+  double dx = fabs(pBC->get_step_coord());
   if(dx < Const_Almost_Zero)
     return 0;
 
@@ -1086,12 +1084,12 @@ double CElectricFieldData::quadric_step_potential(CPotentialBoundCond* pBC, cons
   if(x < x0 - hdx || x > x1 + hdx)
     return 0;
 
-  double dPhi0 = pBC->fFirstStepPhi / dx; // V/cm.
-  double dPhi1 = pBC->fLastStepPhi / dx;
+  double dPhi0 = pBC->get_first_dphi() / dx; // V/cm.
+  double dPhi1 = pBC->get_last_dphi() / dx;
 
   double A = 0.5 * (dPhi1 - dPhi0) / (x1 - x0);
   double B = (x1 * dPhi0 - x0 * dPhi1) / (x1 - x0);
-  double C = pBC->fStartPhi - A * x0 * x0 - B * x0;
+  double C = pBC->get_start_phi() - A * x0 * x0 - B * x0;
 
   double xs = x0 + floor((x - x0) / dx + 0.5) * dx;
   return A * xs * xs + B * xs + C;
@@ -1152,10 +1150,10 @@ bool CElectricFieldData::is_selected(CRegion* pReg) const
   for(size_t i = 0; i < nBoundCondCount; i++)
   {
     CPotentialBoundCond* pBC = m_vBoundCond.at(i);
-    size_t nRegCount = pBC->vRegNames.size();
+    size_t nRegCount = pBC->get_region_names().size();
     for(size_t j = 0; j < nRegCount; j++)
     {
-      const std::string& sName = pBC->vRegNames.at(j);
+      const std::string& sName = pBC->get_region_names().at(j);
       if(pReg->sName == sName)
         return true;
     }
@@ -1228,7 +1226,7 @@ void CElectricFieldData::add_bc()
   CString cName = CString("Boundary Conditions # ") + CString(itoa(nId + 1, buff, 10));
 
   CPotentialBoundCond* pBC = new CPotentialBoundCond();
-  pBC->sName = std::string(cName);
+  pBC->set_name(cName);
   m_vBoundCond.push_back(pBC);
 }
 
@@ -1297,13 +1295,13 @@ void CElectricFieldData::check_regions()
   for(size_t i = 0; i < nBndCondCount; i++)
   {
     pBC = m_vBoundCond.at(i);
-    nRegCount = pBC->vRegNames.size();
+    nRegCount = pBC->get_region_names().size();
     for(int j = nRegCount - 1; j >= 0; j--)
     {
-      pReg = CAnsysMesh::get_region(pBC->vRegNames.at(j));
+      pReg = CAnsysMesh::get_region(pBC->get_region_names().at(j));
       if(pReg == NULL)
       {
-        pBC->vRegNames.erase(pBC->vRegNames.begin() + j);
+        pBC->get_region_names().erase(pBC->get_region_names().begin() + j);
       }
     }
   }

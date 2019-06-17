@@ -403,6 +403,25 @@ BOOL CElectricFieldResponder::OnUpdateValue()
 //---------------------------------------------------------------------------------------
 //  CNamedAreasSelResponder
 //---------------------------------------------------------------------------------------
+static CPotentialBoundCond* get_bc_object(DWORD_PTR pRegNames)
+{
+  CFieldDataColl* pFieldColl = CParticleTrackingApp::Get()->GetFields();
+  size_t nFieldsCount = pFieldColl->size();
+  for(size_t i = 0; i < nFieldsCount; i++)
+  {
+    CElectricFieldData* pField = pFieldColl->at(i);
+    size_t nCount = pField->get_bc_count();
+    for(size_t j = 0; j < nCount; j++)
+    {
+      CPotentialBoundCond* pBC = pField->get_bc(j);
+      if(pRegNames == pBC->get_region_names_ptr())
+        return pBC;
+    }
+  }
+
+  return NULL;
+}
+
 BOOL CNamedAreasSelResponder::OnUpdateValue()
 {
   m_pWndProp->set_data_to_model();
@@ -421,13 +440,14 @@ BOOL CNamedAreasSelResponder::OnUpdateValue()
     CString sName = pSelArea->get_name();
     if(sName == sNamedArea)
     {
-      CMFCPropertyGridProperty* pGrandParent = GetParent()->GetParent();
-      CPotentialBoundCond* pBC = (CPotentialBoundCond*)(pGrandParent->GetData());
+      CPotentialBoundCond* pBC = get_bc_object(GetData());
+      if(pBC == NULL)
+        return FALSE;
 
-      pSelArea->merge_items(*pRegNames, pBC->nMergeOpt);
+      pSelArea->merge_items(*pRegNames, pBC->get_merge_option());
       pDrawObj->enter_sel_context(pRegNames);
       pDrawObj->exit_sel_context(pRegNames);
-      pBC->sLastMerged = sNamedArea;
+      pBC->set_last_merged(sNamedArea);
       break;
     }
   }
@@ -436,3 +456,6 @@ BOOL CNamedAreasSelResponder::OnUpdateValue()
   pDrawObj->draw();
   return bRes;
 }
+
+
+

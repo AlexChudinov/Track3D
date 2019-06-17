@@ -14,8 +14,9 @@ namespace EvaporatingParticle
 //---------------------------------------------------------------------------------------
 // CPotentialBoundCond
 //---------------------------------------------------------------------------------------
-struct CPotentialBoundCond
+class CPotentialBoundCond
 {
+public:
   CPotentialBoundCond(BoundaryMesh::BoundaryType type = BoundaryMesh::FIXED_VAL, int val = fvPlusUnity);
 
   enum  // fixed value types:
@@ -30,55 +31,72 @@ struct CPotentialBoundCond
     fvCount         = 7
   };
 
-  BoundaryMesh::BoundaryType    nType;
+// All changes in boundary conditions MUST result in the field re-calculation. The following GET-functions return "true" if something changes.
+  int                           get_bc_type() const;
+  DWORD_PTR                     get_bc_type_ptr() const;
+  bool                          set_bc_type(int nNewType);
 
-  CStringVector                 vRegNames;      // names of the regions with non-trivial boundary conditions.
-  bool                          bVisible;       // visibility status of the selected regions.
-// A flag showing how to merge the existing regions with the ones contained in the selected Named Area. Can be "add", "substitute" and "remove", see SelectedAreas.h.
-  int                           nMergeOpt;
-// The name of the Named Area last merged:
-  CString                       sLastMerged;
-
-  int                           nFixedValType;  // the value at the boundary can be +1V, -1V, step-wise potential or Coulomb potential.
-  std::string                   sName;
-
-// Step-like potential:
-  UINT                          nStepsCount;
-  double                        fCenterFirstElectr,
-                                fStepX;
-
-// For linear potential the following three parameters strongly define the linear function phi(x). The center of the first electrode
-// is not always equal to fStartX. Two or more step-like potentials can be linked to one the same linear phi(x).
-  double                        fStartX,
-                                fEndX,
-// Dimensionless value of potential at the end of the interval. Corresponding "fStartPhi" is assumed always to be unity. Linear potential only.
-                                fEndPhi;
-
-// Step-like potential (quadric):
-  double                        fStartPhi,      // absolute value of the potential on the first electrode.
-                                fFirstStepPhi,  // absolute value of the potential gradient between the centers of the first and second steps.
-                                fLastStepPhi;   // absolute value of the potential gradient between the centers of the last but one and last steps.
-
-// All changes in boundary conditions MUST result in the field re-calculation. The following functions return "true" if something changes.
-  bool                          set_bc_type(BoundaryMesh::BoundaryType nNewType);
+  int                           get_fixed_val_type() const;
+  DWORD_PTR                     get_fixed_val_type_ptr() const;
   bool                          set_fixed_val_type(int nNewType);
 
+  UINT                          get_steps_count() const;
+  DWORD_PTR                     get_steps_count_ptr() const;
   bool                          set_steps_count(UINT nNewCount);
+
+  double                        get_center_first_electr() const;
+  DWORD_PTR                     get_center_first_electr_ptr() const;
   bool                          set_center_first_electr(double fNewCenter);
+
+  double                        get_step_coord() const;
+  DWORD_PTR                     get_step_coord_ptr() const;
   bool                          set_step_coord(double fNewStep);
 
+  double                        get_start_coord() const;
+  DWORD_PTR                     get_start_coord_ptr() const;
   bool                          set_start_coord(double fNewCoord);
+
+  double                        get_end_coord() const;
+  DWORD_PTR                     get_end_coord_ptr() const;
   bool                          set_end_coord(double fNewCoord);
 
+  double                        get_start_phi() const;
+  DWORD_PTR                     get_start_phi_ptr() const;
   bool                          set_start_phi(double fNewPhi);
+
+  double                        get_end_phi() const;
+  DWORD_PTR                     get_end_phi_ptr() const;
   bool                          set_end_phi(double fNewPhi);
 
+  double                        get_first_dphi() const;
+  DWORD_PTR                     get_first_dphi_ptr() const;
   bool                          set_first_dphi(double fNewdPhi);
+
+  double                        get_last_dphi() const;
+  DWORD_PTR                     get_last_dphi_ptr() const;
   bool                          set_last_dphi(double fNewdPhi);
+
+  CString                       get_name() const;
+  void                          set_name(const CString& sName);
+
+  CStringVector&                get_region_names();
+  const CStringVector&          get_region_names() const;
+  DWORD_PTR                     get_region_names_ptr() const;
+
+  bool                          get_visibility_flag() const;
+  DWORD_PTR                     get_visibility_flag_ptr() const;
+
+// The existing regions can be merged with those in selected Named Areas. Three merge options are available: add, substitute and remove.
+  int                           get_merge_option() const;
+  DWORD_PTR                     get_merge_option_ptr() const;
+  void                          set_merge_option(int nOpt);
+
+  CString                       get_last_merged() const;
+  void                          set_last_merged(const CString& sName);
 
   double                        linear_potential(double x);
 
-  static const char*            get_bc_type_name(BoundaryMesh::BoundaryType nType);
+  static const char*            get_bc_type_name(int nType);
   static const char*            get_fixed_value_name(int nType);
 
   enum // user interface control type.
@@ -99,116 +117,317 @@ struct CPotentialBoundCond
 
   void                          save(CArchive& ar);
   void                          load(CArchive& ar);
+
+private:
+  int                           m_nType;
+
+  CStringVector                 m_vRegNames;      // names of the regions with non-trivial boundary conditions.
+  bool                          m_bVisible;       // visibility status of the selected regions.
+// A flag showing how to merge the existing regions with the ones contained in the selected Named Area. Can be "add", "substitute" and "remove", see SelectedAreas.h.
+  int                           m_nMergeOpt;
+// The name of the Named Area last merged:
+  CString                       m_sLastMerged;
+
+  int                           m_nFixedValType;  // the value at the boundary can be +1V, -1V, step-wise potential or Coulomb potential.
+  CString                       m_sName;
+
+// Step-like potential:
+  UINT                          m_nStepsCount;
+  double                        m_fCenterFirstElectr,
+                                m_fStepX;
+
+// For linear potential the following three parameters strongly define the linear function phi(x). The center of the first electrode
+// is not always equal to fStartX. Two or more step-like potentials can be linked to one the same linear phi(x).
+  double                        m_fStartX,
+                                m_fEndX,
+// Dimensionless value of potential at the end of the interval. Corresponding "fStartPhi" is assumed always to be unity. Linear potential only.
+                                m_fEndPhi;
+
+// Step-like potential (quadric):
+  double                        m_fStartPhi,      // absolute value of the potential on the first electrode.
+                                m_fFirstStepPhi,  // absolute value of the potential gradient between the centers of the first and second steps.
+                                m_fLastStepPhi;   // absolute value of the potential gradient between the centers of the last but one and last steps.
 };
 
-inline bool CPotentialBoundCond::set_bc_type(BoundaryMesh::BoundaryType nNewType)
+inline int CPotentialBoundCond::get_bc_type() const
 {
-  if(nType != nNewType)
+  return m_nType;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_bc_type_ptr() const
+{
+  return (DWORD_PTR)&m_nType;
+}
+
+inline bool CPotentialBoundCond::set_bc_type(int nNewType)
+{
+  if(m_nType != nNewType)
   {
-    nType = nNewType;
+    m_nType = nNewType;
     return true;
   }
   return false;
+}
+
+inline int CPotentialBoundCond::get_fixed_val_type() const
+{
+  return m_nFixedValType;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_fixed_val_type_ptr() const
+{
+  return (DWORD_PTR)&m_nFixedValType;
 }
 
 inline bool CPotentialBoundCond::set_fixed_val_type(int nNewType)
 {
-  if(nFixedValType != nNewType)
+  if(m_nFixedValType != nNewType)
   {
-    nFixedValType = nNewType;
+    m_nFixedValType = nNewType;
     return true;
   }
   return false;
 }
 
-inline bool CPotentialBoundCond::set_start_coord(double fNewCoord)
+inline CString CPotentialBoundCond::get_name() const
 {
-  if(fStartX != fNewCoord)
-  {
-    fStartX = fNewCoord;
-    return true;
-  }
-  return false;
+  return m_sName;
 }
 
-inline bool CPotentialBoundCond::set_end_coord(double fNewCoord)
+inline void CPotentialBoundCond::set_name(const CString& sName)
 {
-  if(fEndX != fNewCoord)
-  {
-    fEndX = fNewCoord;
-    return true;
-  }
-  return false;
+  m_sName = sName;
 }
 
-inline bool CPotentialBoundCond::set_step_coord(double fNewStep)
+inline CStringVector& CPotentialBoundCond::get_region_names()
 {
-  if(fStepX != fNewStep)
-  {
-    fStepX = fNewStep;
-    return true;
-  }
-  return false;
+  return m_vRegNames;
 }
 
-inline bool CPotentialBoundCond::set_start_phi(double fNewPhi)
+inline const CStringVector& CPotentialBoundCond::get_region_names() const
 {
-  if(fStartPhi != fNewPhi)
-  {
-    fStartPhi = fNewPhi;
-    return true;
-  }
-  return false;
+  return m_vRegNames;
 }
 
-inline bool CPotentialBoundCond::set_end_phi(double fNewPhi)
+inline DWORD_PTR CPotentialBoundCond::get_region_names_ptr() const
 {
-  if(fEndPhi != fNewPhi)
-  {
-    fEndPhi = fNewPhi;
-    return true;
-  }
-  return false;
+  return (DWORD_PTR)&m_vRegNames;
 }
 
-inline bool CPotentialBoundCond::set_first_dphi(double fNewdPhi)
+inline bool CPotentialBoundCond::get_visibility_flag() const
 {
-  if(fFirstStepPhi != fNewdPhi)
-  {
-    fFirstStepPhi = fNewdPhi;
-    return true;
-  }
-  return false;
+  return m_bVisible;
 }
 
-inline bool CPotentialBoundCond::set_last_dphi(double fNewdPhi)
+inline DWORD_PTR CPotentialBoundCond::get_visibility_flag_ptr() const
 {
-  if(fLastStepPhi != fNewdPhi)
-  {
-    fLastStepPhi = fNewdPhi;
-    return true;
-  }
-  return false;
+  return (DWORD_PTR)&m_bVisible;
+}
+
+// Step-like potential:
+inline UINT CPotentialBoundCond::get_steps_count() const
+{
+  return m_nStepsCount;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_steps_count_ptr() const
+{
+  return (DWORD_PTR)&m_nStepsCount;
 }
 
 inline bool CPotentialBoundCond::set_steps_count(UINT nNewCount)
 {
-  if(nStepsCount != nNewCount)
+  if(m_nStepsCount != nNewCount)
   {
-    nStepsCount = nNewCount;
+    m_nStepsCount = nNewCount;
     return true;
   }
   return false;
 }
 
+inline double CPotentialBoundCond::get_center_first_electr() const
+{
+  return m_fCenterFirstElectr;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_center_first_electr_ptr() const
+{
+  return (DWORD_PTR)&m_fCenterFirstElectr;
+}
+
 inline bool CPotentialBoundCond::set_center_first_electr(double fNewCenter)
 {
-  if(fCenterFirstElectr != fNewCenter)
+  if(m_fCenterFirstElectr != fNewCenter)
   {
-    fCenterFirstElectr = fNewCenter;
+    m_fCenterFirstElectr = fNewCenter;
     return true;
   }
   return false;
+}
+
+inline double CPotentialBoundCond::get_step_coord() const
+{
+  return m_fStepX;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_step_coord_ptr() const
+{
+  return (DWORD_PTR)&m_fStepX;
+}
+
+inline bool CPotentialBoundCond::set_step_coord(double fNewStep)
+{
+  if(m_fStepX != fNewStep)
+  {
+    m_fStepX = fNewStep;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_start_coord() const
+{
+  return m_fStartX;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_start_coord_ptr() const
+{
+  return (DWORD_PTR)&m_fStartX;
+}
+
+inline bool CPotentialBoundCond::set_start_coord(double fNewCoord)
+{
+  if(m_fStartX != fNewCoord)
+  {
+    m_fStartX = fNewCoord;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_end_coord() const
+{
+  return m_fEndX;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_end_coord_ptr() const
+{
+  return (DWORD_PTR)&m_fEndX;
+}
+
+inline bool CPotentialBoundCond::set_end_coord(double fNewCoord)
+{
+  if(m_fEndX != fNewCoord)
+  {
+    m_fEndX = fNewCoord;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_start_phi() const
+{
+  return m_fStartPhi;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_start_phi_ptr() const
+{
+  return (DWORD_PTR)&m_fStartPhi;
+}
+
+inline bool CPotentialBoundCond::set_start_phi(double fNewPhi)
+{
+  if(m_fStartPhi != fNewPhi)
+  {
+    m_fStartPhi = fNewPhi;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_end_phi() const
+{
+  return m_fEndPhi;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_end_phi_ptr() const
+{
+  return (DWORD_PTR)&m_fEndPhi;
+}
+
+inline bool CPotentialBoundCond::set_end_phi(double fNewPhi)
+{
+  if(m_fEndPhi != fNewPhi)
+  {
+    m_fEndPhi = fNewPhi;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_first_dphi() const
+{
+  return m_fFirstStepPhi;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_first_dphi_ptr() const
+{
+  return (DWORD_PTR)&m_fFirstStepPhi;
+}
+
+inline bool CPotentialBoundCond::set_first_dphi(double fNewdPhi)
+{
+  if(m_fFirstStepPhi != fNewdPhi)
+  {
+    m_fFirstStepPhi = fNewdPhi;
+    return true;
+  }
+  return false;
+}
+
+inline double CPotentialBoundCond::get_last_dphi() const
+{
+  return m_fLastStepPhi;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_last_dphi_ptr() const
+{
+  return (DWORD_PTR)&m_fLastStepPhi;
+}
+
+inline bool CPotentialBoundCond::set_last_dphi(double fNewdPhi)
+{
+  if(m_fLastStepPhi != fNewdPhi)
+  {
+    m_fLastStepPhi = fNewdPhi;
+    return true;
+  }
+  return false;
+}
+
+inline int CPotentialBoundCond::get_merge_option() const
+{
+  return m_nMergeOpt;
+}
+
+inline DWORD_PTR CPotentialBoundCond::get_merge_option_ptr() const
+{
+  return (DWORD_PTR)&m_nMergeOpt;
+}
+
+inline void CPotentialBoundCond::set_merge_option(int nOpt)
+{
+  m_nMergeOpt = nOpt;
+}
+
+inline CString CPotentialBoundCond::get_last_merged() const
+{
+  return m_sLastMerged;
+}
+
+inline void CPotentialBoundCond::set_last_merged(const CString& sName)
+{
+  m_sLastMerged = sName;
 }
 
 struct CNode3D;

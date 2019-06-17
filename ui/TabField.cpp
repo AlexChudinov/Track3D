@@ -125,101 +125,101 @@ void CPropertiesWnd::add_field_ctrls()
     for(size_t j = 0; j < nBoundCondCount; j++)
     {
       CPotentialBoundCond* pBC = pData->get_bc(j);
-      CMFCPropertyGridProperty* pBoundCondGroup = new CMFCPropertyGridProperty(pBC->sName.c_str(), (DWORD_PTR)pBC); // the pBC will be used in CNamedAreasSelResponder::OnUpdateValue().
+      CMFCPropertyGridProperty* pBoundCondGroup = new CMFCPropertyGridProperty(pBC->get_name());
 
-      COleVariant var1(CPotentialBoundCond::get_bc_type_name(pBC->nType));
-      CGeneralResponseProperty* pBCType = new CGeneralResponseProperty(this, _T("Boundary Conditions Type"), var1, _T("Set the boundary conditions type (fixed value or zero normal derivative)."), (DWORD_PTR)&(pBC->nType));
+      CString sType(CPotentialBoundCond::get_bc_type_name(pBC->get_bc_type()));
+      CGeneralResponseProperty* pBCType = new CGeneralResponseProperty(this, _T("Boundary Conditions Type"), sType, _T("Set the boundary conditions type (fixed value or zero normal derivative)."), pBC->get_bc_type_ptr());
       pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::FIXED_VAL));
       pBCType->AddOption(CPotentialBoundCond::get_bc_type_name(BoundaryMesh::ZERO_GRAD));
       pBoundCondGroup->AddSubItem(pBCType);
 
-      if(pBC->nType == BoundaryMesh::FIXED_VAL)
+      if(pBC->get_bc_type() == BoundaryMesh::FIXED_VAL)
       {
-        COleVariant var2(CPotentialBoundCond::get_fixed_value_name(pBC->nFixedValType));
-        CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), var2, _T("Set the boundary conditions value."), (DWORD_PTR)&(pBC->nFixedValType));
+        CString sValType(CPotentialBoundCond::get_fixed_value_name(pBC->get_fixed_val_type()));
+        CGeneralResponseProperty* pBCValue = new CGeneralResponseProperty(this, _T("Boundary Value"), sValType, _T("Set the boundary conditions value."), pBC->get_fixed_val_type_ptr());
         for(int k = CPotentialBoundCond::fvPlusUnity; k < CPotentialBoundCond::fvCount; k++)
           pBCValue->AddOption(CPotentialBoundCond::get_fixed_value_name(k));
 
         pBoundCondGroup->AddSubItem(pBCValue);
       }
 
-      if(pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsX || pBC->nFixedValType == CPotentialBoundCond::fvLinearStepsY)
+      if(pBC->get_fixed_val_type() == CPotentialBoundCond::fvLinearStepsX || pBC->get_fixed_val_type() == CPotentialBoundCond::fvLinearStepsY)
       {
         CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Linear Step-Wise Potential"));
         CMFCPropertyGridProperty* pLinGradGroup = new CMFCPropertyGridProperty(_T("Linear Gradient"));
 
-        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
-        CString cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStartX), cHint, (DWORD_PTR)&(pBC->fStartX));
+        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartX);
+        CString cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_start_coord()), cHint, pBC->get_start_coord_ptr());
         pLinGradGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fEndX), cHint, (DWORD_PTR)&(pBC->fEndX));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndX);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_end_coord()), cHint, pBC->get_end_coord_ptr());
         pLinGradGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndPhi);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fEndPhi), cHint, (DWORD_PTR)&(pBC->fEndPhi));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->get_end_phi()), cHint, pBC->get_end_phi_ptr());
         pLinGradGroup->AddSubItem(pProp);
 
         pStepWiseGroup->AddSubItem(pLinGradGroup);
         CMFCPropertyGridProperty* pElectrGroup = new CMFCPropertyGridProperty(_T("Electrodes"));
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitCenterFirst);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitCenterFirst);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fCenterFirstElectr), cHint, (DWORD_PTR)&(pBC->fCenterFirstElectr));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitCenterFirst);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitCenterFirst);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_center_first_electr()), cHint, pBC->get_center_first_electr_ptr());
         pElectrGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepX);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_step_coord()), cHint, pBC->get_step_coord_ptr());
         pElectrGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepsCount);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepsCount);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant((long)(pBC->nStepsCount)), cHint, (DWORD_PTR)&(pBC->nStepsCount));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepsCount);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepsCount);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant((long)(pBC->get_steps_count())), cHint, pBC->get_steps_count_ptr());
         pElectrGroup->AddSubItem(pProp);
 
         pStepWiseGroup->AddSubItem(pElectrGroup);
         pBoundCondGroup->AddSubItem(pStepWiseGroup);
       }
 
-      if(pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsX || pBC->nFixedValType == CPotentialBoundCond::fvQuadricStepsY)
+      if(pBC->get_fixed_val_type() == CPotentialBoundCond::fvQuadricStepsX || pBC->get_fixed_val_type() == CPotentialBoundCond::fvQuadricStepsY)
       {
         CMFCPropertyGridProperty* pStepWiseGroup = new CMFCPropertyGridProperty(_T("Quadric Step-Wise Potential"));
 
-        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
-        CString cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStartX), cHint, (DWORD_PTR)&(pBC->fStartX));
+        CString cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartX);
+        CString cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_start_coord()), cHint, pBC->get_start_coord_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStepX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fStepX), cHint, (DWORD_PTR)&(pBC->fStepX));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepX);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStepX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_step_coord()), cHint, pBC->get_step_coord_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitEndX);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->fEndX), cHint, (DWORD_PTR)&(pBC->fEndX));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndX);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitEndX);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(10 * pBC->get_end_coord()), cHint, pBC->get_end_coord_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitStartPhi);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitStartPhi);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fStartPhi), cHint, (DWORD_PTR)&(pBC->fStartPhi));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitStartPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->get_start_phi()), cHint, pBC->get_start_phi_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitFirstStepPhi);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitFirstStepPhi);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fFirstStepPhi), cHint, (DWORD_PTR)&(pBC->fFirstStepPhi));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitFirstStepPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitFirstStepPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->get_first_dphi()), cHint, pBC->get_first_dphi_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->nFixedValType, CPotentialBoundCond::uitLastStepPhi);
-        cHint = CPotentialBoundCond::get_hint(pBC->nFixedValType, CPotentialBoundCond::uitLastStepPhi);
-        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->fLastStepPhi), cHint, (DWORD_PTR)&(pBC->fLastStepPhi));
+        cCtrlTitle = CPotentialBoundCond::get_control_title(pBC->get_fixed_val_type(), CPotentialBoundCond::uitLastStepPhi);
+        cHint = CPotentialBoundCond::get_hint(pBC->get_fixed_val_type(), CPotentialBoundCond::uitLastStepPhi);
+        pProp = new CMFCPropertyGridProperty(cCtrlTitle, COleVariant(pBC->get_last_dphi()), cHint, pBC->get_last_dphi_ptr());
         pStepWiseGroup->AddSubItem(pProp);
 
-        double fEndPhi = pData->quadric_step_potential(pBC, Vector3D(pBC->fEndX, pBC->fEndX, 0));
+        double fEndPhi = pData->quadric_step_potential(pBC, Vector3D(pBC->get_end_coord(), pBC->get_end_coord(), 0));
         CGeneralResponseProperty* pReadOnly = new CGeneralResponseProperty(this, _T("End Potential, V"), COleVariant(fEndPhi), _T(""), NULL);
         pReadOnly->AllowEdit(FALSE);
         pReadOnly->Enable(FALSE);
@@ -229,15 +229,15 @@ void CPropertiesWnd::add_field_ctrls()
       }
 
 // Select boundary regions group. NOTE: the GetData() of this group control will return, in fact, the pointer to pBC->vRegNames. This will be used in CHideShowRegsCheckBox.
-      CMFCPropertyGridProperty* pBoundRegsGroup = new CMFCPropertyGridProperty(_T("Boundary Regions"), (DWORD_PTR)&(pBC->vRegNames));
+      CMFCPropertyGridProperty* pBoundRegsGroup = new CMFCPropertyGridProperty(_T("Boundary Regions"), pBC->get_region_names_ptr());
 
 // Manual selection:
-      CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->vRegNames);
-      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Select Regions Manually"), cRegNames, _T("Click to select 2D regions in the main view window."), (DWORD_PTR)&(pBC->vRegNames));
+      CString cRegNames = EvaporatingParticle::CObject::compile_string(pBC->get_region_names());
+      CSelectRegionButton* pSelRegButton = new CSelectRegionButton(this, _T("Select Regions Manually"), cRegNames, _T("Click to select 2D regions in the main view window."), pBC->get_region_names_ptr());
       pBoundRegsGroup->AddSubItem(pSelRegButton);
 
 // Merging with Named Areas:
-      CNamedAreasSelResponder* pNamedAreasSelector = new CNamedAreasSelResponder(this, _T("Select Named Areas"), pBC->sLastMerged, _T("Select the existing Named Areas to use these surfaces for boundary condtions setting."), (DWORD_PTR)&(pBC->vRegNames));
+      CNamedAreasSelResponder* pNamedAreasSelector = new CNamedAreasSelResponder(this, _T("Merge with Named Areas"), pBC->get_last_merged(), _T("Select the existing Named Areas to use these surfaces for boundary condtions setting."), pBC->get_region_names_ptr());
       pNamedAreasSelector->AllowEdit(FALSE);
       pNamedAreasSelector->AddOption(_T("None"));
       EvaporatingParticle::CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
@@ -248,8 +248,8 @@ void CPropertiesWnd::add_field_ctrls()
       pBoundRegsGroup->AddSubItem(pNamedAreasSelector);
 
 // Merging options:
-      CString sMergeOpt = CSelectedAreas::merge_opt_name(pBC->nMergeOpt);
-      CMFCPropertyGridProperty* pMergeOptSelector = new CMFCPropertyGridProperty(_T("Merge Options"), sMergeOpt, _T("Select one of three allowed merge options: add, substitute and subtract."), (DWORD_PTR)&(pBC->nMergeOpt));
+      CString sMergeOpt = CSelectedAreas::merge_opt_name(pBC->get_merge_option());
+      CMFCPropertyGridProperty* pMergeOptSelector = new CMFCPropertyGridProperty(_T("Merge Options"), sMergeOpt, _T("Select one of three allowed merge options: add, substitute and subtract."), pBC->get_merge_option_ptr());
       for(int l = EvaporatingParticle::CSelectedAreas::optAdd; l < EvaporatingParticle::CSelectedAreas::optCount; l++)
         pMergeOptSelector->AddOption(EvaporatingParticle::CSelectedAreas::merge_opt_name(l));
 
@@ -257,7 +257,7 @@ void CPropertiesWnd::add_field_ctrls()
       
 
 // Hide/Show selected regions:
-      CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->bVisible, _T("Change the visibility status of the selected regions"), (DWORD_PTR)&(pBC->bVisible));
+      CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->get_visibility_flag(), _T("Change the visibility status of the selected regions"), pBC->get_visibility_flag_ptr());
       pBoundRegsGroup->AddSubItem(pHideShowBtn);
       
       pBoundCondGroup->AddSubItem(pBoundRegsGroup);
@@ -338,7 +338,7 @@ void CPropertiesWnd::set_field_data()
     {
       CPotentialBoundCond* pBC = pData->get_bc(k);
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nType));
+      pProp = m_wndPropList.FindItemByData(pBC->get_bc_type_ptr());
       if(pProp != NULL)
       {
         bool bRecalc = false;
@@ -352,7 +352,7 @@ void CPropertiesWnd::set_field_data()
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nFixedValType));
+      pProp = m_wndPropList.FindItemByData(pBC->get_fixed_val_type_ptr());
       if(pProp != NULL)
       {
         CString cBCValue = (CString)pProp->GetValue();
@@ -367,63 +367,63 @@ void CPropertiesWnd::set_field_data()
         }
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartX));
+      pProp = m_wndPropList.FindItemByData(pBC->get_start_coord_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_start_coord(0.1 * pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStepX));
+      pProp = m_wndPropList.FindItemByData(pBC->get_step_coord_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_step_coord(0.1 * pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fEndX));
+      pProp = m_wndPropList.FindItemByData(pBC->get_end_coord_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_end_coord(0.1 * pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fEndPhi));
+      pProp = m_wndPropList.FindItemByData(pBC->get_end_phi_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_end_phi(pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fStartPhi));
+      pProp = m_wndPropList.FindItemByData(pBC->get_start_phi_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_start_phi(pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fFirstStepPhi));
+      pProp = m_wndPropList.FindItemByData(pBC->get_first_dphi_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_first_dphi(pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fLastStepPhi));
+      pProp = m_wndPropList.FindItemByData(pBC->get_last_dphi_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_last_dphi(pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->fCenterFirstElectr));
+      pProp = m_wndPropList.FindItemByData(pBC->get_center_first_electr_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_center_first_electr(0.1 * pProp->GetValue().dblVal))
           pData->invalidate();
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nStepsCount));
+      pProp = m_wndPropList.FindItemByData(pBC->get_steps_count_ptr());
       if(pProp != NULL)
       {
         if(pBC->set_steps_count(pProp->GetValue().lVal))
@@ -431,7 +431,7 @@ void CPropertiesWnd::set_field_data()
       }
 
 // Merge options:
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nMergeOpt));
+      pProp = m_wndPropList.FindItemByData(pBC->get_merge_option_ptr());
       if(pProp != NULL)
       {
         CString sOptSel = pProp->GetValue();
@@ -439,7 +439,7 @@ void CPropertiesWnd::set_field_data()
         {
           if(sOptSel == CSelectedAreas::merge_opt_name(i))
           {
-            pBC->nMergeOpt = i;
+            pBC->set_merge_option(i);
             break;
           }
         }
@@ -493,7 +493,7 @@ void CPropertiesWnd::update_field_ctrls()
       CPotentialBoundCond* pBC = pData->get_bc(k);
 
       bool bZeroGrad = false;
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nType));
+      pProp = m_wndPropList.FindItemByData(pBC->get_bc_type_ptr());
       if(pProp != NULL)
       {
         CString cBCType = (CString)pProp->GetValue();
@@ -501,7 +501,7 @@ void CPropertiesWnd::update_field_ctrls()
           bZeroGrad = true;
       }
 
-      pProp = m_wndPropList.FindItemByData((DWORD_PTR)&(pBC->nFixedValType));
+      pProp = m_wndPropList.FindItemByData(pBC->get_fixed_val_type_ptr());
       if(pProp != NULL)
         pProp->Enable(!bZeroGrad);
     }

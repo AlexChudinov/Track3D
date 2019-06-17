@@ -55,6 +55,8 @@ CString CSelectedAreas::merge_opt_name(int nMergeOpt)
     case optSubst: return CString(_T("Substitute"));
     case optRem: return CString(_T("Subtract"));
   }
+
+  return CString(_T(""));
 }
 
 void CSelectedAreas::merge_items(CStringVector& vDest, int nMergeOpt) const
