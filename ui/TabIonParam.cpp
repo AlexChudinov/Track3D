@@ -15,6 +15,7 @@ static const double scfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
 void CPropertiesWnd::add_ion_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  EvaporatingParticle::CBatchSim* pBatchSimObj = pObj->get_batch_sim_obj();
   CMFCPropertyGridProperty* pProp = NULL;
 
 // General parameters: mass, charge, mobility.
@@ -61,8 +62,8 @@ void CPropertiesWnd::add_ion_ctrls()
   CMFCPropertyGridProperty* pCoulombGroup = new CMFCPropertyGridProperty(_T("Space Charge"));
   CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable Coulomb"), (_variant_t)pObj->get_enable_coulomb(), _T("Turns ON/OFF the Coulomb repulsion term in the ion momentum equation."), pObj->get_enable_coulomb_ptr());
   pCoulombGroup->AddSubItem(pCheckBox);
-  pProp = new CMFCPropertyGridProperty(_T("Full Ion Current, nA"), COleVariant(pObj->get_full_current() / Const_nA_to_CGSE), _T("Full current carried by the ion bunch."), pObj->get_full_current_ptr());
-  pCoulombGroup->AddSubItem(pProp);
+  CGeneralResponseProperty* pFullCurrProp = new CGeneralResponseProperty(this, _T("Full Ion Current, nA"), COleVariant(pObj->get_full_current() / Const_nA_to_CGSE), _T("Full current carried by the ion bunch."), pObj->get_full_current_ptr());
+  pCoulombGroup->AddSubItem(pFullCurrProp);
 
   pCheckBox = new CCheckBoxButton(this, _T("Axial Symmetry"), (_variant_t)pObj->get_axial_symm(), _T("Must be 'true' for axially-symmetric systems. If set to 'false' the Coulomb repulsion is estimated for a flat model of letter-box capillary."), pObj->get_axial_symm_ptr());
   pCoulombGroup->AddSubItem(pCheckBox);
@@ -70,7 +71,13 @@ void CPropertiesWnd::add_ion_ctrls()
   pCoulombGroup->AddSubItem(pProp);
 
 // Iterational approach for the Coulomb repulsion computation. The general case (no axial symmetry):
-  pProp = new CMFCPropertyGridProperty(_T("Iterations Count"), COleVariant((long)pObj->get_iter_count()), _T("Iterations count in the flux-tube iterational method of Coulomb repulsion calculation"), pObj->get_iter_count_ptr());
+  CGeneralResponseProperty* pCurrIncrProp = new CGeneralResponseProperty(this, _T("Current Increment, nA"), COleVariant(pBatchSimObj->get_curr_incr_iter() / Const_nA_to_CGSE), _T("Define the average value of current increment at every iteration."), pBatchSimObj->get_curr_incr_iter_ptr());
+  pCoulombGroup->AddSubItem(pCurrIncrProp);
+
+  UINT nIterCount = pObj->get_full_iter_count(pBatchSimObj->get_curr_incr_iter());
+  pProp = new CMFCPropertyGridProperty(_T("Iterations Count"), COleVariant((long)nIterCount), _T("Iterations count in the flux-tube iterational method of Coulomb repulsion calculation"), pObj->get_iter_count_ptr());
+  pProp->AllowEdit(false);
+  pProp->Enable(false);
   pCoulombGroup->AddSubItem(pProp);
 
   pCheckBox = new CCheckBoxButton(this, _T("Use Radial Coulomb"), (_variant_t)pObj->get_use_radial_coulomb(), _T("If this is true the radial Gabovich formula will be used for the space-charge field for x > Transition X."), pObj->get_use_radial_coulomb_ptr());
@@ -123,6 +130,28 @@ void CPropertiesWnd::add_ion_ctrls()
   pDistribGroup->AddSubItem(pProp);
 
   pCoulombGroup->AddSubItem(pDistribGroup);
+
+// Batch simulations.
+  CMFCPropertyGridProperty* pBatchSimGroup = new CMFCPropertyGridProperty(_T("Batch Simulations"));
+  pCheckBox = new CCheckBoxButton(this, _T("Enable Batch Calculations"), (_variant_t)pBatchSimObj->get_enable(), _T("If this is true the simulations will be carried out in the batch regime."), pBatchSimObj->get_enable_ptr());
+  pBatchSimGroup->AddSubItem(pCheckBox);
+
+// Path to the file containing the ion and field parameters list for batch simulations:
+  static TCHAR BASED_CODE csvFilter[] = _T("CSV Files(*.csv)|*.csv|All Files(*.*)|*.*||");
+  CMFCPropertyGridFileProperty* pBatchFileProp = new CMFCPropertyGridFileProperty(_T("Batch Simulation Data"), TRUE, pBatchSimObj->get_filename(), _T("csv"),
+    OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, csvFilter, _T("Specify location of the file containing the ion and field parameters list for batch simulations."), pBatchSimObj->get_filename_ptr());
+
+  pBatchSimGroup->AddSubItem(pBatchFileProp);
+
+// Temporarily rule out the sliding averaging option.
+//  pCheckBox = new CCheckBoxButton(this, _T("Use Sliding Average"), (_variant_t)pBatchSimObj->get_use_sliding_aver(), _T("If this is true the sliding averaging of the space charge field will be used instead of equal weight averaging."), pBatchSimObj->get_use_sliding_aver_ptr());
+//  pBatchSimGroup->AddSubItem(pCheckBox);
+
+//  pProp = new CMFCPropertyGridProperty(_T("Averaging Window Width"), long(pBatchSimObj->get_aver_width()), _T("Set this positive integer to define the number of previous iterations, over which the Coulomb force will be averaged at every node."), pBatchSimObj->get_aver_width_ptr());
+//  pBatchSimGroup->AddSubItem(pProp);
+
+  pCoulombGroup->AddSubItem(pBatchSimGroup);
+
   m_wndPropList.AddProperty(pCoulombGroup);
 }
 
@@ -215,11 +244,33 @@ void CPropertiesWnd::set_ion_data()
       }
     }
   }
+
+// Batch simulations.
+  EvaporatingParticle::CBatchSim* pBatchSimObj = pObj->get_batch_sim_obj();
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_curr_incr_iter_ptr());
+  if(pProp != NULL)
+  {
+    pBatchSimObj->set_curr_incr_iter(Const_nA_to_CGSE * pProp->GetValue().dblVal);
+    UINT nIterCount = pObj->get_full_iter_count(pBatchSimObj->get_curr_incr_iter());
+    pObj->set_iter_count(nIterCount);
+  }
+
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_aver_width_ptr());
+  if(pProp != NULL)
+    pBatchSimObj->set_aver_width(pProp->GetValue().lVal);
+
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_filename_ptr());
+  if(pProp != NULL)
+  {
+    CString cFile = (CString)pProp->GetValue();
+    pBatchSimObj->set_filename(cFile);
+  }
 }
 
 void CPropertiesWnd::update_ion_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  EvaporatingParticle::CBatchSim* pBatchSimObj = pObj->get_batch_sim_obj();
   bool bEnable = pObj->get_particle_type() == EvaporatingParticle::CTrack::ptIon;
 
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_particle_charge_ptr());
@@ -281,7 +332,7 @@ void CPropertiesWnd::update_ion_ctrls()
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && bAxialSymm && !bPreCalcClmb);
 
-  pProp = m_wndPropList.FindItemByData(pObj->get_iter_count_ptr());
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_curr_incr_iter_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm && !bPreCalcClmb);
 
@@ -350,4 +401,22 @@ void CPropertiesWnd::update_ion_ctrls()
   pProp = m_wndPropList.FindItemByData((DWORD_PTR)pObj);
   if(pProp != NULL)
     pProp->Enable(bEnable && bEnableCoulomb && !bAxialSymm);
+
+// Batch simulations.
+  bool bBatchSimEnabled = pBatchSimObj->get_enable();
+  bool bUseSlidingAver = false;
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_use_sliding_aver_ptr());
+  if(pProp != NULL)
+  {
+    pProp->Enable(bBatchSimEnabled);
+    bUseSlidingAver = bBatchSimEnabled && pProp->GetValue().boolVal;
+  }
+
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_aver_width_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bBatchSimEnabled && bUseSlidingAver);
+
+  pProp = m_wndPropList.FindItemByData(pBatchSimObj->get_filename_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bBatchSimEnabled);
 }

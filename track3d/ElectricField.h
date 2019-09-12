@@ -527,6 +527,9 @@ public:
   void                    add_bc();
   void                    remove_bc(size_t nId);
 
+// Stability parameter q; the ion parameters are taken from CTracker. All input data are in CGSE.
+  static double           get_stab_param(double fAmpl, double fFreq, double fInscR);
+
   static const char*      get_field_type_name(int nType);
   static const char*      get_calc_method_name(int nCalcMethod);
 

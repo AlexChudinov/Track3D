@@ -219,6 +219,9 @@
     <ClInclude Include="track3d\SelectedAreas.h">
       <Filter>track3d\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="track3d\BatchSim.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">
@@ -402,6 +405,9 @@
       <Filter>ui\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="track3d\SelectedAreas.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\BatchSim.cpp">
       <Filter>track3d\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

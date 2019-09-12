@@ -53,13 +53,13 @@ void CPropertiesWnd::add_source_ctrls()
   pSrcGroup->AddSubItem(pDirGroup);
 
 // Cone parameters:
-  CMFCPropertyGridProperty* pConeGroup = new CMFCPropertyGridProperty(_T("Cone"));
+  CMFCPropertyGridProperty* pConeGroup = new CMFCPropertyGridProperty(_T("Cone and Cylinder"));
   pProp = new CMFCPropertyGridProperty(_T("Cone angle, deg"), COleVariant(pSrc->get_cone_angle()), _T("Cone aperture angle."), pSrc->get_cone_angle_ptr());
   pConeGroup->AddSubItem(pProp);
   pSrcGroup->AddSubItem(pConeGroup);
 
 // Spot and sphere parameters:
-  CMFCPropertyGridProperty* pSpotGroup = new CMFCPropertyGridProperty(_T("Spot and Sphere"));
+  CMFCPropertyGridProperty* pSpotGroup = new CMFCPropertyGridProperty(_T("Spot, Sphere and Cylinder"));
   pProp = new CMFCPropertyGridProperty(_T("Radius, mm"), COleVariant(10 * pSrc->get_radius()), _T("Radius of the circular spot."), pSrc->get_radius_ptr());
   pSpotGroup->AddSubItem(pProp);
   pSrcGroup->AddSubItem(pSpotGroup);
@@ -68,7 +68,7 @@ void CPropertiesWnd::add_source_ctrls()
   CMFCPropertyGridProperty* pRectGroup = new CMFCPropertyGridProperty(_T("Rectangular Spot"));
   pProp = new CMFCPropertyGridProperty(_T("Width, mm"), COleVariant(10 * pSrc->get_rect_width()), _T("Width of the rectangular spot."), pSrc->get_rect_width_ptr());
   pRectGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Height, mm"), COleVariant(10 * pSrc->get_rect_height()), _T("Height of the rectangular spot."), pSrc->get_rect_height_ptr());
+  pProp = new CMFCPropertyGridProperty(_T("Height, mm"), COleVariant(10 * pSrc->get_rect_height()), _T("Height of the rectangular spot or of the cylinder."), pSrc->get_rect_height_ptr());
   pRectGroup->AddSubItem(pProp);
   pSrcGroup->AddSubItem(pRectGroup);
 
@@ -204,7 +204,7 @@ void CPropertiesWnd::update_source_ctrls()
   EvaporatingParticle::CSource* pSrc = pObj->get_src();
 
   CMFCPropertyGridProperty* pTypeProp = m_wndPropList.FindItemByData(pSrc->get_src_type_ptr());
-  bool bCone = false, bRing = false, bRadius = false, bRect = false, bSelReg = false;
+  bool bCone = false, bRing = false, bRadius = false, bRect = false, bSelReg = false, bCyl = false;
   if(pTypeProp != NULL)
   {
     CString cName = (CString)pTypeProp->GetValue();
@@ -214,6 +214,7 @@ void CPropertiesWnd::update_source_ctrls()
            || cName == pSrc->get_src_type_name(EvaporatingParticle::CSource::stSphere);
     bRect = cName == pSrc->get_src_type_name(EvaporatingParticle::CSource::stRect);
     bSelReg = cName == pSrc->get_src_type_name(EvaporatingParticle::CSource::stSelReg);
+    bCyl = cName == pSrc->get_src_type_name(EvaporatingParticle::CSource::stCylinder);
   }
 
   CMFCPropertyGridProperty* pInjProp = m_wndPropList.FindItemByData(pSrc->get_src_inject_type_ptr());
@@ -260,12 +261,12 @@ void CPropertiesWnd::update_source_ctrls()
 // Cone
   pProp = m_wndPropList.FindItemByData(pSrc->get_cone_angle_ptr());
   if(pProp != NULL)
-    pProp->Enable(bCone);
+    pProp->Enable(bCone || bCyl);
 
 // Circular spot and sphere
   pProp = m_wndPropList.FindItemByData(pSrc->get_radius_ptr());
   if(pProp != NULL)
-    pProp->Enable(bRing || bRadius);
+    pProp->Enable(bRing || bRadius || bCyl);
 
 // Rectangular spot
   pProp = m_wndPropList.FindItemByData(pSrc->get_rect_width_ptr());
@@ -274,7 +275,7 @@ void CPropertiesWnd::update_source_ctrls()
 
   pProp = m_wndPropList.FindItemByData(pSrc->get_rect_height_ptr());
   if(pProp != NULL)
-    pProp->Enable(bRect);
+    pProp->Enable(bRect || bCyl);
 
 // Ensemble size
   pTypeProp = m_wndPropList.FindItemByData(pObj->get_particle_type_ptr());

@@ -231,6 +231,7 @@
     <ClInclude Include="RandomProcess\RandomProcess.h" />
     <ClInclude Include="track3d\AnsysMesh.h" />
     <ClInclude Include="track3d\BarnesHut.h" />
+    <ClInclude Include="track3d\BatchSim.h" />
     <ClInclude Include="track3d\BeamCrossSection.h" />
     <ClInclude Include="track3d\CalcThread.h" />
     <ClInclude Include="track3d\Calculator.h" />
@@ -287,6 +288,7 @@
     <ClCompile Include="RandomProcess\RandomProcess.cpp" />
     <ClCompile Include="track3d\AnsysMesh.cpp" />
     <ClCompile Include="track3d\BarnesHut.cpp" />
+    <ClCompile Include="track3d\BatchSim.cpp" />
     <ClCompile Include="track3d\BeamCrossSection.cpp" />
     <ClCompile Include="track3d\CalcThread.cpp" />
     <ClCompile Include="track3d\Calculator.cpp" />

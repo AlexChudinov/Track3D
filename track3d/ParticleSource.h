@@ -46,13 +46,14 @@ public:
 
   enum  // type of source
   {
-    stCone    = 0,  // point and full cone angle; the cone axis is m_vDir.
-    stSpot    = 1,  // a circular spot centered at m_vPos with a normal direction m_vDir.
-    stRect    = 2,  // a rectangular spot centered at m_vPos, m_vDir local X, Y dimensions equal to m_fWidth and m_fHeight, respectively.
-    stRing    = 3,  // a ring centered at m_vPos perpendicular to the axis of the system.
-    stSphere  = 4,  // in fact, this is a hemisphere.
-    stSelReg  = 5,  // particles start from points randomly distributed on the selected 2D region(s).
-    stCount   = 6
+    stCone      = 0,  // point and full cone angle; the cone axis is m_vDir.
+    stSpot      = 1,  // a circular spot centered at m_vPos with a normal direction m_vDir.
+    stRect      = 2,  // a rectangular spot centered at m_vPos, m_vDir local X, Y dimensions equal to m_fWidth and m_fHeight, respectively.
+    stRing      = 3,  // a ring centered at m_vPos perpendicular to the axis of the system.
+    stSphere    = 4,  // in fact, this is a hemisphere.
+    stCylinder  = 5,  // a cylinder with the axis along Z direction, designed mainly for 2D applications (MEMS).
+    stSelReg    = 6,  // particles start from points randomly distributed on the selected 2D region(s).
+    stCount     = 7
   };
 
   const char* get_src_type_name(int nType) const;

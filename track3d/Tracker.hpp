@@ -12,6 +12,7 @@
 #include "Perturbation.h"
 #include "matrix3d.hpp"
 #include "math.h"
+#include "BatchSim.h"   // batch simulations support.
 
 class CExecutionDialog;
 class DiffusionVelocityJump;
@@ -297,6 +298,9 @@ public:
 // Mirror Coulomb field support:
   CBarnesHut*             get_BH_object();
 
+// Batch simulations support:
+  CBatchSim*              get_batch_sim_obj();
+
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface:
 //-------------------------------------------------------------------------------------------------
@@ -327,7 +331,8 @@ protected:
   void                    clear_tracks(bool bFinally = true);
 
   void                    do_track();
-  void                    do_iterations();  // start computing ion motion with Coulomb repulsion in a general case (no axial symmetery).
+// Start computing ion motion with Coulomb repulsion in a general case (no axial symmetery).
+  void                    do_iterations();
 
   double                  get_Re(const Vector3D& vVel, double fDens, double fDynVisc, double fD) const;
   double                  get_Cd(double fRe) const;
@@ -387,7 +392,7 @@ protected:
   void                    accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter);
 
 // In the course of iterations the full current gradually increases from zero to the user-defined value. 
-  UINT                    get_const_curr_iter_count() const { return 10; } // during the last 10 iterations the current remains constant, m_fFullCurrent.
+  UINT                    get_const_curr_iter_count() const { return 15; } // during the last 15 iterations the current remains constant, m_fFullCurrent.
   double                  get_correction_coeff() const; // the correction coefficient due to accumulation of the space charge field.
   double                  get_full_current_at(UINT nIter) const;  // full current at nIter-th iteration without correction.
 
@@ -395,6 +400,11 @@ protected:
 
 public:
   bool                    save_coulomb_field(const char* pFile);
+
+// Since version 31 the user sets the mean increment of current per iteration instead of iterations count, it is more physically justified.
+  double                  get_current_incr(UINT nIterCount) const;
+  UINT                    get_full_iter_count(double fCurrIncr) const;
+
 protected:
   bool                    read_coulomb_field();
 
@@ -555,6 +565,9 @@ protected:
 // Import OpenFOAM data:
   CImportOpenFOAM         m_Importer;
 
+// Batch simulations support:
+  CBatchSim               m_BatchSim;
+
 // Run-time:
   bool                    m_bResult;
 
@@ -567,6 +580,7 @@ protected:
   friend class COutputEngine;
   friend class CTrackDraw;
   friend class CSource;
+  friend class CBatchSim;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -1019,6 +1033,7 @@ inline DWORD_PTR CTracker::get_full_current_ptr() const
 inline void CTracker::set_full_current(double fCurrent)
 {
   m_fFullCurrent = fCurrent;
+  set_iter_count(get_full_iter_count(m_BatchSim.get_curr_incr_iter()));
 }
 
 inline double CTracker::get_bunch_r0() const
@@ -1356,6 +1371,23 @@ inline void CTracker::set_rand_collision_type(CRandomProcType nType)
 inline CBarnesHut* CTracker::get_BH_object()
 {
   return m_pBarnesHut;
+}
+
+// Batch simulations support:
+inline CBatchSim* CTracker::get_batch_sim_obj()
+{
+  return &m_BatchSim;
+}
+
+inline double CTracker::get_current_incr(UINT nIterCount) const
+{
+  UINT nVarCount = nIterCount - get_const_curr_iter_count();
+  return nVarCount > 0 ? m_fFullCurrent / nVarCount : m_fFullCurrent;
+}
+
+inline UINT CTracker::get_full_iter_count(double fCurrIncr) const
+{
+  return get_const_curr_iter_count() + UINT(0.5 + m_fFullCurrent / fCurrIncr);
 }
 
 // DEBUG

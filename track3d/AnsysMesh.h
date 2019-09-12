@@ -65,7 +65,8 @@ public:
 
   CNodesCollection&       get_nodes();
   CElementsCollection&    get_elems();
-  CRegionsCollection&     get_regions();
+// If bExtReg == true, the regions created by cross-section planes are added. Otherwise m_vRegions is returned.
+  CRegionsCollection&     get_regions(bool bExtReg = true);
   CBox&                   get_box();
 
   Vector3D                get_center() const;

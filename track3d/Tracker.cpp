@@ -444,11 +444,6 @@ void CTracker::do_iterations()
 
     if(i == m_nIterCount - 1)
       break;
-    if(i == 0)
-      m_OutputEngine.prepare_current_output();
-
-    if((m_nIterCount > 4) && (i >= m_nIterCount - 4))
-      m_OutputEngine.add_current();    // average output currents over 4 latest iterations.
 
     if(!create_BH_object(i + 1))
       return;
@@ -826,11 +821,6 @@ void CTracker::multi_thread_calculate()
 
     if(i == nIterCount - 1)
       break;
-    if(i == 0)
-      m_OutputEngine.prepare_current_output();
-
-    if((nIterCount > 4) && (i >= nIterCount - 4))
-      m_OutputEngine.add_current();    // average output currents over 4 latest iterations.
 
     if(!create_BH_object(i + 1))
       return;
@@ -844,20 +834,6 @@ void CTracker::multi_thread_calculate()
 void CTracker::relax()
 {
   invalidate_calculators();
-/*
-  if(m_nType == CTrack::ptIon)
-    m_OutputEngine.output_ion_current();
-
-  if(!m_OutputEngine.get_enable_file_output())
-    return;
-
-  size_t nPartCount = m_Tracks.size();
-  if(m_nType == CTrack::ptDroplet)
-    for(size_t i = 0; i < nPartCount; i++)
-      m_OutputEngine.output_droplet_track(i);
-  else
-    m_OutputEngine.output_ion_tracks();
-*/
 }
 
 void CTracker::set_tracking_progress()
@@ -1387,7 +1363,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 30;  // 30 - Named Areas; 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 31;  // 31 - m_BatchSim object; 30 - Named Areas; 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
   CAnsysMesh::save(ar);
@@ -1497,6 +1473,8 @@ void CTracker::save(CArchive& ar)
 
   CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
   pSelAreasColl->save(ar);  // since version 30.
+
+  m_BatchSim.save(ar);
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1788,6 +1766,11 @@ void CTracker::load(CArchive& ar)
     CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
     pSelAreasColl->load(ar);
   }
+
+  if(nVersion >= 31)
+    m_BatchSim.load(ar);
+  else
+    m_BatchSim.set_curr_incr_iter(get_current_incr(m_nIterCount));
   
 // Derived variables:
   m_fInitMass = get_particle_mass(m_fInitD);

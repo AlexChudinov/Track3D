@@ -835,7 +835,7 @@ bool CElectricFieldData::set_default_boundary_conditions(CFiniteVolumesSolver& s
   set_progress(0);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CRegionsCollection& vRegions = pObj->get_regions();
+  const CRegionsCollection& vRegions = pObj->get_regions(false);
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
@@ -936,7 +936,7 @@ bool CElectricFieldData::set_default_boundary_conditions(CMeshAdapter& mesh)
   set_progress(0);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CRegionsCollection& vRegions = pObj->get_regions();
+  const CRegionsCollection& vRegions = pObj->get_regions(false);
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
@@ -1119,7 +1119,7 @@ bool CElectricFieldData::coulomb_potential(const CIndexVector& vNodeIds, std::ve
 Vector3D CElectricFieldData::calc_norm(CNode3D* pNode) const
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CRegionsCollection& vRegs = pObj->get_regions();
+  const CRegionsCollection& vRegs = pObj->get_regions(false);
   size_t nRegCount = vRegs.size();
 
   UINT nReg, nFace;
@@ -1305,6 +1305,16 @@ void CElectricFieldData::check_regions()
       }
     }
   }
+}
+
+double CElectricFieldData::get_stab_param(double fAmpl, double fFreq, double fInscR)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  double fIonMass = pObj->get_ion_mass();
+  double fIonCharge = pObj->get_particle_charge();
+  double fOmega = Const_2PI * fFreq;
+
+  return 4 * fIonCharge * fAmpl / (fIonMass * fOmega * fOmega * fInscR * fInscR);
 }
 
 void CElectricFieldData::save(CArchive& ar)

@@ -47,13 +47,13 @@ void CPropertiesWnd::add_field_ctrls()
 
     pGenGroup->AddSubItem(pFieldType);
 
-    pProp = new CMFCPropertyGridProperty(_T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
-    pGenGroup->AddSubItem(pProp);
+    CGeneralResponseProperty* pAmplProp = new CGeneralResponseProperty(this, _T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
+    pGenGroup->AddSubItem(pAmplProp);
 
     if(pData->get_type() == CElectricFieldData::typeFieldRF)
     {
-      pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pData->get_freq()), _T("Set the frequency of the radio-frequency field."), pData->get_freq_ptr());
-      pGenGroup->AddSubItem(pProp);
+      CGeneralResponseProperty* pFreqProp = new CGeneralResponseProperty(this, _T("Frequency, kHz"), COleVariant(0.001 * pData->get_freq()), _T("Set the frequency of the radio-frequency field."), pData->get_freq_ptr());
+      pGenGroup->AddSubItem(pFreqProp);
     }
 
 // Enable / disable field visualization:
@@ -95,14 +95,21 @@ void CPropertiesWnd::add_field_ctrls()
 // An attempt to simulate analytic RF field in the flatapole. Alpha version.
     if(pData->get_type() == CElectricFieldData::typeFieldRF)
     {
-      CMFCPropertyGridProperty* pAnalytGroup = new CMFCPropertyGridProperty(_T("Analytic RF Field"));
+      CMFCPropertyGridProperty* pAnalytGroup = new CMFCPropertyGridProperty(_T("Analytic Quadrupole RF Field"));
       CCheckBoxButton* pEnableAnalytCheck = new CCheckBoxButton(this, _T("Enable Analyt RF Field"), (_variant_t)pData->get_analyt_field(), _T("Enable / disable the analytic expression of RF field (in flatapole). This is the alpha version."), pData->get_analyt_field_ptr());
       pAnalytGroup->AddSubItem(pEnableAnalytCheck);
 
       pProp = new CMFCPropertyGridProperty(_T("Low X Limit, mm"), COleVariant(10 * pData->get_low_analyt_lim()), _T("Currently the analytic model of the RF field is applied when X is greater than this value."), pData->get_low_analyt_lim_ptr());
       pAnalytGroup->AddSubItem(pProp);
 
-      pProp = new CMFCPropertyGridProperty(_T("Inscribed Radius, mm"), COleVariant(10 * pData->get_inscr_radius()), _T("Currently the analytic model of the RF field simulates an ideal quadrupole field. This is the radius of an inscribed circle between the electrodes."), pData->get_inscr_radius_ptr());
+      CGeneralResponseProperty* pInscRadProp = new CGeneralResponseProperty(this, _T("Inscribed Radius, mm"), COleVariant(10 * pData->get_inscr_radius()), _T("Currently the analytic model of the RF field simulates an ideal quadrupole field. This is the radius of an inscribed circle between the electrodes."), pData->get_inscr_radius_ptr());
+      pAnalytGroup->AddSubItem(pInscRadProp);
+
+// Read-only stability parameter in the quadrupole RF field.
+      double fAmpl = pData->get_scale() * SI_to_CGS_Voltage;
+      double fStabParam = CElectricFieldData::get_stab_param(fAmpl, pData->get_freq(), pData->get_inscr_radius());
+      pProp = new CMFCPropertyGridProperty(_T("Stability Parameter"), COleVariant(fStabParam), _T("Stability parameter in the quadrupole RF field. NOTE: The ion parameters are taken from the Ion Parameters Tab."), NULL);
+      pProp->Enable(FALSE);
       pAnalytGroup->AddSubItem(pProp);
 
       m_wndPropList.AddProperty(pAnalytGroup);

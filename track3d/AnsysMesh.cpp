@@ -769,8 +769,11 @@ void CAnsysMesh::load(CArchive& ar)
 //-------------------------------------------------------------------------------------------------
 // Auxiliary functions:
 //-------------------------------------------------------------------------------------------------
-CRegionsCollection& CAnsysMesh::get_regions()
+CRegionsCollection& CAnsysMesh::get_regions(bool bExtReg)
 {
+  if(!bExtReg)
+    return m_vRegions;
+
   CCrossSectColl* pColl = CParticleTrackingApp::Get()->GetPlanes();
   size_t nPlanesCount = pColl->size();
   if(nPlanesCount == 0)

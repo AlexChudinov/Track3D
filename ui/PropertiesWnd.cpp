@@ -203,6 +203,11 @@ static UINT __stdcall main_thread_func(LPVOID pData)
   else
     pObj->single_thread_calculate();
 
+// Batch simulations support. [MS] 11.09.2019.
+  EvaporatingParticle::CBatchSim* pBatchSimObj = pObj->get_batch_sim_obj();
+  if(pBatchSimObj->get_enable())
+    pBatchSimObj->intermediate_output();  // the execution dialog is used in calculators; that is why the output is called from here and not from OnDoTracking().
+
   if(!pObj->get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations have ended.
   {
     CDialog* pDlg = (CDialog*)pData;
@@ -218,17 +223,38 @@ void CPropertiesWnd::OnDoTracking()
   pObj->terminate(false);
 
   set_data_to_model();
- 
-  CExecutionDialog dlg(&main_thread_func, (EvaporatingParticle::CObject*)pObj);
-  INT_PTR nRes = dlg.DoModal();
 
-  if(pObj->get_result_flag())
+// Batch simulations support. [MS] 11.09.2019.
+  EvaporatingParticle::CBatchSim* pBatchSimObj = pObj->get_batch_sim_obj();
+  bool bBatchSim = pBatchSimObj->get_enable() && pBatchSimObj->batch_calc_init();
+  UINT nStepsCount = bBatchSim ? pBatchSimObj->get_batch_steps_count() : 1;
+  for(UINT i = 0; i < nStepsCount; i++)
   {
-    CParticleTrackingApp::Get()->GetCalcs()->invalidate_calcs();
-    EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    pDrawObj->invalidate_tracks();
-    pDrawObj->draw();
+    if(bBatchSim && !pBatchSimObj->prepare_step(i))
+      break;
+
+    update_prop_list(); // new data from pBatchSimObj must appear on the properties page (Ion Parameters or Fields tabs).
+ 
+    CExecutionDialog dlg(&main_thread_func, (EvaporatingParticle::CObject*)pObj);
+    INT_PTR nRes = dlg.DoModal();
+
+    if(bBatchSim && pObj->get_terminate_flag())
+      break;
+
+    if(pObj->get_result_flag())
+    {
+      CParticleTrackingApp::Get()->GetCalcs()->invalidate_calcs();
+      EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+      pDrawObj->invalidate_tracks();
+      pDrawObj->draw();
+
+      if(bBatchSim)
+        pBatchSimObj->intermediate_save();
+    }
   }
+
+  if(bBatchSim)
+    pBatchSimObj->batch_calc_relax();
 
   set_update_all();
 }

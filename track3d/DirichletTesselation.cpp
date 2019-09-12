@@ -426,7 +426,7 @@ Vector3D CDirichletTesselation::get_bound_norm(CNode3D* pBoundNode) const
   if(nNbrCount == 0)
     return scvNull;
 
-  const CRegionsCollection& vRegs = m_pMesh->get_regions();
+  const CRegionsCollection& vRegs = m_pMesh->get_regions(false);
   size_t nRegCount = vRegs.size();
 
   UINT nReg, nFace;

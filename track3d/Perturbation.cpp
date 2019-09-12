@@ -495,7 +495,7 @@ void CDoubleLayerField::set_default()
 Vector3D CDoubleLayerField::field_ptb(const Vector3D& vPos)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CRegionsCollection& regions = pObj->get_regions();
+  const CRegionsCollection& regions = pObj->get_regions(false);
   size_t nRegCount = regions.size();
   if(nRegCount == 0)
     return vNull;
@@ -569,7 +569,7 @@ bool CDoubleLayerField::calc_field()
   m_vPhi.resize(nNodesCount, 0);
   m_vField.resize(nNodesCount, Vector3F(vNull));
 
-  const CRegionsCollection& regions = pObj->get_regions();
+  const CRegionsCollection& regions = pObj->get_regions(false);
   size_t nRegCount = regions.size();
   if(nRegCount == 0)
     return false;

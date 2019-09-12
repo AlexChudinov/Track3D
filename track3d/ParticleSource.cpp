@@ -86,7 +86,7 @@ bool CSource::generate_initial_cond()
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   UINT nSymmPlane = (UINT)pObj->get_sym_plane();
-  UINT nEnsSize = pObj->get_particle_type() == CTrack::ptIon ? m_nEnsembleSize : 1;
+  UINT nEnsSize = (pObj->get_particle_type() == CTrack::ptIon && !pObj->get_2D_flag())? m_nEnsembleSize : 1;
   double fPeriodRF = Const_2PI / pObj->get_rf_frequency();
 
   CSymmReflect reflector(pObj, nSymmPlane);
@@ -178,6 +178,7 @@ bool CSource::generate_initial_cond()
 // Progress bar support:
           pObj->set_progress(100 * m_vData.size() / nMaxInd);
           nAttempt++;
+          nLoop++;
         }
       }
       else  // itHomogen
@@ -307,6 +308,42 @@ bool CSource::generate_initial_cond()
     {
       break;
     }
+    case stCylinder:
+    {
+      if(m_nInjType == itRandom)
+      {
+        UINT nCount = m_nCount * nEnsSize;
+        srand(m_nRandomSeed);
+        int nLoop = 1;
+        double fdPitch, fZ;
+        Vector3D vGlobZ(0, 0, 1), vLocDir;
+        while((m_vData.size() < nCount) && (nLoop < RAND_MAX))
+        {
+          if((nLoop % 3 == 0) && pObj->get_terminate_flag())
+            return terminate();
+
+          fdPitch = m_fConeAngle * (-0.5 + rand() * scfRandCoeff);
+          mRotPitch = Matrix3D::rot(vGlobZ, fdPitch);
+          fZ = m_fHeight * (-0.5 + rand() * scfRandCoeff);
+
+          vLocDir = mRotPitch * m_vDir;
+          vPos = m_vPos + m_fRadius * vLocDir + fZ * vGlobZ;
+
+          vReflCoeff = reflector.reflectionCoefs(vPos);
+          vReflPos = vReflCoeff && vPos;
+          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
+          {
+            vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * vLocDir;
+            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+            nEnsIndex++;
+          }
+// Progress bar support:
+          pObj->set_progress(100 * m_vData.size() / nMaxInd);
+          nLoop++;
+        }
+      }
+      break;
+    }
     case stSelReg:
     {
       srand(m_nRandomSeed);
@@ -390,6 +427,7 @@ const char* CSource::get_src_type_name(int nType) const
     case stRect: return _T("Rectangle");
     case stRing: return _T("Circular Ring");
     case stSphere: return _T("Hemisphere");
+    case stCylinder: return _T("Cylinder");
     case stSelReg: return _T("Selected Regions");
   }
 
