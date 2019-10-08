@@ -242,6 +242,11 @@ bool CFace::intersect(const CRay& ray, double& dist) const
   return true;
 }
 
+bool CFace::is_wireframe_face() const
+{
+  return p0->is_wireframe_node() || p1->is_wireframe_node() || p2->is_wireframe_node();
+}
+
 //-------------------------------------------------------------------------------------------------
 //
 //-------------------------------------------------------------------------------------------------
@@ -410,6 +415,22 @@ CElementsCollection CNode3D::get_nbr_elems() const
 const CIndexVector & CNode3D::nbr_elems() const
 {
 	return vNbrElems;
+}
+
+bool CNode3D::is_wireframe_node() const
+{
+  size_t nNbrFacesCount = vNbrFaces.size();
+  if(nNbrFacesCount == 0)
+    return false;
+
+  UINT nReg = vNbrFaces.at(0).nReg;
+  for(size_t i = 1; i < nNbrFacesCount; i++)
+  {
+    if(vNbrFaces.at(i).nReg != nReg)
+      return true;
+  }
+
+  return false;
 }
 
 //-------------------------------------------------------------------------------------------------

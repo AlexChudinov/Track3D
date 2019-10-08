@@ -110,6 +110,9 @@ struct CNode3D : public BlockAllocator<CNode3D>
   //Returns references to a neighbor element indices array
   const CIndexVector& nbr_elems() const;
   //[/AC 03/03/2017]
+
+// Returns true if: 1). The node is a boundary node; 2). The node belongs to at least two regions.
+  bool                is_wireframe_node() const;
 };
 
 //-------------------------------------------------------------------------------------------------
@@ -154,6 +157,8 @@ struct CFace : public BlockAllocator<CFace>
   void      init();
   bool      intersect(const CRay& ray, double& dist) const;
   double    square() const;
+
+  bool      is_wireframe_face() const;  // returns true if at least one node of this face belongs to wireframe.
 };
 
 //-------------------------------------------------------------------------------------------------

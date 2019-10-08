@@ -548,7 +548,7 @@ void CTrackDraw::build_wireframe_array()
     return;
 
   m_vWireFrame.clear();
-#ifndef _DEBUG
+
   set_job_name("Building regions from planes");
   CObject::set_progress(0);
   const CRegionsCollection& regions = m_pTracker->get_regions();
@@ -582,6 +582,9 @@ void CTrackDraw::build_wireframe_array()
     for(size_t j = 0; j < nFaceCount; j++)
     {
       pFace = faces.at(j);
+      if(!pFace->is_wireframe_face())
+        continue;
+
       CEdge edges[] = { CEdge(pFace->p0, pFace->p1, pFace), CEdge(pFace->p1, pFace->p2, pFace), CEdge(pFace->p2, pFace->p0, pFace) };
       for(UINT k = 0; k < 3; k++)
       {
@@ -602,13 +605,16 @@ void CTrackDraw::build_wireframe_array()
     {
       const CEdge& edge = vEdges.at(l);
       if(edge.pFace1 != NULL)
-        continue;
+        continue; // edges belonging to the wireframe belong to only one face in this region.
 
-      m_vWireFrame.push_back(CEdgeVertex(edge.pNode0->pos));
-      m_vWireFrame.push_back(CEdgeVertex(edge.pNode1->pos));
+      if(edge.pNode0->is_wireframe_node() && edge.pNode1->is_wireframe_node())
+      {
+        m_vWireFrame.push_back(CEdgeVertex(edge.pNode0->pos));
+        m_vWireFrame.push_back(CEdgeVertex(edge.pNode1->pos));
+      }
     }
   }
-#endif
+
   m_bWireframeReady = true;
 }
 
