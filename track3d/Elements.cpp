@@ -594,6 +594,38 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
 }
 
 //-------------------------------------------------------------------------------------------------
+//    CElemTetra - a simple object that consists of 4 tetrahedron planes (only planes, not nodes).
+//-------------------------------------------------------------------------------------------------
+bool CElemTetra::contains(const Vector3D& p) const
+{
+  for(size_t i = 0; i < 4; i++)
+  {
+    const CPlane& face = vFaces[i];
+    if(!face.inside(p))
+      return false;
+  }
+
+  return true;
+}
+
+void CElemTetra::elem_tetra(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2, const Vector3D& p3)
+{
+  add_plane(0, p0, p1, p3);
+  add_plane(1, p1, p2, p3);
+  add_plane(2, p2, p0, p3);
+  add_plane(3, p0, p2, p1);
+}
+
+void CElemTetra::add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2)
+{
+  Vector3D e1 = p1 - p0;
+  Vector3D e2 = p2 - p0;
+  Vector3D norm = (e1 * e2).normalized();
+  CPlane plane(p0, norm);
+  vFaces[nInd] = plane;
+}
+
+//-------------------------------------------------------------------------------------------------
 //                      CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
 CTetra::CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3)
@@ -655,12 +687,8 @@ bool CTetra::inside(const Vector3D& pos) const
   if(!box.inside(pos))
     return false;
 
-  for(size_t i = 0; i < 4; i++)
-  {
-    const CPlane& face = vFaces[i];
-    if(!face.inside(pos))
-      return false;
-  }
+  if(!vFaces.contains(pos))
+    return false;
 
   return true;
 }
@@ -693,11 +721,7 @@ double CTetra::shape_func_deriv(double s, double t, double u, size_t nfunc, size
 
 void CTetra::add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2)
 {
-  Vector3D e1 = p1 - p0;
-  Vector3D e2 = p2 - p0;
-  Vector3D norm = (e1 * e2).normalized();
-  CPlane plane(p0, norm);
-  vFaces[nInd] = plane;
+  vFaces.add_plane(nInd, p0, p1, p2);
 }
 
 const UINT * CTetra::nodes() const
@@ -727,7 +751,7 @@ void CHexa::deleteObj()
 //                          CPyramid - a pyramid object of 5 nodes.
 //-------------------------------------------------------------------------------------------------
 CPyramid::CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4)
-  : CElem3D(vNodes), pTet1(NULL), pTet2(NULL)
+  : CElem3D(vNodes) //, pTet1(NULL), pTet2(NULL)
 {
   vPyrNodeIds[0] = i0;
 	vPyrNodeIds[1] = i1;
@@ -739,10 +763,6 @@ CPyramid::CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UI
 
 CPyramid::~CPyramid()
 {
-  if(pTet1 != NULL)
-    delete pTet1;
-  if(pTet2 != NULL)
-    delete pTet2;
 }
 
 bool CPyramid::init()
@@ -751,13 +771,13 @@ bool CPyramid::init()
   double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen02 < fLen13)
   {
-    pTet1 = new CTetra(vGlobNodes, vPyrNodeIds[0], vPyrNodeIds[1], vPyrNodeIds[2], vPyrNodeIds[4]);
-    pTet2 = new CTetra(vGlobNodes, vPyrNodeIds[0], vPyrNodeIds[2], vPyrNodeIds[3], vPyrNodeIds[4]);
+    vSubTetra[0].elem_tetra(get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, get_node(4)->pos);
+    vSubTetra[1].elem_tetra(get_node(0)->pos, get_node(2)->pos, get_node(3)->pos, get_node(4)->pos);
   }
   else
   {
-    pTet1 = new CTetra(vGlobNodes, vPyrNodeIds[1], vPyrNodeIds[3], vPyrNodeIds[0], vPyrNodeIds[4]);
-    pTet2 = new CTetra(vGlobNodes, vPyrNodeIds[1], vPyrNodeIds[2], vPyrNodeIds[3], vPyrNodeIds[4]);
+    vSubTetra[0].elem_tetra(get_node(1)->pos, get_node(3)->pos, get_node(0)->pos, get_node(4)->pos);
+    vSubTetra[1].elem_tetra(get_node(1)->pos, get_node(2)->pos, get_node(3)->pos, get_node(4)->pos);
   }
 
   bounding_box(); 
@@ -769,7 +789,7 @@ bool CPyramid::inside(const Vector3D& p) const
   if(!box.inside(p))
     return false;
 
-  if(pTet1->inside(p) || pTet2->inside(p))
+  if(vSubTetra[0].contains(p) || vSubTetra[1].contains(p))
     return true;
 
   return false;
@@ -825,55 +845,53 @@ CWedge::CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i
 
 CWedge::~CWedge()
 {
-  for(size_t i = 0; i < 8; i++)
-    delete vTetras[i];
 }
 
 bool CWedge::init()
 {
-  vCenter = (get_node(0)->pos + get_node(1)->pos + get_node(2)->pos + get_node(3)->pos + get_node(4)->pos + get_node(5)->pos) / 6.0;
+  Vector3D vCenter = (get_node(0)->pos + get_node(1)->pos + get_node(2)->pos + get_node(3)->pos + get_node(4)->pos + get_node(5)->pos) / 6.0;
 
-  vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
-  vTetras[1] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(4)->pos, get_node(3)->pos, vCenter);
+  vSubTetra[0].elem_tetra(get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
+  vSubTetra[1].elem_tetra(get_node(5)->pos, get_node(4)->pos, get_node(3)->pos, vCenter);
 
 // Subdivide the non-flat quads by those diagonals that have minimal lengths:
   double fLen04 = (get_node(0)->pos - get_node(4)->pos).sqlength();
   double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen04 < fLen13)
   {
-    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
-    vTetras[3] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
+    vSubTetra[2].elem_tetra(get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
+    vSubTetra[3].elem_tetra(get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
   }
   else
   {
-    vTetras[2] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
-    vTetras[3] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(0)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[2].elem_tetra(get_node(1)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
+    vSubTetra[3].elem_tetra(get_node(1)->pos, get_node(0)->pos, get_node(3)->pos, vCenter);
   }
 
   double fLen15 = (get_node(1)->pos - get_node(5)->pos).sqlength();
   double fLen24 = (get_node(2)->pos - get_node(4)->pos).sqlength();
   if(fLen15 < fLen24)
   {
-    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
-    vTetras[5] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[4].elem_tetra(get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
+    vSubTetra[5].elem_tetra(get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
   else
   {
-    vTetras[4] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
-    vTetras[5] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(1)->pos, get_node(4)->pos, vCenter);
+    vSubTetra[4].elem_tetra(get_node(2)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[5].elem_tetra(get_node(2)->pos, get_node(1)->pos, get_node(4)->pos, vCenter);
   }
 
   double fLen23 = (get_node(2)->pos - get_node(3)->pos).sqlength();
   double fLen05 = (get_node(0)->pos - get_node(5)->pos).sqlength();
   if(fLen23 < fLen05)
   {
-    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(3)->pos, get_node(0)->pos, vCenter);
-    vTetras[7] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[6].elem_tetra(get_node(2)->pos, get_node(3)->pos, get_node(0)->pos, vCenter);
+    vSubTetra[7].elem_tetra(get_node(2)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
   }
   else
   {
-    vTetras[6] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
-    vTetras[7] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(2)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[6].elem_tetra(get_node(0)->pos, get_node(5)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[7].elem_tetra(get_node(0)->pos, get_node(2)->pos, get_node(5)->pos, vCenter);
   }
 
   bounding_box();
@@ -887,7 +905,7 @@ bool CWedge::inside(const Vector3D& p) const
 
   for(size_t i = 0; i < 8; i++)
   {
-    if(vTetras[i]->inside(p))
+    if(vSubTetra[i].contains(p))
       return true;
   }
 
@@ -948,7 +966,7 @@ CHexa::CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3,
 
 bool CHexa::init()
 {
-  vCenter = Vector3D(0, 0, 0);
+  Vector3D vCenter = Vector3D(0, 0, 0);
   for(size_t i = 0; i < 8; i++)
     vCenter += get_node(i)->pos;
 
@@ -959,78 +977,78 @@ bool CHexa::init()
   double fLen13 = (get_node(1)->pos - get_node(3)->pos).sqlength();
   if(fLen02 < fLen13)
   {
-    vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
-    vTetras[1] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[0].elem_tetra(get_node(0)->pos, get_node(1)->pos, get_node(2)->pos, vCenter);
+    vSubTetra[1].elem_tetra(get_node(0)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
   }
   else
   {
-    vTetras[0] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(1)->pos, get_node(3)->pos, vCenter);
-    vTetras[1] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[0].elem_tetra(get_node(0)->pos, get_node(1)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[1].elem_tetra(get_node(1)->pos, get_node(2)->pos, get_node(3)->pos, vCenter);
   }
 
   double fLen05 = (get_node(0)->pos - get_node(5)->pos).sqlength();
   double fLen14 = (get_node(1)->pos - get_node(4)->pos).sqlength();
   if(fLen05 < fLen14)
   {
-    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(5)->pos, get_node(1)->pos, vCenter);
-    vTetras[3] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[2].elem_tetra(get_node(0)->pos, get_node(5)->pos, get_node(1)->pos, vCenter);
+    vSubTetra[3].elem_tetra(get_node(0)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
   else
   {
-    vTetras[2] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
-    vTetras[3] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[2].elem_tetra(get_node(0)->pos, get_node(4)->pos, get_node(1)->pos, vCenter);
+    vSubTetra[3].elem_tetra(get_node(1)->pos, get_node(4)->pos, get_node(5)->pos, vCenter);
   }
 
   double fLen16 = (get_node(1)->pos - get_node(6)->pos).sqlength();
   double fLen25 = (get_node(2)->pos - get_node(5)->pos).sqlength();
   if(fLen16 < fLen25)
   {
-    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
-    vTetras[5] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(6)->pos, get_node(2)->pos, vCenter);
+    vSubTetra[4].elem_tetra(get_node(1)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
+    vSubTetra[5].elem_tetra(get_node(1)->pos, get_node(6)->pos, get_node(2)->pos, vCenter);
   }
   else
   {
-    vTetras[4] = new CTetra(vGlobNodes, get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
-    vTetras[5] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
+    vSubTetra[4].elem_tetra(get_node(1)->pos, get_node(5)->pos, get_node(2)->pos, vCenter);
+    vSubTetra[5].elem_tetra(get_node(2)->pos, get_node(5)->pos, get_node(6)->pos, vCenter);
   }
 
   double fLen27 = (get_node(2)->pos - get_node(7)->pos).sqlength();
   double fLen36 = (get_node(3)->pos - get_node(6)->pos).sqlength();
   if(fLen27 < fLen36)
   {
-    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(7)->pos, get_node(3)->pos, vCenter);
-    vTetras[7] = new CTetra(vGlobNodes, get_node(6)->pos, get_node(7)->pos, get_node(2)->pos, vCenter);
+    vSubTetra[6].elem_tetra(get_node(2)->pos, get_node(7)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[7].elem_tetra(get_node(6)->pos, get_node(7)->pos, get_node(2)->pos, vCenter);
   }
   else
   {
-    vTetras[6] = new CTetra(vGlobNodes, get_node(2)->pos, get_node(6)->pos, get_node(3)->pos, vCenter);
-    vTetras[7] = new CTetra(vGlobNodes, get_node(3)->pos, get_node(6)->pos, get_node(7)->pos, vCenter);
+    vSubTetra[6].elem_tetra(get_node(2)->pos, get_node(6)->pos, get_node(3)->pos, vCenter);
+    vSubTetra[7].elem_tetra(get_node(3)->pos, get_node(6)->pos, get_node(7)->pos, vCenter);
   }
 
   double fLen34 = (get_node(3)->pos - get_node(4)->pos).sqlength();
   double fLen70 = (get_node(7)->pos - get_node(0)->pos).sqlength();
   if(fLen34 < fLen70)
   {
-    vTetras[8] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
-    vTetras[9] = new CTetra(vGlobNodes, get_node(4)->pos, get_node(3)->pos, get_node(7)->pos, vCenter);
+    vSubTetra[8].elem_tetra(get_node(0)->pos, get_node(3)->pos, get_node(4)->pos, vCenter);
+    vSubTetra[9].elem_tetra(get_node(4)->pos, get_node(3)->pos, get_node(7)->pos, vCenter);
   }
   else
   {
-    vTetras[8] = new CTetra(vGlobNodes, get_node(3)->pos, get_node(7)->pos, get_node(0)->pos, vCenter);
-    vTetras[9] = new CTetra(vGlobNodes, get_node(0)->pos, get_node(7)->pos, get_node(4)->pos, vCenter);
+    vSubTetra[8].elem_tetra(get_node(3)->pos, get_node(7)->pos, get_node(0)->pos, vCenter);
+    vSubTetra[9].elem_tetra(get_node(0)->pos, get_node(7)->pos, get_node(4)->pos, vCenter);
   }
 
   double fLen46 = (get_node(4)->pos - get_node(6)->pos).sqlength();
   double fLen75 = (get_node(7)->pos - get_node(5)->pos).sqlength();
   if(fLen46 < fLen75)
   {
-    vTetras[10] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(4)->pos, get_node(6)->pos, vCenter);
-    vTetras[11] = new CTetra(vGlobNodes, get_node(6)->pos, get_node(4)->pos, get_node(7)->pos, vCenter);
+    vSubTetra[10].elem_tetra(get_node(5)->pos, get_node(4)->pos, get_node(6)->pos, vCenter);
+    vSubTetra[11].elem_tetra(get_node(6)->pos, get_node(4)->pos, get_node(7)->pos, vCenter);
   }
   else
   {
-    vTetras[10] = new CTetra(vGlobNodes, get_node(4)->pos, get_node(7)->pos, get_node(5)->pos, vCenter);
-    vTetras[11] = new CTetra(vGlobNodes, get_node(5)->pos, get_node(7)->pos, get_node(6)->pos, vCenter);
+    vSubTetra[10].elem_tetra(get_node(4)->pos, get_node(7)->pos, get_node(5)->pos, vCenter);
+    vSubTetra[11].elem_tetra(get_node(5)->pos, get_node(7)->pos, get_node(6)->pos, vCenter);
   }
 
   bounding_box();
@@ -1044,7 +1062,7 @@ bool CHexa::inside(const Vector3D& p) const
 
   for(size_t i = 0; i < 12; i++)
   {
-    if(vTetras[i]->inside(p))
+    if(vSubTetra[i].contains(p))
       return true;
   }
 

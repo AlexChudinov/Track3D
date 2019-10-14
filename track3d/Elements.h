@@ -268,8 +268,6 @@ struct CElem3D
   {
   };
 
-  //virtual ~CElem3D() {};
-
   size_t                  nInd;       // index of this element in the global elements collection.
 
   const CNodesCollection& vGlobNodes;
@@ -330,6 +328,19 @@ struct CElem3D
 };
 
 //-------------------------------------------------------------------------------------------------
+//    CElemTetra - a simple object that consists of 4 tetrahedron planes (only planes, no nodes).
+//-------------------------------------------------------------------------------------------------
+struct CElemTetra
+{
+  CPlane            vFaces[4];
+
+  bool              contains(const Vector3D& p) const;
+
+  void              elem_tetra(const Vector3D& p0, const Vector3D& p1, const Vector3D& p2, const Vector3D& p3);
+  void              add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2);
+};
+
+//-------------------------------------------------------------------------------------------------
 //                    CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
 struct CTetra : public CElem3D, public BlockAllocator<CTetra>
@@ -341,7 +352,7 @@ struct CTetra : public CElem3D, public BlockAllocator<CTetra>
   CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3);
 
   UINT              vTetNodeIds[4]; // indices of the tetra nodes in the global collection.
-  CPlane            vFaces[4];      // faces of the element.
+  CElemTetra        vFaces;         // faces of the element.
 
   virtual bool      init();
   virtual bool      inside(const Vector3D& p) const;
@@ -391,8 +402,7 @@ struct CPyramid : public CElem3D, public BlockAllocator<CPyramid>
   virtual UINT      get_node_index(UINT nInd) const { return vPyrNodeIds[nInd]; }  // index of this node in the global nodes collection.
   virtual CNode3D*  get_node(UINT nInd) const { return nInd < 5 ? vGlobNodes[vPyrNodeIds[nInd]] : NULL; }
 
-  CTetra*           pTet1;
-  CTetra*           pTet2;
+  CElemTetra        vSubTetra[2];
 
   //[AC 03/03/2017]
   //Returns pointer to element node c-like array
@@ -429,8 +439,7 @@ struct CWedge : public CElem3D, public BlockAllocator<CWedge>
   virtual UINT      get_node_index(UINT nInd) const { return vWdgNodeIds[nInd]; }  // index of this node in the global nodes collection.
   virtual CNode3D*  get_node(UINT nInd) const { return nInd < 6 ? vGlobNodes[vWdgNodeIds[nInd]] : NULL; }
 
-  CTetra*           vTetras[8];
-  Vector3D          vCenter;
+  CElemTetra        vSubTetra[8];
 
   //[AC 03/03/2017]
   //Returns pointer to element node c-like array
@@ -465,8 +474,7 @@ struct CHexa : public CElem3D, public BlockAllocator<CHexa>
   virtual UINT      get_node_index(UINT nInd) const { return vHexNodeIds[nInd]; }  // index of this node in the global nodes collection.
   virtual CNode3D*  get_node(UINT nInd) const { return nInd < 8 ? vGlobNodes[vHexNodeIds[nInd]] : NULL; }
 
-  CTetra*           vTetras[12];
-  Vector3D          vCenter;
+  CElemTetra        vSubTetra[12];
 
   //[AC 03/03/2017]
   //Returns pointer to element node c-like array
