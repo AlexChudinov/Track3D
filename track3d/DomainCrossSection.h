@@ -116,7 +116,7 @@ protected:
   bool                intersect_hexa(CFacesCollection& vFaces, CHexa* pElem);
 
 // Linear interpolation between two nodes: ksi = 0 at p0, ksi = 1 at p1.
-  CNode3D*            interpolate(const Vector3D& vPos, CNode3D* p0, CNode3D* p1, double ksi);
+  CNode3D*            interpolate(const Vector3F& vPos, CNode3D* p0, CNode3D* p1, float ksi);
 
 private:
   int                 m_nPlaneType;

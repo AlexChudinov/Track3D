@@ -212,7 +212,7 @@ private:
 // If this flag is true, internal data from ANSYS are exported. Otherwise, default values are written in the internal points.
                         m_bExportInternal;
 
-  CNodesCollection*     m_pNodes;
+  CNodesVector*         m_pNodes;
   CElementsCollection*  m_pElems;
 
 // Collection of pointers to boundary COpenFoamFace objects.

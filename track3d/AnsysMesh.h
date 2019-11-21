@@ -48,10 +48,10 @@ public:
   bool                    read_gasdyn_data(bool bFieldsOnly = false);
 
 protected:
-  void                    add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3);
-  void                    add_pyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4);
-  void                    add_wedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5);
-  void                    add_hexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7);
+  void                    add_tetra(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3);
+  void                    add_pyramid(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4);
+  void                    add_wedge(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4, CNode3D& p5);
+  void                    add_hexa(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4, CNode3D& p5, CNode3D& p6, CNode3D& p7);
 
   void                    bounding_box();
   
@@ -63,7 +63,7 @@ public:
 // bForceReflect to "true" in the next call to ensure that the back reflection will occur.
   bool                    sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool bForceReflect = false) const;
 
-  CNodesCollection&       get_nodes();
+  CNodesVector&           get_nodes();
   CElementsCollection&    get_elems();
 // If bExtReg == true, the regions created by cross-section planes are added. Otherwise m_vRegions is returned.
   CRegionsCollection&     get_regions(bool bExtReg = true);
@@ -110,7 +110,7 @@ protected:
 
   CBox                    m_Box;          // bounding box.
 
-  CNodesCollection        m_vNodes;
+  CNodesVector            m_vNodes;
   CElementsCollection     m_vElems;
 
   CRegionsCollection      m_vRegions;     // Regions containing triangular faces, for drawing only.
@@ -189,7 +189,7 @@ inline void CAnsysMesh::set_convert_to_cgs(bool bEnable)
   m_bConv2CGS = bEnable;
 }
 
-inline CNodesCollection& CAnsysMesh::get_nodes()
+inline CNodesVector& CAnsysMesh::get_nodes()
 {
   return m_vNodes;
 }

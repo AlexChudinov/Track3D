@@ -65,7 +65,7 @@ public:
   Vector3D            get_neighbor_vector(size_t nNodeId, size_t nNbrId) const;
 
 // Returns normal vector at a boundary node. Do not mix with "get_norm" declared above, which merely normalizes the vector drawn from this node to a neighbor node. 
-  Vector3D            get_bound_norm(CNode3D* pBoundNode) const;
+  Vector3D            get_bound_norm(const CNode3D& node) const;
 
 // This condition is used for overdetermined system of equations. We take into account only those nodes, for which (e, vNorm) < Const_Almost_Zero.
   static bool         bound_deriv_calc_cond(const Vector3D& vNorm, const Vector3D& e);
@@ -77,7 +77,7 @@ public:
   Vector3D            get_grad(size_t nNodeId, const std::vector<float>& vScalarField) const;
 
 // For visualization of the Dirichlet cells this function may be called from CTrackDraw::build_norm_array().
-  CDirichletCell*     build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes);
+  CDirichletCell*     build_cell_in_node(const CNode3D& node, const CNodesVector& vNodes);
 
 // The cell is supposed to be a boundary cell.
   Matrix3D            get_bound_cell_mtx(CDirichletCell* pCell) const;  // returns matrix C of the boundary cell.
@@ -112,9 +112,9 @@ protected:
 // Output: Angle between vA and vB counted in the direction from vA to vB counterclockwise.
   double              angle_0_360(const Vector3D& vA, const Vector3D& vB, const Vector3D& vNorm) const;
 
-  void                init_boundary_cell(CDirichletCell* pCell, CNode3D* pNode, const CNodesCollection& vNodes) const;
+  void                init_boundary_cell(CDirichletCell* pCell, const CNode3D& node, const CNodesVector& vNodes) const;
 
-  Vector3D            get_bound_cell_grad(CDirichletCell* pCell, CNode3D* pNode, const std::vector<float>& vScalarField) const;
+  Vector3D            get_bound_cell_grad(CDirichletCell* pCell, const CNode3D& node, const std::vector<float>& vScalarField) const;
 
   void                cell_visualization(const CVertexColl& poly, const Vector3D& vFaceCenter) const;
 
@@ -153,7 +153,7 @@ inline CDirichletCell* CDirichletTesselation::get_cell(size_t nNodeId) const
 
 inline bool CDirichletTesselation::inner_cell(size_t nNodeId) const
 {
-  return m_pMesh->get_nodes().at(nNodeId)->vNbrFaces.size() == 0;
+  return m_pMesh->get_nodes().at(nNodeId).vNbrFaces.size() == 0;
 }
 
 inline double CDirichletTesselation::get_cell_volume(size_t nNodeId) const
@@ -178,7 +178,7 @@ inline Vector3D CDirichletTesselation::get_norm(size_t nNodeId, size_t nNbrId) c
 
 inline size_t CDirichletTesselation::get_abs_nbr_node_index(size_t nNodeId, size_t nNbrId) const
 {
-  return m_pMesh->get_nodes().at(nNodeId)->vNbrNodes.at(nNbrId);
+  return m_pMesh->get_nodes().at(nNodeId).vNbrNodes.at(nNbrId);
 }
 
 inline double CDirichletTesselation::get_coeff(size_t nNodeId, size_t nNbrId) const

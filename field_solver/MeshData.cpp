@@ -21,7 +21,7 @@ const CMeshAdapter::Element * CMeshAdapter::element(
 	while (!nodesQueue.empty())
 	{
 		nCurNode = nodesQueue.front(); nodesQueue.pop();
-		const Labels& vNbrElemIdxs = m_nodes[nCurNode]->nbr_elems();
+		const Labels& vNbrElemIdxs = m_nodes[nCurNode].nbr_elems();
 		for (UINT nElemIdx : vNbrElemIdxs)
 			if (visitedElemets.find(nElemIdx) == visitedElemets.end())
 				if (m_elems[nElemIdx]->inside(v)) return m_elems[nElemIdx];
@@ -81,7 +81,7 @@ CMeshAdapter::Matrix3D CMeshAdapter::covarianceOfDirections(Label l) const
 	Matrix3D result; result.fill(0.0);
 	for (Label i : m_meshGraph.neighbor(l))
 	{
-		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
+		Vector3D v = m_nodes[i].pos - m_nodes[l].pos;
 		double fSqLength = v.sqlength();
 		result(0, 0) += (v.x*v.x) / fSqLength;
 		result(1, 1) += (v.y*v.y) / fSqLength;
@@ -103,7 +103,7 @@ CMeshAdapter::Vector3DOp CMeshAdapter::finDiffDirCov(Label l) const
 	result[2].resize(nOpSize);
 	for (Label i : m_meshGraph.neighbor(l))
 	{
-		Vector3D v = m_nodes[i]->pos - m_nodes[l]->pos;
+		Vector3D v = m_nodes[i].pos - m_nodes[l].pos;
 		double fSqLength = v.sqlength();
 		v /= fSqLength;
 		result[0][j] = v.x;
@@ -266,12 +266,12 @@ bool CMeshAdapter::isFlatBoundary(Label nNodeIdx,
 	const Vector3D& norm, 
 	const NodeTypes & types) const
 {
-	const Vector3D r0 = m_nodes[nNodeIdx]->pos;
+	const Vector3D r0 = m_nodes[nNodeIdx].pos;
 	for (Label Idx : m_meshGraph.neighbor(nNodeIdx))
 	{
 		if (types[Idx] != InnerNode)
 		{
-			const Vector3D v = m_nodes[Idx]->pos - r0;
+			const Vector3D v = m_nodes[Idx].pos - r0;
 			if ((v&norm) * (v&norm) > eps()) return false;
 		}
 	}
@@ -286,9 +286,9 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0() const
 	m_pProgressBar->set_progress(0);
 
 	result.m_matrix.resize(m_nodes.size());
-	for (const Node* n : m_nodes)
+	for (const Node& n : m_nodes)
 	{
-		Label nNodeIdx = n->nInd;
+		Label nNodeIdx = n.nInd;
 		if (nNodeIdx % 1000 == 0) m_pProgressBar->set_progress(nNodeIdx * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) break;
 		if (m_pBoundary->isBoundary(nNodeIdx))
@@ -302,8 +302,8 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0() const
 				for (Label l : m_meshGraph.neighbor(nNodeIdx))
 				{
 					fDist = m_pBoundary->isBoundary(l) ?
-						1. / (m_nodes[l]->pos - n->pos).length()
-						: 2. / (m_nodes[l]->pos - n->pos).length();
+						1. / (m_nodes[l].pos - n.pos).length()
+						: 2. / (m_nodes[l].pos - n.pos).length();
 					fTotDist += fDist;
 					add(coefs, { InterpCoef(uint32_t(l), fDist) });
 				}
@@ -317,7 +317,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver0() const
 			InterpCoefs coefs;
 			for (Label l : m_meshGraph.neighbor(nNodeIdx))
 			{
-				fDist = 1. / (m_nodes[l]->pos - n->pos).sqlength();
+				fDist = 1. / (m_nodes[l].pos - n.pos).sqlength();
 				fTotDist += fDist;
 				add(coefs, { InterpCoef(uint32_t(l), fDist) });
 			}
@@ -346,7 +346,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 		[&](size_t nNodeIdx) 
 	{
 		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
-		const Node* n = m_nodes[nCurNodeIdx];
+		const Node& n = m_nodes[nCurNodeIdx];
 		switch (vNodeTypes[nCurNodeIdx])
 		{
 		case FirstTypeBoundaryNode: //Fixed value BC
@@ -376,12 +376,12 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver1() const
 				hz2 = optimalStep({ 0.0, 0.0, 1.0 }, nCurNodeIdx);
 
 			Vector3D
-				x0{ n->pos.x - hx1, n->pos.y, n->pos.z },
-				x1{ n->pos.x + hx2, n->pos.y, n->pos.z },
-				y0{ n->pos.x, n->pos.y - hy1, n->pos.z },
-				y1{ n->pos.x, n->pos.y + hy2, n->pos.z },
-				z0{ n->pos.x, n->pos.y, n->pos.z - hz1 },
-				z1{ n->pos.x, n->pos.y, n->pos.z + hz2 };
+				x0{ n.pos.x - hx1, n.pos.y, n.pos.z },
+				x1{ n.pos.x + hx2, n.pos.y, n.pos.z },
+				y0{ n.pos.x, n.pos.y - hy1, n.pos.z },
+				y1{ n.pos.x, n.pos.y + hy2, n.pos.z },
+				z0{ n.pos.x, n.pos.y, n.pos.z - hz1 },
+				z1{ n.pos.x, n.pos.y, n.pos.z + hz2 };
 
 			InterpCoefs coefsX = mul(1. / hx1, interpCoefs(x0, nNextNodeIdx, nCurNodeIdx));
 			add(coefsX, mul(1. / hx2, interpCoefs(x1, nNextNodeIdx, nCurNodeIdx)));
@@ -471,7 +471,7 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 		[&](size_t nNodeIdx)
 	{
 		Label nCurNodeIdx = static_cast<Label>(nNodeIdx), nNextNodeIdx;
-		const Node* n = m_nodes[nCurNodeIdx];
+		const Node& n = m_nodes[nCurNodeIdx];
 		switch (vNodeTypes[nCurNodeIdx])
 		{
 		case FirstTypeBoundaryNode: //Fixed value BC
@@ -502,12 +502,12 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::laplacianSolver3() const
 
 			double h = min(hx1, min(hx2, min(hy1, min(hy2, min(hz1, hz2)))));
 			Vector3D
-				x0{ n->pos.x - h, n->pos.y, n->pos.z },
-				x1{ n->pos.x + h, n->pos.y, n->pos.z },
-				y0{ n->pos.x, n->pos.y - h, n->pos.z },
-				y1{ n->pos.x, n->pos.y + h, n->pos.z },
-				z0{ n->pos.x, n->pos.y, n->pos.z - h },
-				z1{ n->pos.x, n->pos.y, n->pos.z + h };
+				x0{ n.pos.x - h, n.pos.y, n.pos.z },
+				x1{ n.pos.x + h, n.pos.y, n.pos.z },
+				y0{ n.pos.x, n.pos.y - h, n.pos.z },
+				y1{ n.pos.x, n.pos.y + h, n.pos.z },
+				z0{ n.pos.x, n.pos.y, n.pos.z - h },
+				z1{ n.pos.x, n.pos.y, n.pos.z + h };
 
 			InterpCoefs coefsX = add(interpCoefs(x0, nNextNodeIdx, nCurNodeIdx), 
 				interpCoefs(x1, nNextNodeIdx, nCurNodeIdx));
@@ -564,11 +564,11 @@ CMeshAdapter::PScalFieldOp CMeshAdapter::eigenLibLap() const
 			InterpCoefs coefs;
 			double fNorm = 0.0;
 
-			for (uint32_t nFaceIdx = 0; nFaceIdx < m_nodes[nNodeIdx]->vNbrNodes.size(); ++nFaceIdx)
+			for (uint32_t nFaceIdx = 0; nFaceIdx < m_nodes[nNodeIdx].vNbrNodes.size(); ++nFaceIdx)
 			{
-				size_t l = m_nodes[nNodeIdx]->vNbrNodes[nFaceIdx];
+				size_t l = m_nodes[nNodeIdx].vNbrNodes[nFaceIdx];
 				double fWeight = tess->get_cell(nNodeIdx)->pFaceSquare[nFaceIdx]
-					/ (m_nodes[l]->pos - m_nodes[nNodeIdx]->pos).length();
+					/ (m_nodes[l].pos - m_nodes[nNodeIdx].pos).length();
 				coefs[l] = fWeight;
 				fNorm += fWeight;
 			}
@@ -608,16 +608,16 @@ CMeshAdapter::ScalarFieldOperator CMeshAdapter::directedDerivative(const Vector3
 
 	result.m_matrix.resize(m_nodes.size());
 
-	for (const Node* n : m_nodes)
+	for (const Node& n : m_nodes)
 	{
 		size_t nNodeIdxNext;
-		if (n->nInd % 1000 == 0) m_pProgressBar->set_progress(n->nInd * 100 / m_nodes.size());
+		if (n.nInd % 1000 == 0) m_pProgressBar->set_progress(n.nInd * 100 / m_nodes.size());
 		if (m_pProgressBar->get_terminate_flag()) break;
 		
-		add(result.m_matrix[n->nInd],
-			add(mul(dir.x, gradX(n->nInd)),
-				add(mul(dir.y, gradY(n->nInd)),
-					mul(dir.z, gradZ(n->nInd)))));
+		add(result.m_matrix[n.nInd],
+			add(mul(dir.x, gradX(n.nInd)),
+				add(mul(dir.y, gradY(n.nInd)),
+					mul(dir.z, gradZ(n.nInd)))));
 	}
 
 	return result;
@@ -640,7 +640,7 @@ CMeshAdapter::InterpCoefs CMeshAdapter::interpCoefs(const Vector3D & pos, const 
 
 const CMeshAdapter::Element * CMeshAdapter::lookInClosestElements(const Vector3D & pos, Label l) const
 {
-	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
+	const Labels& vElemIdxs = m_nodes[l].nbr_elems();
 	for (Label nElemIdx : vElemIdxs)
 		if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];
 	return nullptr;
@@ -685,7 +685,7 @@ void CMeshAdapter::eps(size_t nFactor)
 
 double CMeshAdapter::minElemSize(Label l) const
 {
-	const Labels& vElemIdxs = m_nodes[l]->nbr_elems();
+	const Labels& vElemIdxs = m_nodes[l].nbr_elems();
 	Labels::const_iterator pMinElem = std::min_element(vElemIdxs.begin(), vElemIdxs.end(),
 		[=](Label l1, Label l2)->bool
 	{
@@ -708,10 +708,10 @@ double CMeshAdapter::minEdgeLength(Label l) const
 		[=](Label l1, Label l2)->bool
 	{
 		Vector3D 
-			df1 = m_nodes[l1]->pos - m_nodes[l]->pos,
-			df2 = m_nodes[l2]->pos - m_nodes[l]->pos;
+			df1 = m_nodes[l1].pos - m_nodes[l].pos,
+			df2 = m_nodes[l2].pos - m_nodes[l].pos;
 		return df1.sqlength() < df2.sqlength();
-	})]->pos - m_nodes[l]->pos).length();
+	})].pos - m_nodes[l].pos).length();
 }
 
 double CMeshAdapter::maxEdgeLength(Label l) const
@@ -721,20 +721,20 @@ double CMeshAdapter::maxEdgeLength(Label l) const
 		[=](Label l1, Label l2)->bool
 	{
 		Vector3D
-			df1 = m_nodes[l1]->pos - m_nodes[l]->pos,
-			df2 = m_nodes[l2]->pos - m_nodes[l]->pos;
+			df1 = m_nodes[l1].pos - m_nodes[l].pos,
+			df2 = m_nodes[l2].pos - m_nodes[l].pos;
 		return df1.sqlength() < df2.sqlength();
-	})]->pos - m_nodes[l]->pos).length();
+	})].pos - m_nodes[l].pos).length();
 }
 
 double CMeshAdapter::optimalStep(const Vector3D& dir, Label l, Label deep) const
 {
 	double a = 0.0, b = 2.0*maxEdgeLength(l);
-	while (lookInNeighbor(m_nodes[l]->pos + dir*b, l, deep)) b *= 2.;
+	while (lookInNeighbor(m_nodes[l].pos + dir*b, l, deep)) b *= 2.;
 	while (b - a > eps())
 	{
 		double m = (b + a) / 2.;
-		if (lookInNeighbor(m_nodes[l]->pos + dir*m, l, deep))
+		if (lookInNeighbor(m_nodes[l].pos + dir*m, l, deep))
 			a = m;
 		else
 			b = m;
@@ -749,7 +749,7 @@ const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos,
 
 	std::set<Label> 
 		visitedNodes, 
-		visitedElemets(m_nodes[l]->nbr_elems().begin(), m_nodes[l]->nbr_elems().end());
+		visitedElemets(m_nodes[l].nbr_elems().begin(), m_nodes[l].nbr_elems().end());
 	visitedNodes.insert(l);
 	
 	for(Label nCurDeep = 0; nCurDeep < deep; ++nCurDeep)
@@ -765,7 +765,7 @@ const CMeshAdapter::Element * CMeshAdapter::lookInNeighbor(const Vector3D & pos,
 				if (visitedNodes.find(*pFirstNodeIdx) == visitedNodes.end())
 				{
 					visitedNodes.insert(*pFirstNodeIdx);
-					for (Label nElemIdx : m_nodes[*pFirstNodeIdx]->nbr_elems())
+					for (Label nElemIdx : m_nodes[*pFirstNodeIdx].nbr_elems())
 						if (nextElemsToVisit.find(nElemIdx) == nextElemsToVisit.end()
 							&& visitedElemets.find(nElemIdx) == visitedElemets.end())
 							if (m_elems[nElemIdx]->inside(pos)) return m_elems[nElemIdx];

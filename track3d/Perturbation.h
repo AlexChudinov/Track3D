@@ -13,7 +13,7 @@ class CFieldPerturbation : public CObject
 {
 public:
   CFieldPerturbation()
-    : m_bEnable(true)
+    : m_bEnable(true), m_bOnTheFly(false)
   {
   }
 
@@ -23,11 +23,12 @@ public:
 
   enum
   {
-    ptbRing         = 0,  // uniformly charged ring of finite radius and negligible width.
-    ptbStackOfRings = 1,  // a stack of equidistant charged rings; the rings can carry different charges.
-    ptbUniform      = 2,  // simple uniform addition dE = const to the external DC field.
-    ptbDoubleLayer  = 3,  // a model of field produced by a thin charged dielectric film.
-    ptbCount        = 4
+    ptbRing           = 0,  // uniformly charged ring of finite radius and negligible width.
+    ptbStackOfRings   = 1,  // a stack of equidistant charged rings; the rings can carry different charges.
+    ptbUniform        = 2,  // simple uniform addition dE = const to the external DC field.
+    ptbDoubleLayer    = 3,  // a model of field produced by a thin charged dielectric film.
+    ptbFlatChannelRF  = 4,  // a 2D analytic model of RF field caused by a set of metallic stripes (in MEMS devices).
+    ptbCount          = 5
   };
 
   static 
@@ -36,7 +37,10 @@ public:
   static
   const char*         perturbation_name(int nType);
 
+  virtual bool        prepare() { return true; }
+
   virtual Vector3D    field_ptb(const Vector3D& vPos) = 0;
+  virtual Vector3D    field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase) { return Vector3D(); }
 
   virtual bool        calc_field() { return true; }
   virtual Vector3D    get_field(size_t nNodeId) { return Vector3D(); }
@@ -48,11 +52,14 @@ public:
   bool                get_enable() const;
   DWORD_PTR           get_enable_ptr() const;
 
+  bool                get_on_the_fly() const { return m_bOnTheFly; }
+
   virtual void        save(CArchive& ar);
   virtual void        load(CArchive& ar);
 
 protected:
   bool                m_bEnable;
+  bool                m_bOnTheFly;  // never changed, true for those perturbations, which need to be applied during ion tracking.
   int                 m_nType;
 
   void                invalidate_contours() const;
@@ -286,6 +293,130 @@ private:
 
   bool                  m_bReady;
 };
+
+//-----------------------------------------------------------------------------
+// CFlatChannelRF - a model of the RF field in a narrow channel from a set of 
+//                  narrow stripes (MEMS devices).
+//-----------------------------------------------------------------------------
+class CFlatChannelRF : public CFieldPerturbation
+{
+public:
+  CFlatChannelRF();
+  virtual ~CFlatChannelRF();
+
+  virtual bool        prepare();
+  virtual Vector3D    field_ptb(const Vector3D& vPos) { return Vector3D(); }
+  virtual Vector3D    field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase);
+
+// User interface:
+  double              get_stripe_width() const;
+  DWORD_PTR           get_stripe_width_ptr() const;
+  void                set_stripe_width(double fW);
+
+  double              get_gap_width() const;
+  DWORD_PTR           get_gap_width_ptr() const;
+  void                set_gap_width(double fW);
+
+  double              get_channel_height() const;
+  DWORD_PTR           get_channel_height_ptr() const;
+  void                set_channel_height(double fH);
+
+  double              get_channel_length() const;
+  DWORD_PTR           get_channel_length_ptr() const;
+  void                set_channel_length(double fChanLen);
+
+  double              get_channel_width() const;
+  DWORD_PTR           get_channel_width_ptr() const;
+  void                set_channel_width(double fChanWidth);
+
+  double              get_rf_freq() const;
+  DWORD_PTR           get_rf_freq_ptr() const;
+  void                set_rf_freq(double fFreq);
+
+  double              get_rf_ampl() const;
+  DWORD_PTR           get_rf_ampl_ptr() const;
+  void                set_rf_ampl(double fAmpl);
+
+  UINT                get_decomp_count() const;
+  DWORD_PTR           get_decomp_count_ptr() const;
+  void                set_decomp_count(UINT nCount);
+
+  Vector3D            get_start_point() const;
+  DWORD_PTR           get_start_point_ptr() const;
+  void                set_start_point(const Vector3D& vPos);
+
+// Stripes orientation. The virtual stripes can be stretched either along Z or along X in the global c.s.
+  enum { strAlongZ = 0, strAlongX = 1, strCount = 2 };
+
+  const char*         get_trans_dir_name(int nDir) const;
+
+  int                 get_trans_dir() const;
+  DWORD_PTR           get_trans_dir_ptr() const;
+  void                set_trans_dir(int nTransDir);
+
+  virtual void        save(CArchive& ar);
+  virtual void        load(CArchive& ar);
+
+protected:
+  void                set_default();
+
+  void                allocate_arrays();
+  void                delete_arrays();
+
+  void                set_dir();
+  bool                calc_coeff();
+  void                calc_bounding_box();
+
+  double              coeff_Fourier(UINT k);
+
+  double              phi_in_model_coord(double x, double y) const;
+  Vector2D            field_in_model_coord(double x, double y) const;
+  Vector2D            trans_to_model_coord(const Vector3D& vPos) const;
+
+  Vector2D            model_coord(UINT ix, UINT jy) const;
+  bool                cell_indices(const Vector2D& vModPos, UINT& ix, double& ksix, UINT& jy, double& ksiy) const;
+
+// DEBUG
+  bool                test_output();
+// END DEBUG
+
+private:
+  double              m_fStripeWidth,
+                      m_fGapWidth,
+
+                      m_fChannelHeight,
+                      m_fChannelLength,
+                      m_fChannelWidth,
+
+                      m_fFreq,  // radio frequency, Hz.
+                      m_fAmpl;  // amplitude, CGSE.
+
+  int                 m_nTransDir;    // stripes orientation, can be either strAlongZ or strAlongX.
+
+  double              m_fOmega,       // run-time, m_fOmega = 2*pi*m_fFreq.
+                      m_fWaveLength;  // run-time, m_fWaveLength = 2 * (m_fStripeWidth + m_fGapWidth).
+
+  UINT                m_nDecompCount; // count of items in the Fourier decomposition.
+
+  Vector3D            m_vStartPoint,
+                      m_vDirX,  // Direction across the virtual periodic stripes.
+                      m_vDirY,  // Always (0, 1, 0).
+                      m_vDirZ;  // Translational direction, nothing changes along it. Can be either (0, 0, 1) or (1, 0, 0).
+
+  CBox                m_BoundBox;
+
+  double*             m_pA;   // coefficients of Fourier decomposition of the boundary potential.
+  double*             m_pB;   // coefficients at sinh(lambda*y) of U(y) = cosh(lambda*y) + B*sinh(lambda*y) decomposition.
+  double*             m_pLmb; // m_pLmb[k] = Const_2PI*k/m_fWaveLength.
+
+  UINT                m_nNx,  // dimensions of the result array m_pRes.
+                      m_nNy;
+
+  Vector2D**          m_pRes;  // pre-computed RF field's amplitude for a single cell (x = [0, L], y = [0, H]).
+
+  bool                m_bReady; // run-time, false by default.
+};
+
 //-----------------------------------------------------------------------------
 // Inline implementation:
 //-----------------------------------------------------------------------------
@@ -597,6 +728,186 @@ inline bool CDoubleLayerField::get_enable_multi_thread() const
 inline DWORD_PTR CDoubleLayerField::get_enable_multi_thread_ptr() const
 {
   return (DWORD_PTR)&m_bEnableMultiThreading;
+}
+
+//-----------------------------------------------------------------------------
+// CFlatChannelRF - inline implementation.
+//-----------------------------------------------------------------------------
+inline double CFlatChannelRF::get_gap_width() const
+{
+  return m_fGapWidth;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_gap_width_ptr() const
+{
+  return (DWORD_PTR)&m_fGapWidth;
+}
+
+inline void CFlatChannelRF::set_gap_width(double fW)
+{
+  if(m_fGapWidth != fW)
+  {
+    m_fGapWidth = fW;
+    m_fWaveLength = 2 * (m_fStripeWidth + m_fGapWidth);
+    m_bReady = false;
+  }
+}
+
+inline double CFlatChannelRF::get_stripe_width() const
+{
+  return m_fStripeWidth;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_stripe_width_ptr() const
+{
+  return (DWORD_PTR)&m_fStripeWidth;
+}
+
+inline void CFlatChannelRF::set_stripe_width(double fW)
+{
+  if(m_fStripeWidth != fW)
+  {
+    m_fStripeWidth = fW;
+    m_fWaveLength = 2 * (m_fStripeWidth + m_fGapWidth);
+    m_bReady = false;
+  }
+}
+
+inline double CFlatChannelRF::get_channel_height() const
+{
+  return m_fChannelHeight;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_channel_height_ptr() const
+{
+  return (DWORD_PTR)&m_fChannelHeight;
+}
+
+inline void CFlatChannelRF::set_channel_height(double fH)
+{
+  if(m_fChannelHeight != fH)
+  {
+    m_fChannelHeight = fH;
+    m_bReady = false;
+  }
+}
+
+inline double CFlatChannelRF::get_channel_length() const
+{
+  return m_fChannelLength;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_channel_length_ptr() const
+{
+  return (DWORD_PTR)&m_fChannelLength;
+}
+
+inline void CFlatChannelRF::set_channel_length(double fChanLen)
+{
+  m_fChannelLength = fChanLen;
+}
+
+inline double CFlatChannelRF::get_channel_width() const
+{
+  return m_fChannelWidth;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_channel_width_ptr() const
+{
+  return (DWORD_PTR)&m_fChannelWidth;
+}
+
+inline void CFlatChannelRF::set_channel_width(double fHalfWidth)
+{
+  m_fChannelWidth = fHalfWidth;
+}
+
+inline double CFlatChannelRF::get_rf_freq() const
+{
+  return m_fFreq;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_rf_freq_ptr() const
+{
+  return (DWORD_PTR)&m_fFreq;
+}
+
+inline void CFlatChannelRF::set_rf_freq(double fFreq)
+{
+  m_fFreq = fFreq;
+  m_fOmega = Const_2PI * m_fFreq;
+}
+
+inline double CFlatChannelRF::get_rf_ampl() const
+{
+  return m_fAmpl;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_rf_ampl_ptr() const
+{
+  return (DWORD_PTR)&m_fAmpl;
+}
+
+inline void CFlatChannelRF::set_rf_ampl(double fAmpl)
+{
+  m_fAmpl = fAmpl;
+}
+
+inline UINT CFlatChannelRF::get_decomp_count() const
+{
+  return m_nDecompCount;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_decomp_count_ptr() const
+{
+  return (DWORD_PTR)&m_nDecompCount;
+}
+
+inline void CFlatChannelRF::set_decomp_count(UINT nCount)
+{
+  if(m_nDecompCount != nCount)
+  {
+    m_nDecompCount = nCount;
+    m_bReady = false;
+  }
+}
+
+inline Vector3D CFlatChannelRF::get_start_point() const
+{
+  return m_vStartPoint;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_start_point_ptr() const
+{
+  return (DWORD_PTR)&m_vStartPoint;
+}
+
+inline void CFlatChannelRF::set_start_point(const Vector3D& vPos)
+{
+  if(m_vStartPoint != vPos)
+  {
+    m_vStartPoint = vPos;
+    m_bReady = false;
+  }
+}
+
+inline int CFlatChannelRF::get_trans_dir() const
+{
+  return m_nTransDir;
+}
+
+inline DWORD_PTR CFlatChannelRF::get_trans_dir_ptr() const
+{
+  return (DWORD_PTR)&m_nTransDir;
+}
+
+inline void CFlatChannelRF::set_trans_dir(int nTransDir)
+{
+  if(m_nTransDir != nTransDir)
+  {
+    m_nTransDir = nTransDir;
+    m_bReady = false;
+  }
 }
 
 };  // namespace EvaporatingParticle

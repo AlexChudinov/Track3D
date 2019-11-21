@@ -53,7 +53,10 @@ struct CNode3D;
 struct CElem3D;
 typedef std::vector<CFace*> CFacesCollection;
 typedef std::vector<CElem3D*> CElementsCollection;
+
 typedef std::vector<CNode3D*> CNodesCollection;
+typedef std::vector<CNode3D> CNodesVector;
+
 typedef std::vector<CRegFacePair> CFaceIndices;
 typedef std::vector<UINT> CIndexVector;
 //-------------------------------------------------------------------------------------------------
@@ -67,19 +70,19 @@ struct CNode3D : public BlockAllocator<CNode3D>
   {
   }
 
-  CNode3D(const Vector3D& p)
+  CNode3D(const Vector3F& p)
     : nInd(0), pos(p), dens(0), press(0), temp(0), visc(0), cond(0), cp(0), phi(0)
   {
   }
 
-  CNode3D(const Vector3D& p, const Vector3D& v, const Vector3D& dcE, const Vector3D& rfE, float den, float pres, float tmp, float vis, float con, float hcp)
+  CNode3D(const Vector3F& p, const Vector3F& v, const Vector3F& dcE, const Vector3F& rfE, float den, float pres, float tmp, float vis, float con, float hcp)
     : nInd(0), pos(p), vel(v), field(dcE), rf(rfE), dens(den), press(pres), temp(tmp), visc(vis), cond(con), cp(hcp), phi(0)
   {
   }
 
   size_t    nInd;   // index of the node in the global nodes collection.
 
-  Vector3D  pos,
+  Vector3F  pos,
             vel,
             field,  // DC field.
             clmb,   // Coulomb field.
@@ -95,7 +98,7 @@ struct CNode3D : public BlockAllocator<CNode3D>
   float     phi;    // electric potential.
 
   void      set_data(float fPress, float fDens, float fTemp, float fVisc, float fCond, float fCp,
-              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField, const Vector3D& vClmb = Vector3D(0, 0, 0));
+              const Vector3F& vVel, const Vector3F& vDCField, const Vector3F& vRFField, const Vector3F& vClmb = Vector3F(0, 0, 0));
 
 // Neighbors:
   CIndexVector        vNbrElems;
@@ -263,14 +266,7 @@ typedef std::vector<CPlane> CPlanesSet;
 //-------------------------------------------------------------------------------------------------
 struct CElem3D
 {
-  CElem3D(const CNodesCollection& vNodes)
-    : vGlobNodes(vNodes)
-  {
-  };
-
   size_t                  nInd;       // index of this element in the global elements collection.
-
-  const CNodesCollection& vGlobNodes;
 
   CBox                    box;        // bounding box:
 
@@ -318,12 +314,12 @@ struct CElem3D
 
   //[AC 03/03/2017]
   //Returns pointer to element node c-like array
-  virtual const UINT* nodes() const = 0;
+  virtual const UINT*     nodes() const = 0;
   //[/AC]
 
   //[AC 27/03/2017] memory manager
   static void operator delete(void* ptr, size_t n);
-  virtual void deleteObj() = 0;
+  virtual void            deleteObj() = 0;
   //[/AC]
 };
 
@@ -348,8 +344,8 @@ struct CTetra : public CElem3D, public BlockAllocator<CTetra>
 	//[AC] memory manager
 	using CElem3D::operator delete;
 	//[/AC]
-  CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3);
-  CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3);
+  CTetra(UINT i0, UINT i1, UINT i2, UINT i3);
+  CTetra(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3);
 
   UINT              vTetNodeIds[4]; // indices of the tetra nodes in the global collection.
   CElemTetra        vFaces;         // faces of the element.
@@ -363,7 +359,7 @@ struct CTetra : public CElem3D, public BlockAllocator<CTetra>
 
   virtual UINT      get_node_count() const { return 4; }
   virtual UINT      get_node_index(UINT nInd) const { return vTetNodeIds[nInd]; }  // index of this node in the global nodes collection.
-  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 4 ? vGlobNodes[vTetNodeIds[nInd]] : NULL; }
+  virtual CNode3D*  get_node(UINT nInd) const;
 
   void              add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const Vector3D& p2);
 
@@ -386,7 +382,7 @@ struct CPyramid : public CElem3D, public BlockAllocator<CPyramid>
 	//[AC] memory manager
 	using CElem3D::operator delete;
 	//[/AC]
-  CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4);
+  CPyramid(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4);
   virtual ~CPyramid();
 
   UINT              vPyrNodeIds[5]; // indices of the pyramid nodes in the global collection.
@@ -400,7 +396,7 @@ struct CPyramid : public CElem3D, public BlockAllocator<CPyramid>
 
   virtual UINT      get_node_count() const { return 5; }
   virtual UINT      get_node_index(UINT nInd) const { return vPyrNodeIds[nInd]; }  // index of this node in the global nodes collection.
-  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 5 ? vGlobNodes[vPyrNodeIds[nInd]] : NULL; }
+  virtual CNode3D*  get_node(UINT nInd) const;
 
   CElemTetra        vSubTetra[2];
 
@@ -423,7 +419,7 @@ struct CWedge : public CElem3D, public BlockAllocator<CWedge>
 	//[AC] memory manager
 	using CElem3D::operator delete;
 	//[/AC]
-  CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5);
+  CWedge(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5);
   virtual ~CWedge();
 
   UINT              vWdgNodeIds[6]; // indices of the wedge nodes in the global collection.
@@ -437,7 +433,7 @@ struct CWedge : public CElem3D, public BlockAllocator<CWedge>
 
   virtual UINT      get_node_count() const { return 6; }
   virtual UINT      get_node_index(UINT nInd) const { return vWdgNodeIds[nInd]; }  // index of this node in the global nodes collection.
-  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 6 ? vGlobNodes[vWdgNodeIds[nInd]] : NULL; }
+  virtual CNode3D*  get_node(UINT nInd) const;
 
   CElemTetra        vSubTetra[8];
 
@@ -459,7 +455,7 @@ struct CHexa : public CElem3D, public BlockAllocator<CHexa>
 	//[AC] memory manager
 	using CElem3D::operator delete;
 	//[/AC]
-  CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7);
+  CHexa(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7);
 
   UINT              vHexNodeIds[8]; // indices of the wedge nodes in the global collection.
 
@@ -472,7 +468,7 @@ struct CHexa : public CElem3D, public BlockAllocator<CHexa>
 
   virtual UINT      get_node_count() const { return 8; }
   virtual UINT      get_node_index(UINT nInd) const { return vHexNodeIds[nInd]; }  // index of this node in the global nodes collection.
-  virtual CNode3D*  get_node(UINT nInd) const { return nInd < 8 ? vGlobNodes[vHexNodeIds[nInd]] : NULL; }
+  virtual CNode3D*  get_node(UINT nInd) const;
 
   CElemTetra        vSubTetra[12];
 
@@ -644,7 +640,7 @@ inline bool CPlane::inside(const Vector3D& p) const
 // CNode3D: inline implementation.
 //-------------------------------------------------------------------------------------------------
 inline void CNode3D::set_data(float fPress, float fDens, float fTemp, float fVisc, float fCond, float fCp,
-              const Vector3D& vVel, const Vector3D& vDCField, const Vector3D& vRFField, const Vector3D& vClmbField)
+              const Vector3F& vVel, const Vector3F& vDCField, const Vector3F& vRFField, const Vector3F& vClmbField)
 {
   press = fPress;
   dens = fDens;
@@ -668,6 +664,7 @@ inline void CNode3D::shrink_to_fit()
 //-------------------------------------------------------------------------------------------------
 // CElem3D: inline implementation.
 //-------------------------------------------------------------------------------------------------
+/*
 inline CNodesCollection CElem3D::get_nodes() const
 {
   CNodesCollection vNodes(get_node_count());
@@ -676,6 +673,7 @@ inline CNodesCollection CElem3D::get_nodes() const
 
   return vNodes;
 }
+*/
 //[AC 27/03/2017] memory manager
 inline void CElem3D::operator delete(void * ptr, size_t n)
 {

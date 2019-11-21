@@ -56,10 +56,9 @@ bool CImportOpenFOAM::first_step()
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 // There must be nodes of the "short" mesh used by the ExportOpenFOAM class to create points, faces, owner, neighbour and boundary files.
-  CNodesCollection& vNodes = pObj->get_nodes();
   double fMolarMass = pObj->get_molar_mass();   // g.
 
-  size_t nNodeCount = vNodes.size();
+  size_t nNodeCount = pObj->get_nodes().size();
   if(nNodeCount == 0)
     return false;
 
@@ -147,19 +146,18 @@ static const double scfTol = 0.0001; // tolerance, cm.
 
 CNode3D* CImportOpenFOAM::find_node(float fX, float fY, float fZ) const
 {
-  CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
+  CNodesVector& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
 
   Vector3D vPos;
-  CNode3D* pNode = NULL;
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
-    vPos = pNode->pos;
+    CNode3D& node = vNodes.at(i);
+    vPos = node.pos;
     if(fabs(vPos.x - fX) > scfTol || fabs(vPos.y - fY) > scfTol || fabs(vPos.z - fZ) > scfTol)
       continue;
 
-    return pNode;
+    return &node;
   }
 
   return NULL;
@@ -171,7 +169,7 @@ bool CImportOpenFOAM::update_var_file()
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 // There must be nodes of the "short" mesh used by the ExportOpenFOAM class to create points, faces, owner, neighbour and boundary files:
-  CNodesCollection& vNodes = pObj->get_nodes();
+  CNodesVector& vNodes = pObj->get_nodes();
 
   set_job_name("OpenFOAM import: Updating gas-dynamic data on disk...");
   set_progress(0);
@@ -188,17 +186,16 @@ bool CImportOpenFOAM::update_var_file()
   Vector3D vE(0, 0, 0), vErf(0, 0, 0);
   float fPress, fDens, fTemp, fDynVisc = 0.0f, fThermCond = 0.0f, fCp = 0.0f, fVx, fVy, fVz;
 
-  CNode3D* pNode = NULL;
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
-    fPress = pNode->press;
-    fDens = pNode->dens;
-    fTemp = pNode->temp;
-    fVx = pNode->vel.x;
-    fVy = pNode->vel.y;
-    fVz = pNode->vel.z;
+    const CNode3D& node = vNodes.at(i);
+    fPress = node.press;
+    fDens = node.dens;
+    fTemp = node.temp;
+    fVx = node.vel.x;
+    fVy = node.vel.y;
+    fVz = node.vel.z;
 
     convert_to_si(fPress, fDens, fVx, fVy, fVz);  // the parameters are stored on the disk in SI units.
 
@@ -235,7 +232,7 @@ void CImportOpenFOAM::print_statistics(UINT nSuccess, UINT nFail)
 bool CImportOpenFOAM::second_step()
 {
 // There must be nodes of the "full" mesh suitable for tracking particles.
-  CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
+  CNodesVector& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
   size_t nNodeCount = vNodes.size();
   if(nNodeCount == 0)
     return false;
@@ -260,22 +257,21 @@ bool CImportOpenFOAM::second_step()
 
   Vector3D vPos;
   const CElem3D* pElem = NULL;
-  CNode3D* pNode;
   CNode3D node;   // this is just a container for interpolated data.
 
   CBox box = AuxObj.get_box();
   for(size_t i = 1; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
-    vPos = pNode->pos;
+    CNode3D& mesh_node = vNodes.at(i);
+    vPos = mesh_node.pos;
     if(!box.inside(vPos) || !AuxObj.interpolate(vPos, 0, 0, node, pElem))
       continue;
 
 // Modification of the main gas-dynamic parameters by the imported data:
-    pNode->press = node.press;
-    pNode->dens = node.dens;
-    pNode->temp = node.temp;
-    pNode->vel = node.vel;
+    mesh_node.press = node.press;
+    mesh_node.dens = node.dens;
+    mesh_node.temp = node.temp;
+    mesh_node.vel = node.vel;
 
     if(i % 100 == 0)
       set_progress(int(0.5 + 100. * i / nNodeCount));

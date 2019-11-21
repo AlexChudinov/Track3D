@@ -102,11 +102,11 @@ CMeshAdapter::ScalarFieldOperator DCMeshAdapter::laplacian() const
 			InterpCoefs coefs;
 			double fNorm = 0.0;
 
-			for (uint32_t nFaceIdx = 0; nFaceIdx < m_nodes[nNodeIdx]->vNbrNodes.size(); ++nFaceIdx)
+			for (uint32_t nFaceIdx = 0; nFaceIdx < m_nodes[nNodeIdx].vNbrNodes.size(); ++nFaceIdx)
 			{
-				size_t l = m_nodes[nNodeIdx]->vNbrNodes[nFaceIdx];
+				size_t l = m_nodes[nNodeIdx].vNbrNodes[nFaceIdx];
 				double fWeight = m_tess.get_cell(nNodeIdx)->pFaceSquare[nFaceIdx]
-					/ (m_nodes[l]->pos - m_nodes[nNodeIdx]->pos).length();
+					/ (m_nodes[l].pos - m_nodes[nNodeIdx].pos).length();
 				coefs[l] = fWeight;
 				fNorm += fWeight;
 			}

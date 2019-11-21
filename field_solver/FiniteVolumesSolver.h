@@ -57,7 +57,7 @@ protected:
 
   float                   one_iter();   // one iteration in solving the system of linear equations.
 // Multithreading support:
-  float                   single_node_iter(CNode3D* pNode, CDirichletCell* pCell, const CFloatArray& vU0, const CNodesCollection& vNodes, float fDiagCoeff, int nType);
+  float                   single_node_iter(const CNode3D& node, CDirichletCell* pCell, const CFloatArray& vU0, const CNodesVector& vNodes, float fDiagCoeff, int nType);
 
   void                    prepare();
   void                    calc_diag();  // calculation of diagonal components of the system matrix.

@@ -473,7 +473,7 @@ void CTrackDraw::build_norm_array()
 //  if(m_nDrawnCell >= vRegs.size())
 //    return;
 
-  const CNodesCollection& vNodes = m_pTracker->get_nodes();
+  const CNodesVector& vNodes = m_pTracker->get_nodes();
   size_t nNodeCount = vNodes.size();
   if(m_nDrawnCell >= nNodeCount)
     return;
@@ -481,15 +481,15 @@ void CTrackDraw::build_norm_array()
 //  CRegion* pReg = vRegs.at(m_nDrawnCell);
 //  CNode3D* pTestNode = pReg->vFaces.at(pReg->vFaces.size() / 2)->p0;
 
-  CNode3D* pTestNode = vNodes.at(m_nDrawnCell);
-  if(pTestNode->vNbrFaces.size() != 0)
+  const CNode3D& TestNode = vNodes.at(m_nDrawnCell);
+  if(TestNode.vNbrFaces.size() != 0)
     return;   // boundary cells are not built as 3D objects.
 
-  m_vCenter = pTestNode->pos;
+  m_vCenter = TestNode.pos;
 
   CDirichletTesselation test_obj(true);
   test_obj.set_mesh((CAnsysMesh*)m_pTracker);
-  CDirichletCell* pCell = test_obj.build_cell_in_node(pTestNode, vNodes);
+  CDirichletCell* pCell = test_obj.build_cell_in_node(TestNode, vNodes);
 
   m_bNormReady = true;
 
@@ -1930,26 +1930,25 @@ void CTrackDraw::set_phi_to_nodes() const
   if((nFieldCount == 0) && (nPtbCount == 0))
     return;
 
-  CNode3D* pNode = NULL;
   CElectricFieldData* pField = NULL;
   CFieldPerturbation* pPtb = NULL;
 
-  CNodesCollection& vNodes = pObj->get_nodes();
+  CNodesVector& vNodes = pObj->get_nodes();
   size_t nNodeCount = vNodes.size();
 
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
-    pNode->phi = 0;
+    CNode3D& node = vNodes.at(i);
+    node.phi = 0;
     for(size_t j = 0; j < nFieldCount; j++)
     {
       pField = pAllFields->at(j);
       if(pField->get_enable_vis())
       {  
         if(pField->get_type() != CElectricFieldData::typeMirror)
-          pNode->phi += pField->get_phi(i) * pField->get_scale(); // Note that if the j-th field is not ready, its get_phi(i) returns 0.
+          node.phi += pField->get_phi(i) * pField->get_scale(); // Note that if the j-th field is not ready, its get_phi(i) returns 0.
         else
-          pNode->phi += pField->get_clmb_phi(i);
+          node.phi += pField->get_clmb_phi(i);
       }
     }
 
@@ -1957,7 +1956,7 @@ void CTrackDraw::set_phi_to_nodes() const
     {
       pPtb = vPtbs.at(k);
       if(pPtb->get_enable())
-        pNode->phi += pPtb->get_phi(i);
+        node.phi += pPtb->get_phi(i);
     }
   }
 }

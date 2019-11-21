@@ -263,9 +263,9 @@ bool CExportOpenFOAM::export_vertices()
   fprintf(pStream, "%zd\n(\n", nNodeCount);
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    CNode3D* pNode = m_pNodes->at(i);
+    const CNode3D& node = m_pNodes->at(i);
 // Important: This must be the only place where m_fShiftX is used.
-    fprintf(pStream, "(%f %f %f)\n", fCoeff * (pNode->pos.x - m_fShiftX), fCoeff * pNode->pos.y, fCoeff * pNode->pos.z);
+    fprintf(pStream, "(%f %f %f)\n", fCoeff * (node.pos.x - m_fShiftX), fCoeff * node.pos.y, fCoeff * node.pos.z);
 
     set_progress(int(0.5 + 100. * (i + 1) / nNodeCount));
     if(get_terminate_flag())
@@ -565,7 +565,7 @@ bool CExportOpenFOAM::read_2D_regions()
 // Important! Nodes in ANSYS output files are enumerated from 1 to nNodeCount. In connectivity data, too!
 // In our arrays we enumerate nodes from 0 to nNodeCount - 1, i.e. subtract unity from the original node index.
       nRes = fscanf_s(pStream, "%d %d %d", &n0, &n1, &n2);
-      pFace = new COpenFoamFace(m_pNodes->at(n0 - 1), m_pNodes->at(n1 - 1), m_pNodes->at(n2 - 1));
+      pFace = new COpenFoamFace(&(m_pNodes->at(n0 - 1)), &(m_pNodes->at(n1 - 1)), &(m_pNodes->at(n2 - 1)));
       pReg->vFaces.push_back(pFace);
     }
 
@@ -573,7 +573,7 @@ bool CExportOpenFOAM::read_2D_regions()
     for(j = 0; j < nQuadCount; j++)
     {
       nRes = fscanf_s(pStream, "%d %d %d %d", &n0, &n1, &n2, &n3);
-      pFace = new COpenFoamFace(m_pNodes->at(n0 - 1), m_pNodes->at(n1 - 1), m_pNodes->at(n2 - 1), m_pNodes->at(n3 - 1));
+      pFace = new COpenFoamFace(&(m_pNodes->at(n0 - 1)), &(m_pNodes->at(n1 - 1)), &(m_pNodes->at(n2 - 1)), &(m_pNodes->at(n3 - 1)));
       pReg->vFaces.push_back(pFace);
     }
 

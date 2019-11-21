@@ -1362,19 +1362,18 @@ bool CTrackCalculator::get_fragm_probability(CIonTrackItem* pItem, double& fFrag
     return false;
 
 // Environment gas parameters:
-  CNode3D* pNode = NULL;
   Vector3D vGasVel(0, 0, 0);
-  double w, fPress = 0, fTemp = 0;
-  const CNodesCollection& vNodes = m_pObj->get_nodes();
+  float w, fPress = 0, fTemp = 0;
+  const CNodesVector& vNodes = m_pObj->get_nodes();
   size_t nNodeCount = pElem->get_node_count();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(pElem->get_node_index(i));
+    const CNode3D& node = vNodes.at(pElem->get_node_index(i));
     w = pWeight[i];
 
-    vGasVel += w * pNode->vel;
-    fPress += w * pNode->press;
-    fTemp += w * pNode->temp;
+    vGasVel += w * node.vel;
+    fPress += w * node.press;
+    fTemp += w * node.temp;
   }
 
   double fNumDens = fPress * scfTempCoeff / fTemp;

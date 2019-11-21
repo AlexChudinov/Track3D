@@ -299,25 +299,24 @@ void CColorContour::get_glob_min_max()
 // END DEBUG
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CNodesCollection& vNodes = pObj->get_nodes();
-  CNode3D* pNode = NULL;
+  CNodesVector& vNodes = pObj->get_nodes();
   double fVal = 0;
 
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = vNodes.at(i);
-    fVal = get_node_value(pNode);
+    const CNode3D& node = vNodes.at(i);
+    fVal = get_node_value(node);
 // DEBUG
     if(m_fMinVal > fVal)
     {
       m_fMinVal = fVal;
-      vPosMin = pNode->pos;
+      vPosMin = node.pos;
     }
     if(m_fMaxVal < fVal)
     {
       m_fMaxVal = fVal;
-      vPosMax = pNode->pos;
+      vPosMax = node.pos;
     }
 // END DEBUG
 /*
@@ -401,25 +400,25 @@ void CColorContour::get_face_values_array(CFace* pFace, double* pVal) const
 {
   CNode3D* pNodes[3] = { pFace->p0, pFace->p1, pFace->p2 };
   for(UINT i = 0; i < 3; i++)
-    pVal[i] = get_node_value(pNodes[i]);
+    pVal[i] = get_node_value(*pNodes[i]);
 }
 
-double CColorContour::get_node_value(CNode3D* pNode) const
+double CColorContour::get_node_value(const CNode3D& node) const
 {
   switch(m_nVar)
   {
-    case varPress:   return pNode->press;
-    case varDens:    return pNode->dens;
-    case varTemp:    return pNode->temp;
-    case varAbsVel:  return pNode->vel.length();
-    case varVelX:    return pNode->vel.x;
-    case varVelY:    return pNode->vel.y;
-    case varVelZ:    return pNode->vel.z;
-    case varAbsClmb: return pNode->clmb.length();
-    case varClmbX:   return pNode->clmb.x;
-    case varClmbY:   return pNode->clmb.y;
-    case varClmbZ:   return pNode->clmb.z;
-    case varPhi:     return pNode->phi;
+    case varPress:   return node.press;
+    case varDens:    return node.dens;
+    case varTemp:    return node.temp;
+    case varAbsVel:  return node.vel.length();
+    case varVelX:    return node.vel.x;
+    case varVelY:    return node.vel.y;
+    case varVelZ:    return node.vel.z;
+    case varAbsClmb: return node.clmb.length();
+    case varClmbX:   return node.clmb.x;
+    case varClmbY:   return node.clmb.y;
+    case varClmbZ:   return node.clmb.z;
+    case varPhi:     return node.phi;
   }
 
   return 0;

@@ -539,8 +539,8 @@ bool CTracker::accumulate_clmb_field(UINT nIter)
   ThreadPool::splitInPar(nNodesCount,
     [&](size_t i) 
   {
-    CNode3D* pNode = m_vNodes.at(i);
-    accum_clmb_field_in_node(pNode, m_pBarnesHut, pData, nIter);
+    CNode3D& node = m_vNodes.at(i);
+    accum_clmb_field_in_node(node, m_pBarnesHut, pData, nIter);
   },
   static_cast<CObject*>(this));
 
@@ -548,25 +548,25 @@ bool CTracker::accumulate_clmb_field(UINT nIter)
   return true;
 }
 
-void CTracker::accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter)
+void CTracker::accum_clmb_field_in_node(CNode3D& node, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter)
 {
   bool bFieldExists = pData != NULL;
   bool bMirrEnabled = bFieldExists && pData->get_enable_field();
-  size_t nInd = pNode->nInd;
+  size_t nInd = node.nInd;
 
   Vector3D vMirrField = bMirrEnabled ? pData->get_field(nInd) : vNull;
 
-  pNode->clmb = nIter == 1 ? 
-    pBHObj->coulomb_force(pNode->pos) + vMirrField :
-    (double(nIter - 1) * pNode->clmb + pBHObj->coulomb_force(pNode->pos) + vMirrField) / (double)nIter;
+  node.clmb = nIter == 1 ? 
+    pBHObj->coulomb_force(node.pos) + vMirrField :
+    (float(nIter - 1) * node.clmb + pBHObj->coulomb_force(node.pos) + vMirrField) / (double)nIter;
 
   if(bFieldExists)
   {
 // Visualization of the Coulomb potential.
     double fMirrPhi = bMirrEnabled ? pData->get_phi(nInd) : 0.0f;
     double fClmbPhi = nIter == 1 ?
-      CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi) :
-      (double(nIter - 1) * pData->get_clmb_phi(nInd) + CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(pNode->pos) + fMirrPhi)) / (double)nIter;
+      CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(node.pos) + fMirrPhi) :
+      (double(nIter - 1) * pData->get_clmb_phi(nInd) + CGS_to_SI_Voltage * (m_pBarnesHut->coulomb_phi(node.pos) + fMirrPhi)) / (double)nIter;
 
     pData->set_clmb_phi(nInd, fClmbPhi);
   }
@@ -850,13 +850,11 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
 // detached mass dm. In the case of the evaporating particle U = 0, so that the 2-nd Newton's law will not change.
   Vector3D accel(0, 0, 0);
 // Electrostatics:
-  double fEoverM = m_fCharge / fMass;
+  float fEoverM = float(m_fCharge / fMass);
   if(m_bAnsysFields)
   {
     if(m_bEnableField)
       accel += fEoverM * node.field;
-
-//    accel += fEoverM * m_vFieldPtbColl.apply(node.pos); // the perturbations can be swiched off individually.
 
     if(m_bEnableRF)
     {
@@ -868,7 +866,6 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
   else
   {
     accel += fEoverM * (node.rf + node.field);
-//    accel += fEoverM * (node.rf + node.field + m_vFieldPtbColl.apply(node.pos));
   }
   
 // Gas-dynamics:
@@ -963,6 +960,15 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   else
   {
     vE += (node.rf + node.field);
+  }
+
+// On-the-fly perturbations. The only known perturbation of this sort so far is the RF field in narrow channel.
+  size_t nPtbCount = m_vFieldPtbColl.size();
+  for(size_t j = 0; j < nPtbCount; j++)
+  {
+    CFieldPerturbation* pPtb = m_vFieldPtbColl.at(j);
+    if(pPtb->get_on_the_fly() && pPtb->get_enable())
+      vE += pPtb->field_on_the_fly(node.pos, fTime, fPhase);
   }
 
 // Coulomb repulsion:
@@ -1216,8 +1222,14 @@ void CTracker::apply_perturbations()
   for(size_t j = 0; j < nPtbCount; j++)
   {
     CFieldPerturbation* pPtb = m_vFieldPtbColl.at(j);
+    if(!pPtb->prepare())
+      continue;
+
+    if(pPtb->get_on_the_fly())
+      continue; // on-the-fly perturbations are applied within get_ion_accel() and get_accel().
+
     for(size_t i = 0; i < nNodeCount; i++)
-      m_vNodes.at(i)->field += pPtb->get_field(i);
+      m_vNodes.at(i).field += pPtb->get_field(i);
   }
 }
 
@@ -1238,33 +1250,33 @@ bool CTracker::interpolate(const Vector3D& vPos, double fTime, double fPhase, CN
   node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);  // this is just a container for interpolated data.
   node.phi = 0;
 
-  double w;
+  float w;
   bool bAddCoulomb = m_bEnableCoulomb && !m_bAxialSymm;
-  CNode3D* pNode = NULL;
+
   size_t nInd, nNodesCount = pElem->get_node_count();
   for(size_t i = 0; i < nNodesCount; i++)
   {
     nInd = pElem->get_node_index(i);
-    pNode = m_vNodes[nInd];
-    w = pWeight[i];
+    const CNode3D& elem_node = m_vNodes[nInd];
+    w = float(pWeight[i]);
 // Scalars:
-    node.dens  += w * pNode->dens;
-    node.press += w * pNode->press;
-    node.temp  += w * pNode->temp;
-    node.visc  += w * pNode->visc;
-    node.cond  += w * pNode->cond;
-    node.cp    += w * pNode->cp;
+    node.dens  += w * elem_node.dens;
+    node.press += w * elem_node.press;
+    node.temp  += w * elem_node.temp;
+    node.visc  += w * elem_node.visc;
+    node.cond  += w * elem_node.cond;
+    node.cp    += w * elem_node.cp;
 // DEBUG (Finite Volume Solver Testing)
-    node.phi    += w * pNode->phi;
+    node.phi    += w * elem_node.phi;
 // END DEBUG
 // Vectors:
-    node.vel   += w * pNode->vel;
-    node.field += w * pNode->field;
+    node.vel   += w * elem_node.vel;
+    node.field += w * elem_node.field;
     if(bAddCoulomb)
-      node.clmb += w * pNode->clmb;
+      node.clmb += w * elem_node.clmb;
 
     if(m_bAnsysFields)
-      node.rf += w * pNode->rf;
+      node.rf += w * elem_node.rf;
   }
 
   if(m_bAnsysFields)
@@ -1961,13 +1973,12 @@ bool CTracker::save_coulomb_field(const char* pFile)
   if(nErr != 0 || pStream == 0)
     return false;
 
-  CNode3D* pNode = NULL;
   size_t nNodeCount = m_vNodes.size();
   fprintf(pStream, "%zd\n", nNodeCount);
   for(size_t i = 0; i < nNodeCount; i++)
   {
-    pNode = m_vNodes.at(i);
-    fprintf(pStream, "%f, %f, %f\n", pNode->clmb.x, pNode->clmb.y, pNode->clmb.z);
+    const CNode3D& node = m_vNodes.at(i);
+    fprintf(pStream, "%f, %f, %f\n", node.clmb.x, node.clmb.y, node.clmb.z);
   }
 
   fclose(pStream);
@@ -1993,7 +2004,6 @@ bool CTracker::read_coulomb_field()
     return false;
   }
 
-  CNode3D* pNode = NULL;
   for(size_t i = 0; i < nNodeCount; i++)
   {
     nRes = fscanf_s(pStream, "%f, %f, %f", &fEx, &fEy, &fEz);
@@ -2003,8 +2013,8 @@ bool CTracker::read_coulomb_field()
       return false;
     }
 
-    pNode = m_vNodes.at(i);
-    pNode->clmb = Vector3D(fEx, fEy, fEz);
+    CNode3D& node = m_vNodes.at(i);
+    node.clmb = Vector3D(fEx, fEy, fEz);
   }
 
   fclose(pStream);

@@ -95,7 +95,7 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
 
   int nType;
   float fMaxRelErr = FLT_MAX;
-  const CNodesCollection& vNodes = m_pMesh->get_nodes();
+  const CNodesVector& vNodes = m_pMesh->get_nodes();
   size_t nNodesCount = vNodes.size();
 
   CFloatArray vErr;
@@ -116,12 +116,12 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
       ThreadPool::splitInPar(nNodesCount,
 	      [&](size_t i) 
         {
-          CNode3D* pNode = vNodes[i];
+          const CNode3D& node = vNodes[i];
           CDirichletCell* pCell = m_pTess->get_cell(i);
           float fDiagCoeff = m_vDiagCoeff.at(i);
           int nType = m_vRes.at(i).nType;
           if(nType != 1)
-            m_vRes[i].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+            m_vRes[i].fValue = single_node_iter(node, pCell, m_vU0, vNodes, fDiagCoeff, nType);
 
           float fMaxVal = max(::fabsf(m_vRes.at(i).fValue), ::fabsf(m_vU0[i]));
           if(fMaxVal > Const_Almost_Zero)
@@ -148,12 +148,12 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
       set_progress(100 * (i + 1) / nIterCount);
       for (size_t j = 0; j < vNodes.size(); ++j)
       {
-	      CNode3D* pNode = vNodes[j];
+	      const CNode3D& node = vNodes[j];
 	      CDirichletCell * pCell = m_pTess->get_cell(j);
 	      double fDiagCoeff = m_vDiagCoeff.at(j);
 	      nType = m_vRes.at(j).nType;
 	      if (nType != 1)
-		      m_vRes[j].fValue = single_node_iter(pNode, pCell, m_vU0, vNodes, fDiagCoeff, nType);
+		      m_vRes[j].fValue = single_node_iter(node, pCell, m_vU0, vNodes, fDiagCoeff, nType);
       }
 
       fMaxRelErr = get_max_relative_error();
@@ -176,9 +176,8 @@ static const Vector3D scvNull(0, 0, 0);
 
 float CFiniteVolumesSolver::one_iter()
 {
-  CNode3D* pNode = NULL;
   CDirichletCell* pCell = NULL;
-  const CNodesCollection& vNodes = m_pMesh->get_nodes();
+  const CNodesVector& vNodes = m_pMesh->get_nodes();
   Vector3D vNorm, vNbr, vF, vB;
   Matrix3D mMtx;
   float fSum;
@@ -186,8 +185,8 @@ float CFiniteVolumesSolver::one_iter()
   size_t nNodesCount = vNodes.size(), nNbrCount;
   for(size_t i = 0; i < nNodesCount; i++)
   {
-    pNode = vNodes.at(i);
-    nNbrCount = pNode->vNbrNodes.size();
+    const CNode3D& node = vNodes.at(i);
+    nNbrCount = node.vNbrNodes.size();
     pCell = m_pTess->get_cell(i);
 
     const CNodeInfo& info = m_vRes.at(i);
@@ -197,7 +196,7 @@ float CFiniteVolumesSolver::one_iter()
       {
         fSum = 0;
         for(size_t j = 0; j < nNbrCount; j++)
-          fSum += m_vU0[pNode->vNbrNodes.at(j)] * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
+          fSum += m_vU0[node.vNbrNodes.at(j)] * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
 
         m_vRes.at(i).fValue = fSum / m_vDiagCoeff.at(i);
         break;
@@ -217,7 +216,7 @@ float CFiniteVolumesSolver::one_iter()
             continue;
 
           vNbr /= pCell->pNbrDist[j];   // divide vNbr by pCell->pNbrDist[j] once again, OK, see equations.
-          vB += vNbr * m_vU0[pNode->vNbrNodes.at(j)];
+          vB += vNbr * m_vU0[node.vNbrNodes.at(j)];
         }
 
         m_vRes.at(i).fValue = (vF & vB) / m_vDiagCoeff.at(i);
@@ -229,16 +228,16 @@ float CFiniteVolumesSolver::one_iter()
   return get_max_relative_error();
 }
 
-float CFiniteVolumesSolver::single_node_iter(CNode3D* pNode, CDirichletCell* pCell, const CFloatArray& vU0, const CNodesCollection& vNodes, float fDiagCoeff, int nType)
+float CFiniteVolumesSolver::single_node_iter(const CNode3D& node, CDirichletCell* pCell, const CFloatArray& vU0, const CNodesVector& vNodes, float fDiagCoeff, int nType)
 {
-  size_t nNbr, nNbrCount = pNode->vNbrNodes.size();
+  size_t nNbr, nNbrCount = node.vNbrNodes.size();
   switch(nType)
   {
     case 0:
     {
       float fSum = 0;
       for(size_t j = 0; j < nNbrCount; j++)
-        fSum += vU0.at(pNode->vNbrNodes.at(j)) * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
+        fSum += vU0.at(node.vNbrNodes.at(j)) * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
 
       return fSum / fDiagCoeff;
     }
@@ -254,9 +253,9 @@ float CFiniteVolumesSolver::single_node_iter(CNode3D* pNode, CDirichletCell* pCe
       Vector3D vF = mMtx * vNorm;
       for(size_t j = 0; j < nNbrCount; j++)
       {
-        nNbr = pNode->vNbrNodes.at(j);
+        nNbr = node.vNbrNodes.at(j);
 // Normalized neighbour vector.
-        vNbr = (vNodes.at(nNbr)->pos - pNode->pos) / pCell->pNbrDist[j];
+        vNbr = (vNodes.at(nNbr).pos - node.pos) / pCell->pNbrDist[j];
 // Take into account only those neighbours, for which (vNorm, vNbr) < eps.
         if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
             continue;
@@ -269,7 +268,7 @@ float CFiniteVolumesSolver::single_node_iter(CNode3D* pNode, CDirichletCell* pCe
     }
   }
 
-  return vU0.at(pNode->nInd);
+  return vU0.at(node.nInd);
 }
 
 void CFiniteVolumesSolver::prepare()
@@ -291,7 +290,7 @@ void CFiniteVolumesSolver::prepare()
 void CFiniteVolumesSolver::calc_diag()
 {
   CDirichletCell* pCell = NULL;
-  const CNodesCollection& vNodes = m_pMesh->get_nodes();
+  const CNodesVector& vNodes = m_pMesh->get_nodes();
   Vector3D vNorm, vNbr, vF, vB;
   Matrix3D mMtx;
   float fSum;

@@ -22,6 +22,7 @@ CFieldPerturbation* CFieldPerturbation::create(int nType)
     case CFieldPerturbation::ptbStackOfRings: return new CStackRingPerturbation();
     case CFieldPerturbation::ptbUniform: return new CUniformAddField();
     case CFieldPerturbation::ptbDoubleLayer: return new CDoubleLayerField();
+    case CFieldPerturbation::ptbFlatChannelRF: return new CFlatChannelRF();
   }
 
   return NULL;
@@ -35,6 +36,7 @@ const char* CFieldPerturbation::perturbation_name(int nType)
     case CFieldPerturbation::ptbStackOfRings: return _T("Stack of Charged Rings");
     case CFieldPerturbation::ptbUniform: return _T("Uniform Field");
     case CFieldPerturbation::ptbDoubleLayer: return _T("Thin Charged Dielectric Film");
+    case CFieldPerturbation::ptbFlatChannelRF: return _T("Analytical RF Field in a Channel");
   }
 
   return _T("None");
@@ -203,8 +205,8 @@ Vector3D CChargedRingPerturbation::field_ptb(const Vector3D& vPos)
 Vector3D CChargedRingPerturbation::get_field(size_t nNodeId)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CNodesCollection& vNodes = pObj->get_nodes();
-  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId)->pos) : vNull;
+  CNodesVector& vNodes = pObj->get_nodes();
+  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId).pos) : vNull;
 }
 
 float CChargedRingPerturbation::get_phi(size_t nNodeId)
@@ -298,8 +300,8 @@ Vector3D CStackRingPerturbation::field_ptb(const Vector3D& vPos)
 Vector3D CStackRingPerturbation::get_field(size_t nNodeId)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CNodesCollection& vNodes = pObj->get_nodes();
-  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId)->pos) : vNull;
+  CNodesVector& vNodes = pObj->get_nodes();
+  return nNodeId < vNodes.size() ? field_ptb(vNodes.at(nNodeId).pos) : vNull;
 }
 
 float CStackRingPerturbation::get_phi(size_t nNodeId)
@@ -564,7 +566,7 @@ bool CDoubleLayerField::calc_field()
   set_job_name((const char*)sJobName);
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  CNodesCollection& vNodes = pObj->get_nodes();
+  CNodesVector& vNodes = pObj->get_nodes();
   size_t nNodesCount = vNodes.size();
   m_vPhi.resize(nNodesCount, 0);
   m_vField.resize(nNodesCount, Vector3F(vNull));
@@ -579,7 +581,7 @@ bool CDoubleLayerField::calc_field()
     ThreadPool::splitInPar(vNodes.size(),
 	    [&](size_t i) 
     {
-      Vector3D vPos = vNodes.at(i)->pos;
+      Vector3D vPos = vNodes.at(i).pos;
       CFace* pFace = NULL;
       CRegion* pReg = NULL;
       for(size_t j = 0; j < nFacesCount; j++)
@@ -605,7 +607,7 @@ bool CDoubleLayerField::calc_field()
     Vector3D vPos;
     for(size_t i = 0; i < nNodesCount; i++)
     {
-      vPos = vNodes.at(i)->pos;
+      vPos = vNodes.at(i).pos;
       if(i % 100 == 0)
         set_progress(100 * (i + 1) / nNodesCount);
 
@@ -752,5 +754,381 @@ void CDoubleLayerField::load(CArchive& ar)
   m_bReady = true;
 }
 
+//-----------------------------------------------------------------------------
+// CFlatChannelRF - a model of the RF field in a narrow channel from a set of 
+//                  narrow stripes (MEMS devices).
+//-----------------------------------------------------------------------------
+CFlatChannelRF::CFlatChannelRF()
+  : CFieldPerturbation(), m_fStripeWidth(0), m_fGapWidth(0), m_pA(NULL), m_pB(NULL), m_pLmb(NULL), m_pRes(NULL)
+{
+  m_nType = CFieldPerturbation::ptbFlatChannelRF;
+  set_default();
+}
+ 
+CFlatChannelRF::~CFlatChannelRF()
+{
+  delete_arrays();
+}
+
+Vector3D CFlatChannelRF::field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase)
+{
+  if(!m_bReady)   // m_bEnable is checked before call (in CTracker::get_ion_accel()).
+    return vNull;
+
+  if(!m_BoundBox.inside(vPos))
+    return vNull;
+
+  Vector2D v = trans_to_model_coord(vPos);
+
+  UINT ix, jy;
+  double ksix, ksiy;
+  if(!cell_indices(v, ix, ksix, jy, ksiy))
+    return vNull;
+
+  Vector2D r00 = m_pRes[ix][jy];
+  bool bInsX = ix < m_nNx - 1;
+  Vector2D r10 = bInsX ? m_pRes[ix + 1][jy] : m_pRes[0][jy];  // periodicity in x.
+  bool bInsY = jy < m_nNy - 1;
+  Vector2D r01 = bInsY ? m_pRes[ix][jy + 1] : Vector2D(0, 0); // zero field at large y.
+
+  Vector2D r11;
+  if(bInsX && bInsY)
+    r11 = m_pRes[ix + 1][jy + 1];
+  else if(bInsY)
+    r11 = m_pRes[0][jy + 1];
+  else
+    r11 = Vector2D(0, 0);
+
+  Vector2D vRes = r00 * (1 - ksix - ksiy + ksix*ksiy) + r10 * (1 - ksiy) * ksix + r01 * (1 - ksix) * ksiy + r11 * ksix * ksiy;
+
+  Vector3D vF(vRes.x, vRes.y, 0); // Temporarily! In the nearest future different direction of m_vDirX and m_vDirZ must be supported.
+  vF *= m_fAmpl * sin(m_fOmega * fTime + fPhase);
+  return vF;
+}
+
+bool CFlatChannelRF::prepare()
+{
+  set_dir();
+  calc_bounding_box();
+
+  if(!calc_coeff())
+  {
+    AfxMessageBox(_T("CFlatChannelRF::prepare(): Bad perturbation parameters. Simulation terminated."));
+    CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+    pObj->terminate();
+    return false;
+  }
+
+  Vector2D v;
+  for(UINT i = 0; i < m_nNx; i++)
+  {
+    for(UINT j = 0; j < m_nNy; j++)
+    {
+      v = model_coord(i, j);
+      m_pRes[i][j] = field_in_model_coord(v.x, v.y);
+    }
+  }
+
+// DEBUG
+  test_output();
+// END DEBUG
+
+  m_bReady = true;
+  return true;
+}
+
+void CFlatChannelRF::set_default()
+{
+  m_bReady = false;
+  m_bOnTheFly = true;
+
+  set_stripe_width(0.0024); // 24 mcm.
+  set_gap_width(0.0016);    // 16 mcm.
+
+  m_fChannelHeight = 0.01;  // 100 mcm.
+  m_fChannelLength = 1.0;   // 10 mm.
+  m_fChannelWidth = 2.0;
+
+  set_rf_freq(2.0e+7);                  // radio frequency, 20 MHz.
+  m_fAmpl = 150.0 * SI_to_CGS_Voltage;  // amplitude, 150 V in CGSE.
+
+  m_vStartPoint = Vector3D(0, 0, -1.0); // Left-Bottom-Far corner of the analytical domain.
+  m_vDirX = Vector3D(1, 0, 0);
+  m_vDirY = Vector3D(0, 1, 0);
+// Translational direction, nothing changes along it. Can be either (0, 0, 1) or (1, 0, 0).
+  m_vDirZ = Vector3D(0, 0, 1);
+
+  m_nDecompCount = 5;
+  m_nTransDir = strAlongZ;
+
+// Dimensions of the result array:
+  m_nNx = 30;
+  m_nNy = 30;
+}
+
+void CFlatChannelRF::allocate_arrays()
+{
+  delete_arrays();
+  if(m_nDecompCount == 0)
+    return;
+
+  m_pA = new double[m_nDecompCount];
+  m_pB = new double[m_nDecompCount];
+  m_pLmb = new double[m_nDecompCount];
+
+  m_pRes = new Vector2D*[m_nNx];
+  for(UINT i = 0; i < m_nNx; i++)
+    m_pRes[i] = new Vector2D[m_nNy];
+}
+
+void CFlatChannelRF::delete_arrays()
+{
+  if(m_pA != NULL)
+    delete[] m_pA;
+
+  if(m_pB != NULL)
+    delete[] m_pB;
+
+  if(m_pLmb != NULL)
+    delete[] m_pLmb;
+
+  m_pA = NULL;
+  m_pB = NULL;
+  m_pLmb = NULL;
+
+  if(m_pRes != NULL)
+  {
+    for(UINT i = 0; i < m_nNx; i++)
+      delete[] m_pRes[i];
+
+    delete[] m_pRes;
+    m_pRes = NULL;
+  }
+}
+
+bool CFlatChannelRF::calc_coeff()
+{
+  if(m_fWaveLength < Const_Almost_Zero || m_nDecompCount == 0)
+    return false;
+
+  UINT k;
+  allocate_arrays();
+  for(UINT i = 0; i < m_nDecompCount; i++)
+  {
+    k = 2 * i + 1;
+
+    m_pLmb[i] = Const_2PI * k / m_fWaveLength;
+
+    double fArg = m_pLmb[i] * m_fChannelHeight;
+    m_pB[i] = fArg < 10.0 ? -cosh(fArg) / sinh(fArg) : -1.0;
+
+    m_pA[i] = coeff_Fourier(k);
+  }
+
+  return true;
+}
+
+double CFlatChannelRF::coeff_Fourier(UINT k)
+{
+  double fCoeff = 4 * m_fWaveLength / (Const_PI * Const_PI * k * k * m_fGapWidth);
+  double fArg = Const_PI * k * m_fGapWidth / m_fWaveLength;
+  return fCoeff * sin(fArg);
+}
+
+Vector2D CFlatChannelRF::field_in_model_coord(double x, double y) const
+{
+  Vector2D vRes(0, 0);
+  if(x < 0 || x > m_fWaveLength || y < 0 || y > m_fChannelHeight) 
+    return vRes;
+
+  double argx, argy, sinx, cosx, sinhy, coshy, coeff;
+  for(UINT i = 0; i < m_nDecompCount; i++)
+  {
+    argx = m_pLmb[i] * x;
+    sinx = sin(argx);
+    cosx = cos(argx);
+
+    argy = m_pLmb[i] * y;
+    sinhy = sinh(argy);
+    coshy = cosh(argy);
+
+    coeff = m_pA[i] * m_pLmb[i];
+    vRes.x -= coeff * cosx * (coshy + m_pB[i] * sinhy);
+    vRes.y -= coeff * sinx * (sinhy + m_pB[i] * coshy);
+  }
+
+  return vRes;
+}
+
+Vector2D CFlatChannelRF::trans_to_model_coord(const Vector3D& vPos) const
+{
+  Vector3D vLoc = vPos - m_vStartPoint;
+  vLoc -= (vLoc & m_vDirZ) * m_vDirZ;
+  double xmod = (vLoc & m_vDirX);
+  if(xmod > 0)
+  {
+    UINT n = UINT(xmod / m_fWaveLength);
+    if(n > 0)
+      xmod -= n * m_fWaveLength;
+  }
+
+  double ymod = (vLoc & m_vDirY);
+
+  return Vector2D(xmod, ymod);
+}
+
+Vector2D CFlatChannelRF::model_coord(UINT ix, UINT jy) const
+{
+  double x = ix * m_fWaveLength / m_nNx;          // periodicity in x, f(x) == f(x + m_fWaveLength).
+  double y = jy * m_fChannelHeight / (m_nNy - 1); // at jy == m_nNy - 1, y must be equal to m_fChannelHeight.
+  return Vector2D(x, y);
+}
+
+bool CFlatChannelRF::cell_indices(const Vector2D& vModPos, UINT& ix, double& ksix, UINT& jy, double& ksiy) const
+{
+  if(vModPos.x < 0 || vModPos.y < 0)
+    return false;
+
+  double fStepX = m_fWaveLength / m_nNx;
+  ix = UINT(vModPos.x / fStepX);
+  if(ix >= m_nNx)
+    return false;
+
+  ksix = vModPos.x - ix * fStepX;
+
+  double fStepY = m_fChannelHeight / m_nNy;
+  jy = UINT(vModPos.y / fStepY);
+  if(jy >= m_nNy)
+    return false;
+
+  ksiy = vModPos.y - jy * fStepY;
+  return true;
+}
+
+void CFlatChannelRF::calc_bounding_box()
+{
+  Vector3D vMax = Vector3D(m_vStartPoint.x + m_fChannelLength, m_vStartPoint.y + m_fChannelHeight, m_vStartPoint.z + m_fChannelWidth);
+  m_BoundBox = CBox(m_vStartPoint, vMax);
+}
+
+void CFlatChannelRF::set_dir()
+{
+  switch(m_nTransDir)
+  {
+    case strAlongZ: m_vDirX = Vector3D(1, 0, 0); m_vDirZ = Vector3D(0, 0, 1); break;
+    case strAlongX: m_vDirX = Vector3D(0, 0, 1); m_vDirZ = Vector3D(-1, 0, 0); break;
+  }
+}
+
+const char* CFlatChannelRF::get_trans_dir_name(int nDir) const
+{
+  switch(nDir)
+  {
+    case strAlongZ: return _T(" Z");
+    case strAlongX: return _T(" X");
+  }
+  return _T(" ");
+}
+
+void CFlatChannelRF::save(CArchive& ar)
+{
+  UINT nVersion = 1;
+  ar << nVersion;
+
+  CFieldPerturbation::save(ar);
+
+  ar << m_fStripeWidth;
+  ar << m_fGapWidth;
+
+  ar << m_fChannelHeight;
+  ar << m_fChannelLength;
+  ar << m_fChannelWidth;
+
+  ar << m_fFreq;
+  ar << m_fAmpl;
+
+  ar << m_nDecompCount;
+
+  ar << m_vStartPoint.x;
+  ar << m_vStartPoint.y;
+  ar << m_vStartPoint.z;
+
+  ar << m_nTransDir;
+}
+
+void CFlatChannelRF::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  CFieldPerturbation::load(ar);
+
+  ar >> m_fStripeWidth;
+  ar >> m_fGapWidth;
+
+  ar >> m_fChannelHeight;
+  ar >> m_fChannelLength;
+  ar >> m_fChannelWidth;
+
+  ar >> m_fFreq;
+  ar >> m_fAmpl;
+
+  ar >> m_nDecompCount;
+
+  ar >> m_vStartPoint.x;
+  ar >> m_vStartPoint.y;
+  ar >> m_vStartPoint.z;
+
+  if(nVersion >= 1)
+    ar >> m_nTransDir;
+}
+
+bool CFlatChannelRF::test_output()
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  std::string cPath = COutputEngine::get_full_path(pObj->get_filename());
+  std::string cName("Analyt_RF_Field");
+  std::string cExt(".csv");
+  std::string cFileName = cPath + cName + cExt;
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, cFileName.c_str(), (const char*)("w"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  double fStepX = m_fWaveLength / m_nNx;
+  double fStepY = m_fChannelHeight / (m_nNy - 1);
+  float x = 0, y = 0, f = 0;
+// For Origin we need only potential data, the X and Y values are assumed to be equidistant.
+  for(UINT j = 0; j < m_nNy; j++)
+  {
+    y = j * fStepY;
+    for(UINT i = 0; i <= m_nNx; i++)
+    {
+      x = i * fStepX;
+      f = phi_in_model_coord(x, y);
+      if(i == m_nNx)
+        fprintf_s(pStream, "%7.4f\n", f);
+      else
+        fprintf_s(pStream, "%7.4f,", f);
+    }
+  }
+
+  fclose(pStream);
+  return true;
+}
+
+double CFlatChannelRF::phi_in_model_coord(double x, double y) const
+{
+  double phi = 0, fArgX, fArgY;
+  for(UINT i = 0; i < m_nDecompCount; i++)
+  {
+    fArgX = m_pLmb[i] * x;
+    fArgY = m_pLmb[i] * y;
+    phi += m_pA[i] * sin(fArgX) * (cosh(fArgY) + m_pB[i] * sinh(fArgY));
+  }
+
+  return phi;
+}
 
 };  // namespace EvaporatingParticle

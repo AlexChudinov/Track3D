@@ -272,19 +272,18 @@ void CFieldDataColl::clear_fields_in_nodes()
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   pObj->set_job_name("Clearing field in nodes...");
-  CNodesCollection& vNodes = pObj->get_nodes();
+  CNodesVector& vNodes = pObj->get_nodes();
 
-  CNode3D* pNode = NULL;
   size_t nCount = vNodes.size();
   for(size_t i = 0; i < nCount; i++)
   {
     if((i % 100 == 0) && !pObj->get_terminate_flag())
       pObj->set_progress(100 * i / nCount);
 
-    pNode = vNodes.at(i);
-    pNode->field = scvNull;
-    pNode->clmb = scvNull;
-    pNode->rf = scvNull;
+    CNode3D& node = vNodes.at(i);
+    node.field = scvNull;
+    node.clmb = scvNull;
+    node.rf = scvNull;
   }
 }
 
@@ -453,7 +452,7 @@ bool CElectricFieldData::calc_lap3()
   {
     terminate(false);
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-    const CNodesCollection& vNodes = pObj->get_nodes();
+    const CNodesVector& vNodes = pObj->get_nodes();
     CMeshAdapter mesh(pObj->get_elems(), vNodes);
     mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
@@ -506,7 +505,7 @@ bool CElectricFieldData::calc_lap3()
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], m_vPhi[i]);
+        apply_analytic_field(vNodes.at(i).pos, m_vField[i], m_vPhi[i]);
     }
 
     m_bNeedRecalc = m_nType == typeMirror;  // false;
@@ -533,7 +532,7 @@ bool CElectricFieldData::calc_dirichlet_lap3()
   {
     terminate(false);
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-    const CNodesCollection& vNodes = pObj->get_nodes();
+    const CNodesVector& vNodes = pObj->get_nodes();
     DCMeshAdapter mesh(pObj->get_elems(), vNodes, *pTessObj);
     mesh.progressBar()->set_handlers(m_hJobNameHandle, m_hProgressBarHandle, m_hDlgWndHandle);
 
@@ -593,7 +592,7 @@ bool CElectricFieldData::calc_dirichlet_lap3()
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(i)->pos, m_vField[i], m_vPhi[i]);
+        apply_analytic_field(vNodes.at(i).pos, m_vField[i], m_vPhi[i]);
     }
 
     m_bNeedRecalc = m_nType == typeMirror;
@@ -639,7 +638,7 @@ bool CElectricFieldData::calc_finite_vol_jacobi()
     if(!info.bSuccess)
       return false;
 
-    CNodesCollection& vNodes = pMesh->get_nodes();
+    CNodesVector& vNodes = pMesh->get_nodes();
     size_t nNodeCount = vNodes.size();
     m_vPhi.resize(nNodeCount);
     m_vField.resize(nNodeCount);
@@ -652,7 +651,7 @@ bool CElectricFieldData::calc_finite_vol_jacobi()
 
 // An attempt to get analytic field in the flatapole. Alpha version.
       if(m_bAnalytField && (m_nType == typeFieldRF))
-        apply_analytic_field(vNodes.at(k)->pos, m_vField[k], m_vPhi[k]);
+        apply_analytic_field(vNodes.at(k).pos, m_vField[k], m_vPhi[k]);
     }
 
     output_convergence_history(info.vMaxErrHist);
@@ -860,10 +859,10 @@ bool CElectricFieldData::get_result() const
   if(m_nType != typeFieldDC)
     return true;
 
-  CNodesCollection& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
+  CNodesVector& vNodes = CParticleTrackingApp::Get()->GetTracker()->get_nodes();
   size_t nNodeCount = vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
-    vNodes.at(i)->field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
+    vNodes.at(i).field += Vector3D(m_vField[i].x, m_vField[i].y, m_vField[i].z) * m_fScale;
 
   return true;
 }
@@ -1006,7 +1005,7 @@ void CElectricFieldData::set_boundary_values(CMeshAdapter& mesh, CRegion* pReg, 
       for(citer = vNodeLabels.cbegin(); citer != vNodeLabels.cend(); citer++)
       {
         nNodeId = *citer;
-        vPos = pObj->get_nodes().at(nNodeId)->pos;
+        vPos = pObj->get_nodes().at(nNodeId).pos;
         fVal = -pBHObj->coulomb_phi(vPos);
         vBoundPhi.push_back(fVal);
       }
@@ -1103,13 +1102,13 @@ bool CElectricFieldData::coulomb_potential(const CIndexVector& vNodeIds, std::ve
 
   Vector3D vPos;
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  const CNodesCollection& vNodes = pObj->get_nodes();
+  const CNodesVector& vNodes = pObj->get_nodes();
   CBarnesHut* pBHObj = pObj->get_BH_object();
   vPhi.assign(nLocCount, 0);
 
   for(size_t i = 0; i < nLocCount; i++)
   {
-    vPos = vNodes.at(vNodeIds.at(i))->pos;
+    vPos = vNodes.at(vNodeIds.at(i)).pos;
     vPhi[i] = -(float)(pBHObj->coulomb_phi(vPos));
   }
 

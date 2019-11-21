@@ -96,7 +96,7 @@ bool CSource::generate_initial_cond()
   calc_loc_triad();
 
   Matrix3D mRotPitch, mRotAzim;
-  Vector3D vPos, vVel, vShift, vReflPos, vReflCoeff;
+  Vector3F vPos, vVel, vShift, vReflPos, vReflCoeff;
   UINT nEnsIndex = 0;
 // Progress bar support:
   UINT nMaxInd = m_nInjType == itRandom ? m_nCount : 1 + m_nPitchCount * m_nAzimCount;
@@ -111,7 +111,7 @@ bool CSource::generate_initial_cond()
       else  // itHomogen
       {
         vPos = m_vPos;
-        vReflPos = reflector.reflectionCoefs(vPos) && vPos;  // this must be inside the ANSYS mesh as it is.
+        vReflPos = Vector3F(reflector.reflectionCoefs(vPos)) && vPos;  // this must be inside the ANSYS mesh as it is.
 // Check whether the position is really inside the simulation domain.
         if(!pObj->interpolate(vReflPos, 0, 0, node, pElem))
           return false;
@@ -183,7 +183,7 @@ bool CSource::generate_initial_cond()
       }
       else  // itHomogen
       {
-        double fRad, fAzim;
+        float fRad, fAzim;
         vPos = m_vPos;
         vReflCoeff = reflector.reflectionCoefs(vPos);
         vReflPos = vReflCoeff && vPos;

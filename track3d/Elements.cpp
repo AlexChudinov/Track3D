@@ -445,13 +445,13 @@ void CElem3D::interpolate(const Vector3D& p, CNode3D& node) const
   node.pos = p;
   node.set_data(0, 0, 0, 0, 0, 0, vZero, vZero,vZero);  // this is just a container for interpolated data.
 
-  double w;
+  float w;
   CNode3D* pNode = NULL;
   UINT nNodeCount = get_node_count();
   for(size_t i = 0; i < nNodeCount; i++)
   {
     pNode = get_node(i);
-    w = shape_func(s, t, u, i);
+    w = float(shape_func(s, t, u, i));
 // Scalars:
     node.dens  += w * pNode->dens;
     node.press += w * pNode->press;
@@ -511,7 +511,7 @@ Vector3D CElem3D::func(double s, double t, double u, const Vector3D& pos) const
   Vector3D vFunc;
   UINT nNodeCount = get_node_count();
   for(size_t i = 0; i < nNodeCount; i++)
-    vFunc += shape_func(s, t, u, i) * get_node(i)->pos;
+    vFunc += float(shape_func(s, t, u, i)) * get_node(i)->pos;
 
   vFunc -= pos;
   return vFunc;
@@ -593,6 +593,15 @@ bool CElem3D::param(const Vector3D& p, double& s, double& t, double& u) const
   return true;
 }
 
+CNodesCollection CElem3D::get_nodes() const
+{
+  CNodesCollection vNodes(get_node_count());
+  for(UINT i = 0; i < get_node_count(); i++)
+    vNodes[i] = &(CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(get_node_index(i)));
+
+  return vNodes;
+}
+
 //-------------------------------------------------------------------------------------------------
 //    CElemTetra - a simple object that consists of 4 tetrahedron planes (only planes, not nodes).
 //-------------------------------------------------------------------------------------------------
@@ -628,8 +637,7 @@ void CElemTetra::add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, co
 //-------------------------------------------------------------------------------------------------
 //                      CTetra - a tetrahedron object of 4 nodes.
 //-------------------------------------------------------------------------------------------------
-CTetra::CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3)
-  : CElem3D(vNodes)
+CTetra::CTetra(UINT i0, UINT i1, UINT i2, UINT i3)
 {
   vTetNodeIds[0] = i0;
   vTetNodeIds[1] = i1;
@@ -638,8 +646,7 @@ CTetra::CTetra(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i
   valid = init();
 }
 
-CTetra::CTetra(const CNodesCollection& vNodes, const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3)
-  : CElem3D(vNodes)
+CTetra::CTetra(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const Vector3D& v3)
 {
   add_plane(0, v0, v1, v3);
   add_plane(1, v1, v2, v3);
@@ -724,6 +731,11 @@ void CTetra::add_plane(UINT nInd, const Vector3D& p0, const Vector3D& p1, const 
   vFaces.add_plane(nInd, p0, p1, p2);
 }
 
+CNode3D* CTetra::get_node(UINT nInd) const
+{ 
+  return nInd < 4 ? &(CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(vTetNodeIds[nInd])) : NULL;
+}
+
 const UINT * CTetra::nodes() const
 {
 	return vTetNodeIds;
@@ -750,8 +762,7 @@ void CHexa::deleteObj()
 //-------------------------------------------------------------------------------------------------
 //                          CPyramid - a pyramid object of 5 nodes.
 //-------------------------------------------------------------------------------------------------
-CPyramid::CPyramid(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4)
-  : CElem3D(vNodes) //, pTet1(NULL), pTet2(NULL)
+CPyramid::CPyramid(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4)
 {
   vPyrNodeIds[0] = i0;
 	vPyrNodeIds[1] = i1;
@@ -823,7 +834,12 @@ double CPyramid::shape_func_deriv(double s, double t, double u, size_t nfunc, si
   return 0.;
 }
 
-const UINT * CPyramid::nodes() const
+CNode3D* CPyramid::get_node(UINT nInd) const
+{ 
+  return nInd < 5 ? &(CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(vPyrNodeIds[nInd])) : NULL;
+}
+
+const UINT* CPyramid::nodes() const
 {
 	return vPyrNodeIds;
 }
@@ -831,8 +847,7 @@ const UINT * CPyramid::nodes() const
 //-------------------------------------------------------------------------------------------------
 //                         CWedge - a prismatic object of 6 nodes.
 //-------------------------------------------------------------------------------------------------
-CWedge::CWedge(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5)
-  : CElem3D(vNodes)
+CWedge::CWedge(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5)
 {
 	vWdgNodeIds[0] = i0;
   vWdgNodeIds[1] = i1;
@@ -942,7 +957,12 @@ double CWedge::shape_func_deriv(double s, double t, double u, size_t nfunc, size
   return 0.;
 }
 
-const UINT * CWedge::nodes() const
+CNode3D* CWedge::get_node(UINT nInd) const
+{ 
+  return nInd < 6 ? &(CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(vWdgNodeIds[nInd])) : NULL;
+}
+
+const UINT* CWedge::nodes() const
 {
 	return vWdgNodeIds;
 }
@@ -950,8 +970,7 @@ const UINT * CWedge::nodes() const
 //-------------------------------------------------------------------------------------------------
 //                        CHexa - a hexagonal object of 8 nodes.
 //-------------------------------------------------------------------------------------------------
-CHexa::CHexa(const CNodesCollection& vNodes, UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7)
-  : CElem3D(vNodes)
+CHexa::CHexa(UINT i0, UINT i1, UINT i2, UINT i3, UINT i4, UINT i5, UINT i6, UINT i7)
 {
 	vHexNodeIds[0] = i0;
   vHexNodeIds[1] = i1;
@@ -1105,7 +1124,12 @@ double CHexa::shape_func_deriv(double s, double t, double u, size_t nfunc, size_
   return 0.;
 }
 
-const UINT * CHexa::nodes() const
+CNode3D* CHexa::get_node(UINT nInd) const
+{ 
+  return nInd < 8 ? &(CParticleTrackingApp::Get()->GetTracker()->get_nodes().at(vHexNodeIds[nInd])) : NULL;
+}
+
+const UINT* CHexa::nodes() const
 {
 	return vHexNodeIds;
 }

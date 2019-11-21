@@ -70,7 +70,7 @@ protected:
 
   void                get_face_values_array(CFace* pFace, double* pVal) const;
 
-  double              get_node_value(CNode3D* pNode) const;
+  double              get_node_value(const CNode3D& node) const;
 
   void                add_face(const Vector3D& v0, const Vector3D& v1, const Vector3D& v2, const RGB_Color& clr);
   void                add_edge(const Vector3D& v0, const Vector3D& v1);

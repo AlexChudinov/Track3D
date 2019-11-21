@@ -47,7 +47,7 @@ void CAnsysMesh::clear()
 
     delete pReg;
   }
-
+/*
   size_t nNodeCount = m_vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
   {
@@ -56,7 +56,7 @@ void CAnsysMesh::clear()
 
     delete m_vNodes.at(i);
   }
-
+*/
   m_vNodes.clear();
   m_vElems.clear();
   m_vRegions.clear();
@@ -131,7 +131,6 @@ bool CAnsysMesh::read_geometry()
   m_vNodes.clear();
   m_vNodes.reserve(nNodeCount);
 
-  CNode3D* pNode = NULL;
 // Important! Nodes in ANSYS output are enumerated from 1 to nNodeCount. In connectivity data, too!
 // In our arrays we enumerate nodes from 0 to nNodeCount - 1, i.e. subtract unity from the original node index.
   for(UINT i = 0; i < nNodeCount; i++)
@@ -149,9 +148,9 @@ bool CAnsysMesh::read_geometry()
     if(m_Transform.get_enable())
       m_Transform.transform(vPos);
 
-    pNode = new CNode3D(vPos);
-    pNode->nInd = i;
-    m_vNodes.push_back(pNode);
+    CNode3D node(vPos);
+    node.nInd = i;
+    m_vNodes.push_back(node);
 
 // Progress bar and termination support:
     if(i % 100 == 0)
@@ -269,7 +268,7 @@ bool CAnsysMesh::read_geometry()
   }
 
   for(UINT i = 0; i < nNodeCount; i++)
-    m_vNodes.at(i)->shrink_to_fit();
+    m_vNodes.at(i).shrink_to_fit();
 
   fclose(pStream);
   bounding_box();
@@ -306,13 +305,13 @@ bool CAnsysMesh::read_2D_regions()
       n0--;
       n1--;
       n2--;
-      pFace = new CFace(m_vNodes.at(n0), m_vNodes.at(n1), m_vNodes.at(n2));
+      pFace = new CFace(&(m_vNodes.at(n0)), &(m_vNodes.at(n1)), &(m_vNodes.at(n2)));
       pReg->vFaces.push_back(pFace);
       nFace = pReg->vFaces.size() - 1;
       CRegFacePair pair(i, nFace);
-      m_vNodes.at(n0)->vNbrFaces.push_back(pair);
-      m_vNodes.at(n1)->vNbrFaces.push_back(pair);
-      m_vNodes.at(n2)->vNbrFaces.push_back(pair);
+      m_vNodes.at(n0).vNbrFaces.push_back(pair);
+      m_vNodes.at(n1).vNbrFaces.push_back(pair);
+      m_vNodes.at(n2).vNbrFaces.push_back(pair);
     }
 
     nRes = fscanf_s(pStream, "%d", &nQuadCount);
@@ -323,21 +322,21 @@ bool CAnsysMesh::read_2D_regions()
       n1--;
       n2--;
       n3--;
-      pFace = new CFace(m_vNodes.at(n0), m_vNodes.at(n1), m_vNodes.at(n2));
+      pFace = new CFace(&(m_vNodes.at(n0)), &(m_vNodes.at(n1)), &(m_vNodes.at(n2)));
       pReg->vFaces.push_back(pFace);
       nFace = pReg->vFaces.size() - 1;
       CRegFacePair pair1(i, nFace);
-      m_vNodes.at(n0)->vNbrFaces.push_back(pair1);
-      m_vNodes.at(n1)->vNbrFaces.push_back(pair1);
-      m_vNodes.at(n2)->vNbrFaces.push_back(pair1);
+      m_vNodes.at(n0).vNbrFaces.push_back(pair1);
+      m_vNodes.at(n1).vNbrFaces.push_back(pair1);
+      m_vNodes.at(n2).vNbrFaces.push_back(pair1);
 
-      pFace = new CFace(m_vNodes.at(n0), m_vNodes.at(n2), m_vNodes.at(n3));
+      pFace = new CFace(&(m_vNodes.at(n0)), &(m_vNodes.at(n2)), &(m_vNodes.at(n3)));
       pReg->vFaces.push_back(pFace);
       nFace = pReg->vFaces.size() - 1;
       CRegFacePair pair2(i, nFace);
-      m_vNodes.at(n0)->vNbrFaces.push_back(pair2);
-      m_vNodes.at(n2)->vNbrFaces.push_back(pair2);
-      m_vNodes.at(n3)->vNbrFaces.push_back(pair2);
+      m_vNodes.at(n0).vNbrFaces.push_back(pair2);
+      m_vNodes.at(n2).vNbrFaces.push_back(pair2);
+      m_vNodes.at(n3).vNbrFaces.push_back(pair2);
     }
 
     pReg->bounding_box();
@@ -375,7 +374,6 @@ bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
 
   float fPress, fDens, fTemp, fDynVisc, fThermCond, fCp, fVx, fVy, fVz, fEx, fEy, fEz, fRFEx, fRFEy, fRFEz;
 
-  CNode3D* pNode = NULL;
   Vector3D vVel, vFieldDC, vFieldRF;
   size_t nNodeCount = m_vNodes.size();
   for(size_t i = 0; i < nNodeCount; i++)
@@ -400,17 +398,17 @@ bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
       m_Transform.transform(vFieldRF, false);
     }
 
-    pNode = m_vNodes.at(i);
-    pNode->clmb = scvNull;
-    pNode->phi = 0;
+    CNode3D& node = m_vNodes.at(i);
+    node.clmb = scvNull;
+    node.phi = 0;
     if(bFieldsOnly) // [MS] 29-06-2017 workaround to allow ANSYS fields together with DSMC gas dynamics.
     {
-      pNode->field = vFieldDC;
-      pNode->rf = vFieldRF;
+      node.field = vFieldDC;
+      node.rf = vFieldRF;
     }
     else
     {
-      pNode->set_data(fPress, fDens, fTemp, fDynVisc, fThermCond, fCp, vVel, vFieldDC, vFieldRF);
+      node.set_data(fPress, fDens, fTemp, fDynVisc, fThermCond, fCp, vVel, vFieldDC, vFieldRF);
     }
 
 // Progress bar and termination support:
@@ -432,156 +430,156 @@ inline void add_unique(CIndexVector& vColl, UINT nInd)
   vColl.push_back(nInd);
 }
 
-void CAnsysMesh::add_tetra(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3)
+void CAnsysMesh::add_tetra(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3)
 {
-  CTetra* pTetra = new CTetra(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd);
+  CTetra* pTetra = new CTetra(p0.nInd, p1.nInd, p2.nInd, p3.nInd);
   pTetra->nInd = m_vElems.size(); // this index is used in integrators as well as in export of the mesh to the OpenFOAM format.
   m_vElems.push_back((CElem3D*)pTetra);
 
-  p0->vNbrElems.push_back(pTetra->nInd);
-  p1->vNbrElems.push_back(pTetra->nInd);
-  p2->vNbrElems.push_back(pTetra->nInd);
-  p3->vNbrElems.push_back(pTetra->nInd);
+  p0.vNbrElems.push_back(pTetra->nInd);
+  p1.vNbrElems.push_back(pTetra->nInd);
+  p2.vNbrElems.push_back(pTetra->nInd);
+  p3.vNbrElems.push_back(pTetra->nInd);
 
 // Neighbours of the nodes (Dirichlet cell support):
-  add_unique(p0->vNbrNodes, p1->nInd);
-  add_unique(p0->vNbrNodes, p2->nInd);
-  add_unique(p0->vNbrNodes, p3->nInd);
+  add_unique(p0.vNbrNodes, p1.nInd);
+  add_unique(p0.vNbrNodes, p2.nInd);
+  add_unique(p0.vNbrNodes, p3.nInd);
 
-  add_unique(p1->vNbrNodes, p0->nInd);
-  add_unique(p1->vNbrNodes, p2->nInd);
-  add_unique(p1->vNbrNodes, p3->nInd);
+  add_unique(p1.vNbrNodes, p0.nInd);
+  add_unique(p1.vNbrNodes, p2.nInd);
+  add_unique(p1.vNbrNodes, p3.nInd);
 
-  add_unique(p2->vNbrNodes, p0->nInd);
-  add_unique(p2->vNbrNodes, p1->nInd);
-  add_unique(p2->vNbrNodes, p3->nInd);
+  add_unique(p2.vNbrNodes, p0.nInd);
+  add_unique(p2.vNbrNodes, p1.nInd);
+  add_unique(p2.vNbrNodes, p3.nInd);
 
-  add_unique(p3->vNbrNodes, p0->nInd);
-  add_unique(p3->vNbrNodes, p1->nInd);
-  add_unique(p3->vNbrNodes, p2->nInd);
+  add_unique(p3.vNbrNodes, p0.nInd);
+  add_unique(p3.vNbrNodes, p1.nInd);
+  add_unique(p3.vNbrNodes, p2.nInd);
 }
 
-void CAnsysMesh::add_pyramid(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4)
+void CAnsysMesh::add_pyramid(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4)
 {
-  CPyramid* pPyr = new CPyramid(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd);
+  CPyramid* pPyr = new CPyramid(p0.nInd, p1.nInd, p2.nInd, p3.nInd, p4.nInd);
   pPyr->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pPyr);
 
-  p0->vNbrElems.push_back(pPyr->nInd);
-  p1->vNbrElems.push_back(pPyr->nInd);
-  p2->vNbrElems.push_back(pPyr->nInd);
-  p3->vNbrElems.push_back(pPyr->nInd);
-  p4->vNbrElems.push_back(pPyr->nInd);
+  p0.vNbrElems.push_back(pPyr->nInd);
+  p1.vNbrElems.push_back(pPyr->nInd);
+  p2.vNbrElems.push_back(pPyr->nInd);
+  p3.vNbrElems.push_back(pPyr->nInd);
+  p4.vNbrElems.push_back(pPyr->nInd);
 
 // Neighbours of the nodes (Dirichlet cell support):
-  add_unique(p0->vNbrNodes, p1->nInd);
-  add_unique(p0->vNbrNodes, p3->nInd);
-  add_unique(p0->vNbrNodes, p4->nInd);
+  add_unique(p0.vNbrNodes, p1.nInd);
+  add_unique(p0.vNbrNodes, p3.nInd);
+  add_unique(p0.vNbrNodes, p4.nInd);
 
-  add_unique(p1->vNbrNodes, p0->nInd);
-  add_unique(p1->vNbrNodes, p2->nInd);
-  add_unique(p1->vNbrNodes, p4->nInd);
+  add_unique(p1.vNbrNodes, p0.nInd);
+  add_unique(p1.vNbrNodes, p2.nInd);
+  add_unique(p1.vNbrNodes, p4.nInd);
 
-  add_unique(p2->vNbrNodes, p1->nInd);
-  add_unique(p2->vNbrNodes, p3->nInd);
-  add_unique(p2->vNbrNodes, p4->nInd);
+  add_unique(p2.vNbrNodes, p1.nInd);
+  add_unique(p2.vNbrNodes, p3.nInd);
+  add_unique(p2.vNbrNodes, p4.nInd);
 
-  add_unique(p3->vNbrNodes, p0->nInd);
-  add_unique(p3->vNbrNodes, p2->nInd);
-  add_unique(p3->vNbrNodes, p4->nInd);
+  add_unique(p3.vNbrNodes, p0.nInd);
+  add_unique(p3.vNbrNodes, p2.nInd);
+  add_unique(p3.vNbrNodes, p4.nInd);
 
-  add_unique(p4->vNbrNodes, p0->nInd);
-  add_unique(p4->vNbrNodes, p1->nInd);
-  add_unique(p4->vNbrNodes, p2->nInd);
-  add_unique(p4->vNbrNodes, p3->nInd);
+  add_unique(p4.vNbrNodes, p0.nInd);
+  add_unique(p4.vNbrNodes, p1.nInd);
+  add_unique(p4.vNbrNodes, p2.nInd);
+  add_unique(p4.vNbrNodes, p3.nInd);
 }
 
-void CAnsysMesh::add_wedge(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5)
+void CAnsysMesh::add_wedge(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4, CNode3D& p5)
 {
-  CWedge* pWedge = new CWedge(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd, p5->nInd);
+  CWedge* pWedge = new CWedge(p0.nInd, p1.nInd, p2.nInd, p3.nInd, p4.nInd, p5.nInd);
   pWedge->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pWedge);
 
-  p0->vNbrElems.push_back(pWedge->nInd);
-  p1->vNbrElems.push_back(pWedge->nInd);
-  p2->vNbrElems.push_back(pWedge->nInd);
-  p3->vNbrElems.push_back(pWedge->nInd);
-  p4->vNbrElems.push_back(pWedge->nInd);
-  p5->vNbrElems.push_back(pWedge->nInd);
+  p0.vNbrElems.push_back(pWedge->nInd);
+  p1.vNbrElems.push_back(pWedge->nInd);
+  p2.vNbrElems.push_back(pWedge->nInd);
+  p3.vNbrElems.push_back(pWedge->nInd);
+  p4.vNbrElems.push_back(pWedge->nInd);
+  p5.vNbrElems.push_back(pWedge->nInd);
 
 // Neighbours of the nodes (Dirichlet cell support):
-  add_unique(p0->vNbrNodes, p1->nInd);
-  add_unique(p0->vNbrNodes, p2->nInd);
-  add_unique(p0->vNbrNodes, p3->nInd);
+  add_unique(p0.vNbrNodes, p1.nInd);
+  add_unique(p0.vNbrNodes, p2.nInd);
+  add_unique(p0.vNbrNodes, p3.nInd);
 
-  add_unique(p1->vNbrNodes, p0->nInd);
-  add_unique(p1->vNbrNodes, p2->nInd);
-  add_unique(p1->vNbrNodes, p4->nInd);
+  add_unique(p1.vNbrNodes, p0.nInd);
+  add_unique(p1.vNbrNodes, p2.nInd);
+  add_unique(p1.vNbrNodes, p4.nInd);
 
-  add_unique(p2->vNbrNodes, p0->nInd);
-  add_unique(p2->vNbrNodes, p1->nInd);
-  add_unique(p2->vNbrNodes, p5->nInd);
+  add_unique(p2.vNbrNodes, p0.nInd);
+  add_unique(p2.vNbrNodes, p1.nInd);
+  add_unique(p2.vNbrNodes, p5.nInd);
 
-  add_unique(p3->vNbrNodes, p0->nInd);
-  add_unique(p3->vNbrNodes, p4->nInd);
-  add_unique(p3->vNbrNodes, p5->nInd);
+  add_unique(p3.vNbrNodes, p0.nInd);
+  add_unique(p3.vNbrNodes, p4.nInd);
+  add_unique(p3.vNbrNodes, p5.nInd);
 
-  add_unique(p4->vNbrNodes, p1->nInd);
-  add_unique(p4->vNbrNodes, p3->nInd);
-  add_unique(p4->vNbrNodes, p5->nInd);
+  add_unique(p4.vNbrNodes, p1.nInd);
+  add_unique(p4.vNbrNodes, p3.nInd);
+  add_unique(p4.vNbrNodes, p5.nInd);
 
-  add_unique(p5->vNbrNodes, p2->nInd);
-  add_unique(p5->vNbrNodes, p3->nInd);
-  add_unique(p5->vNbrNodes, p4->nInd);
+  add_unique(p5.vNbrNodes, p2.nInd);
+  add_unique(p5.vNbrNodes, p3.nInd);
+  add_unique(p5.vNbrNodes, p4.nInd);
 }
 
-void CAnsysMesh::add_hexa(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3, CNode3D* p4, CNode3D* p5, CNode3D* p6, CNode3D* p7)
+void CAnsysMesh::add_hexa(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4, CNode3D& p5, CNode3D& p6, CNode3D& p7)
 {
-  CHexa* pHexa = new CHexa(m_vNodes, p0->nInd, p1->nInd, p2->nInd, p3->nInd, p4->nInd, p5->nInd, p6->nInd, p7->nInd);
+  CHexa* pHexa = new CHexa(p0.nInd, p1.nInd, p2.nInd, p3.nInd, p4.nInd, p5.nInd, p6.nInd, p7.nInd);
   pHexa->nInd = m_vElems.size();
   m_vElems.push_back((CElem3D*)pHexa);
 
-  p0->vNbrElems.push_back(pHexa->nInd);
-  p1->vNbrElems.push_back(pHexa->nInd);
-  p2->vNbrElems.push_back(pHexa->nInd);
-  p3->vNbrElems.push_back(pHexa->nInd);
-  p4->vNbrElems.push_back(pHexa->nInd);
-  p5->vNbrElems.push_back(pHexa->nInd);
-  p6->vNbrElems.push_back(pHexa->nInd);
-  p7->vNbrElems.push_back(pHexa->nInd);
+  p0.vNbrElems.push_back(pHexa->nInd);
+  p1.vNbrElems.push_back(pHexa->nInd);
+  p2.vNbrElems.push_back(pHexa->nInd);
+  p3.vNbrElems.push_back(pHexa->nInd);
+  p4.vNbrElems.push_back(pHexa->nInd);
+  p5.vNbrElems.push_back(pHexa->nInd);
+  p6.vNbrElems.push_back(pHexa->nInd);
+  p7.vNbrElems.push_back(pHexa->nInd);
 
 // Neighbours of the nodes (Dirichlet cell support):
-  add_unique(p0->vNbrNodes, p1->nInd);
-  add_unique(p0->vNbrNodes, p3->nInd);
-  add_unique(p0->vNbrNodes, p4->nInd);
+  add_unique(p0.vNbrNodes, p1.nInd);
+  add_unique(p0.vNbrNodes, p3.nInd);
+  add_unique(p0.vNbrNodes, p4.nInd);
 
-  add_unique(p1->vNbrNodes, p0->nInd);
-  add_unique(p1->vNbrNodes, p2->nInd);
-  add_unique(p1->vNbrNodes, p5->nInd);
+  add_unique(p1.vNbrNodes, p0.nInd);
+  add_unique(p1.vNbrNodes, p2.nInd);
+  add_unique(p1.vNbrNodes, p5.nInd);
 
-  add_unique(p2->vNbrNodes, p1->nInd);
-  add_unique(p2->vNbrNodes, p3->nInd);
-  add_unique(p2->vNbrNodes, p6->nInd);
+  add_unique(p2.vNbrNodes, p1.nInd);
+  add_unique(p2.vNbrNodes, p3.nInd);
+  add_unique(p2.vNbrNodes, p6.nInd);
 
-  add_unique(p3->vNbrNodes, p0->nInd);
-  add_unique(p3->vNbrNodes, p2->nInd);
-  add_unique(p3->vNbrNodes, p7->nInd);
+  add_unique(p3.vNbrNodes, p0.nInd);
+  add_unique(p3.vNbrNodes, p2.nInd);
+  add_unique(p3.vNbrNodes, p7.nInd);
 
-  add_unique(p4->vNbrNodes, p0->nInd);
-  add_unique(p4->vNbrNodes, p5->nInd);
-  add_unique(p4->vNbrNodes, p7->nInd);
+  add_unique(p4.vNbrNodes, p0.nInd);
+  add_unique(p4.vNbrNodes, p5.nInd);
+  add_unique(p4.vNbrNodes, p7.nInd);
 
-  add_unique(p5->vNbrNodes, p1->nInd);
-  add_unique(p5->vNbrNodes, p4->nInd);
-  add_unique(p5->vNbrNodes, p6->nInd);
+  add_unique(p5.vNbrNodes, p1.nInd);
+  add_unique(p5.vNbrNodes, p4.nInd);
+  add_unique(p5.vNbrNodes, p6.nInd);
 
-  add_unique(p6->vNbrNodes, p2->nInd);
-  add_unique(p6->vNbrNodes, p5->nInd);
-  add_unique(p6->vNbrNodes, p7->nInd);
+  add_unique(p6.vNbrNodes, p2.nInd);
+  add_unique(p6.vNbrNodes, p5.nInd);
+  add_unique(p6.vNbrNodes, p7.nInd);
 
-  add_unique(p7->vNbrNodes, p3->nInd);
-  add_unique(p7->vNbrNodes, p4->nInd);
-  add_unique(p7->vNbrNodes, p6->nInd);
+  add_unique(p7.vNbrNodes, p3.nInd);
+  add_unique(p7.vNbrNodes, p4.nInd);
+  add_unique(p7.vNbrNodes, p6.nInd);
 }
 
 void CAnsysMesh::bounding_box()
@@ -590,27 +588,27 @@ void CAnsysMesh::bounding_box()
   if(nNodesCount == 0)
     return;
 
-  m_Box.vMin = m_vNodes.at(0)->pos;
-  m_Box.vMax = m_vNodes.at(0)->pos;
+  m_Box.vMin = m_vNodes.at(0).pos;
+  m_Box.vMax = m_vNodes.at(0).pos;
   
   for(size_t i = 1; i < nNodesCount; i++)
   {
-    CNode3D* pNode = m_vNodes.at(i);
+    const CNode3D& node = m_vNodes.at(i);
 
-    if(pNode->pos.x < m_Box.vMin.x)
-      m_Box.vMin.x = pNode->pos.x;
-    if(pNode->pos.x > m_Box.vMax.x)
-      m_Box.vMax.x = pNode->pos.x;
+    if(node.pos.x < m_Box.vMin.x)
+      m_Box.vMin.x = node.pos.x;
+    if(node.pos.x > m_Box.vMax.x)
+      m_Box.vMax.x = node.pos.x;
 
-    if(pNode->pos.y < m_Box.vMin.y)
-      m_Box.vMin.y = pNode->pos.y;
-    if(pNode->pos.y > m_Box.vMax.y)
-      m_Box.vMax.y = pNode->pos.y;
+    if(node.pos.y < m_Box.vMin.y)
+      m_Box.vMin.y = node.pos.y;
+    if(node.pos.y > m_Box.vMax.y)
+      m_Box.vMax.y = node.pos.y;
 
-    if(pNode->pos.z < m_Box.vMin.z)
-      m_Box.vMin.z = pNode->pos.z;
-    if(pNode->pos.z > m_Box.vMax.z)
-      m_Box.vMax.z = pNode->pos.z;
+    if(node.pos.z < m_Box.vMin.z)
+      m_Box.vMin.z = node.pos.z;
+    if(node.pos.z > m_Box.vMax.z)
+      m_Box.vMax.z = node.pos.z;
   }
 }
 

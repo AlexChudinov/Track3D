@@ -354,8 +354,7 @@ void CBatchSim::init_prev_clmb()
 
   clear_prev_clmb();
 
-  const CNodesCollection& vNodes = m_pObj->get_nodes();
-  size_t nNodesCount = vNodes.size();
+  size_t nNodesCount = m_pObj->get_nodes().size();
   m_pPrevClmb = new Vector3F*[m_nAverWidth];
   m_pPrevPhi = new float*[m_nAverWidth];
   for(UINT i = 0; i < m_nAverWidth; i++)
@@ -370,8 +369,7 @@ void CBatchSim::clear_prev_clmb()
   if(m_nAverWidth == 0 || m_pPrevClmb == NULL)
     return;
 
-  const CNodesCollection& vNodes = m_pObj->get_nodes();
-  size_t nNodesCount = vNodes.size();
+  size_t nNodesCount = m_pObj->get_nodes().size();
   for(UINT i = 0; i < m_nAverWidth; i++)
   {
     delete[] m_pPrevClmb[i];

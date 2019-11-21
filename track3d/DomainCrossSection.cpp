@@ -460,7 +460,7 @@ bool CDomainCrossSection::intersect_hexa(CFacesCollection& vFaces, CHexa* pElem)
   return true;
 }
 
-CNode3D* CDomainCrossSection::interpolate(const Vector3D& vPos, CNode3D* p0, CNode3D* p1, double ksi)
+CNode3D* CDomainCrossSection::interpolate(const Vector3F& vPos, CNode3D* p0, CNode3D* p1, float ksi)
 {
   CNode3D* pNode = new CNode3D(vPos);
 // Scalars:
@@ -470,9 +470,8 @@ CNode3D* CDomainCrossSection::interpolate(const Vector3D& vPos, CNode3D* p0, CNo
   pNode->visc  = p0->visc + ksi * (p1->visc - p0->visc);
   pNode->cond  = p0->cond + ksi * (p1->cond - p0->cond);
   pNode->cp    = p0->cp + ksi * (p1->cp - p0->cp);
-// DEBUG
   pNode->phi   = p0->phi + ksi * (p1->phi - p0->phi);
-// END DEBUG
+
 // Vectors:
   pNode->vel   = p0->vel + ksi * (p1->vel - p0->vel);
   pNode->field = p0->field + ksi * (p1->field - p0->field);

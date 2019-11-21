@@ -24,7 +24,8 @@ public:
 	using Graph = std::vector<NodeConnections>;
 	using Elem = EvaporatingParticle::CElem3D;
 	using Node = EvaporatingParticle::CNode3D;
-	using Nodes = std::vector<Node*>;
+//	using Nodes = std::vector<Node*>;
+  using Nodes = std::vector<Node>;
 	using Elems = std::vector<Elem*>;
 
 private:
@@ -102,7 +103,7 @@ class CMeshAdapter
 {
 public:
 	using Elements = EvaporatingParticle::CElementsCollection;
-	using Nodes = EvaporatingParticle::CNodesCollection;
+	using Nodes = EvaporatingParticle::CNodesVector;
 	using PBoundary = std::unique_ptr<BoundaryMesh>;
 	using InterpCoef = std::pair<uint32_t, double>;
 	using InterpCoefs = std::map<uint32_t, double,

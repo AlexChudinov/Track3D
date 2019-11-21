@@ -180,6 +180,60 @@ void CPropertiesWnd::add_ptb_ctrls()
         m_wndPropList.AddProperty(pDblLayerGroup);
         break;
       }
+      case CFieldPerturbation::ptbFlatChannelRF:
+      {
+        CFlatChannelRF* pAnalytRF = (CFlatChannelRF*)pPtb;
+        CMFCPropertyGridProperty* pAnalytRFGroup = new CMFCPropertyGridProperty(pAnalytRF->name());
+// Enable:
+        CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pAnalytRF->get_enable(), _T("Turns ON/OFF the field perturbation."), pAnalytRF->get_enable_ptr());
+        pAnalytRFGroup->AddSubItem(pCheckBox);
+// Amplitude and frequency:
+        CMFCPropertyGridProperty* pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pAnalytRF->get_rf_ampl() / SI_to_CGS_Voltage), _T("Zero-to-Peak radio-frequency amplitude."), pAnalytRF->get_rf_ampl_ptr());
+        pAnalytRFGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pAnalytRF->get_rf_freq()), _T("Frequency of simulated RF field in kHz."), pAnalytRF->get_rf_freq_ptr());
+        pAnalytRFGroup->AddSubItem(pProp);
+// Size of PCB stripes and Fourier decomposition parameters:
+        CMFCPropertyGridProperty* pPCBGroup = new CMFCPropertyGridProperty(_T("Parameters of PCB stripes"));
+        pProp = new CMFCPropertyGridProperty(_T("Stripe Width, mm"), COleVariant(10 * pAnalytRF->get_stripe_width()), _T("Width of a virtual stripe in mm. Note: the character width of the MEMS stripes is tens of microns."), pAnalytRF->get_stripe_width_ptr());
+        pPCBGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Gap Width, mm"), COleVariant(10 * pAnalytRF->get_gap_width()), _T("Width of gaps between stripes in mm. Note: the character width of the MEMS stripes is tens of microns."), pAnalytRF->get_gap_width_ptr());
+        pPCBGroup->AddSubItem(pProp);
+
+        CString sDir(pAnalytRF->get_trans_dir_name(pAnalytRF->get_trans_dir()));
+        pProp = new CMFCPropertyGridProperty(_T("Stripes Stretching Dir."), COleVariant(sDir), _T("Translational direction, along which the virtual stripes are stretched."), pAnalytRF->get_trans_dir_ptr());
+        for(int i = 0; i < CFlatChannelRF::strCount; i++)
+          pProp->AddOption(pAnalytRF->get_trans_dir_name(i));
+
+        pPCBGroup->AddSubItem(pProp);
+
+        pProp = new CMFCPropertyGridProperty(_T("Count of Terms in Fourier Decomposition"), COleVariant(long(pAnalytRF->get_decomp_count())), _T("Count of terms in the Fourier decomposition of the bottom boundary function."), pAnalytRF->get_decomp_count_ptr());
+        pPCBGroup->AddSubItem(pProp);
+        pAnalytRFGroup->AddSubItem(pPCBGroup);
+// Position and Orientation:
+        CMFCPropertyGridProperty* pPosGroup = new CMFCPropertyGridProperty(_T("Left-Bottom-Far Corner of the Analytical Domain, mm"), pAnalytRF->get_start_point_ptr());
+        pProp = new CMFCPropertyGridProperty(_T("X"), COleVariant(10 * pAnalytRF->get_start_point().x), _T("Minimal X coordinate of the analytical domain."));
+        pPosGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Y"), COleVariant(10 * pAnalytRF->get_start_point().y), _T("Minimal Y coordinate of the analytical domain."));
+        pPosGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Z"), COleVariant(10 * pAnalytRF->get_start_point().z), _T("Minimal Z coordinate of the analytical domain."));
+        pPosGroup->AddSubItem(pProp);
+        pAnalytRFGroup->AddSubItem(pPosGroup);
+// Analytical domain size:
+        CMFCPropertyGridProperty* pSizeGroup = new CMFCPropertyGridProperty(_T("Size of Analytical Domain"));
+        pProp = new CMFCPropertyGridProperty(_T("Length, mm"), COleVariant(10 * pAnalytRF->get_channel_length()), _T("Domain length in X direction."), pAnalytRF->get_channel_length_ptr());
+        pSizeGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Height, mm"), COleVariant(10 * pAnalytRF->get_channel_height()), _T("Domain height in Y direction."), pAnalytRF->get_channel_height_ptr());
+        pSizeGroup->AddSubItem(pProp);
+        pProp = new CMFCPropertyGridProperty(_T("Width, mm"), COleVariant(10 * pAnalytRF->get_channel_width()), _T("Domain width in Z direction."), pAnalytRF->get_channel_width_ptr());
+        pSizeGroup->AddSubItem(pProp);
+        pAnalytRFGroup->AddSubItem(pSizeGroup);
+// Remove perturbation:
+        CRemovePerturbationButton* pRemBtn = new CRemovePerturbationButton(this, _T("Remove Perturbation"), _T(" "), _T("Click to delete this perturbation."), (DWORD_PTR)pPtb);
+        pAnalytRFGroup->AddSubItem(pRemBtn);
+
+        m_wndPropList.AddProperty(pAnalytRFGroup);
+        break;
+      }
     }
   }
 }
@@ -305,6 +359,67 @@ void CPropertiesWnd::set_ptb_data()
 
         break;
       }
+      case CFieldPerturbation::ptbFlatChannelRF:
+      {
+        CFlatChannelRF* pAnalytRF = (CFlatChannelRF*)pPtb;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pAnalytRF->get_rf_ampl_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_rf_ampl(SI_to_CGS_Voltage * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_rf_freq_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_rf_freq(1000 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_stripe_width_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_stripe_width(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_gap_width_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_gap_width(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_decomp_count_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_decomp_count(pProp->GetValue().lVal);
+
+        Vector3D vOrig;
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_start_point_ptr());
+        if(pProp != NULL)
+        {
+          vOrig.x = 0.1 * pProp->GetSubItem(0)->GetValue().dblVal;
+          vOrig.y = 0.1 * pProp->GetSubItem(1)->GetValue().dblVal;
+          vOrig.z = 0.1 * pProp->GetSubItem(2)->GetValue().dblVal;
+          pAnalytRF->set_start_point(vOrig);
+        }
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_length_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_channel_length(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_height_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_channel_height(0.1 * pProp->GetValue().dblVal);
+        
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_width_ptr());
+        if(pProp != NULL)
+          pAnalytRF->set_channel_width(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_trans_dir_ptr());
+        if(pProp != NULL)
+        {
+          CString sDir = (CString)pProp->GetValue();
+          for(int i = 0; i < CFlatChannelRF::strCount; i++)
+          {
+            if((CString)pProp->GetOption(i) == sDir)
+            {
+              pAnalytRF->set_trans_dir(i);
+              break;
+            }
+          }
+        }
+
+        break;
+      }
     }
   }
 }
@@ -393,6 +508,56 @@ void CPropertiesWnd::update_ptb_ctrls()
           pProp->Enable(bEnable);
 
         pProp = m_wndPropList.FindItemByData(pAddField->get_add_Edc_end_x_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        break;
+      }
+      case CFieldPerturbation::ptbFlatChannelRF:
+      {
+        CFlatChannelRF* pAnalytRF = (CFlatChannelRF*)pPtb;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pAnalytRF->get_rf_ampl_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_rf_freq_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_stripe_width_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_gap_width_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_decomp_count_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        Vector3D vOrig;
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_start_point_ptr());
+        if(pProp != NULL)
+        {
+          pProp->GetSubItem(0)->Enable(bEnable);
+          pProp->GetSubItem(1)->Enable(bEnable);
+          pProp->GetSubItem(2)->Enable(bEnable);
+        }
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_length_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_height_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+        
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_channel_width_ptr());
+        if(pProp != NULL)
+          pProp->Enable(bEnable);
+
+        pProp = m_wndPropList.FindItemByData(pAnalytRF->get_trans_dir_ptr());
         if(pProp != NULL)
           pProp->Enable(bEnable);
 

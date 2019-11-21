@@ -50,17 +50,17 @@ CDirichletTesselation::~CDirichletTesselation()
 
 Vector3D CDirichletTesselation::get_grad(size_t nNodeId, const std::vector<float>& vScalarField) const
 {
-  CNodesCollection& vNodes = m_pMesh->get_nodes();
+  CNodesVector& vNodes = m_pMesh->get_nodes();
   bool bOK = (vNodes.size() == m_Cells.size()) && (vNodes.size() == vScalarField.size()) && (nNodeId < vNodes.size());
   if(!bOK)
     return Vector3D(0, 0, 0);
 
   CDirichletCell* pCell = m_Cells.at(nNodeId);
 
-  CNode3D* pNode = vNodes.at(nNodeId);      // the cell's central node.
-  bool bBoundNode = pNode->vNbrFaces.size() != 0;
+  const CNode3D& node = vNodes.at(nNodeId);      // the cell's central node.
+  bool bBoundNode = node.vNbrFaces.size() != 0;
   if(bBoundNode)
-    return get_bound_cell_grad(pCell, pNode, vScalarField);
+    return get_bound_cell_grad(pCell, node, vScalarField);
 
   double fPhiC = vScalarField.at(nNodeId);  // the value of the potential at the cell's center.
 
@@ -71,11 +71,11 @@ Vector3D CDirichletTesselation::get_grad(size_t nNodeId, const std::vector<float
 
   Vector3D vFaceNorm;
   size_t nNbrNodeId;
-  size_t nNbrCount = vNodes.at(nNodeId)->vNbrNodes.size();
+  size_t nNbrCount = vNodes.at(nNodeId).vNbrNodes.size();
   for(size_t i = 0; i < nNbrCount; i++)
   {
     fFaceSqr = pCell->pFaceSquare[i];
-    nNbrNodeId = pNode->vNbrNodes.at(i);
+    nNbrNodeId = node.vNbrNodes.at(i);
     fFacePhi = fPhiC + vScalarField.at(nNbrNodeId);
     vFaceNorm = get_norm(nNodeId, i);
 
@@ -99,15 +99,15 @@ bool CDirichletTesselation::init()
 
   clear();
 
-  const CNodesCollection& vNodes = m_pMesh->get_nodes();
+  const CNodesVector& vNodes = m_pMesh->get_nodes();
 
   //[AC 19042018] changed to parallel
   m_Cells.resize(vNodes.size());
   ThreadPool::splitInPar(vNodes.size(),
 	  [&](size_t i) 
   {
-	  CNode3D* pNode = vNodes[i];
-	  m_Cells[i] = build_cell_in_node(pNode, vNodes);
+	  const CNode3D& node = vNodes[i];
+	  m_Cells[i] = build_cell_in_node(node, vNodes);
   },
 	  static_cast<CObject*>(this));
 
@@ -124,19 +124,19 @@ void CDirichletTesselation::clear()
   m_Cells.clear();
 }
 
-CDirichletCell* CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const CNodesCollection& vNodes)
+CDirichletCell* CDirichletTesselation::build_cell_in_node(const CNode3D& node, const CNodesVector& vNodes)
 {
   CDirichletCell* pCell = new CDirichletCell();
 
-  bool bBoundNode = pNode->vNbrFaces.size() > 0;
+  bool bBoundNode = node.vNbrFaces.size() > 0;
   if(bBoundNode)
   {
-    init_boundary_cell(pCell, pNode, vNodes);
+    init_boundary_cell(pCell, node, vNodes);
     return pCell;
   }
 
 // 1. Collect all planes forming the Dirichlet cell around this node.
-  size_t nNbrCount = pNode->vNbrNodes.size();
+  size_t nNbrCount = node.vNbrNodes.size();
   pCell->pNbrDist = new float[nNbrCount];
   pCell->nFaceCount = nNbrCount;
 
@@ -146,14 +146,13 @@ CDirichletCell* CDirichletTesselation::build_cell_in_node(CNode3D* pNode, const 
 
   UINT nId;
   double fDist;
-  CNode3D* pNbrNode = NULL;
-  Vector3D vC = pNode->pos, vOrg, vNorm, vNbr;  // cell center, plane origin and normal and neighbour cell center, respectively.
+  Vector3D vC = node.pos, vOrg, vNorm, vNbr;  // cell center, plane origin and normal and neighbour cell center, respectively.
 
   for(size_t i = 0; i < nNbrCount; i++)
   {
-    nId = pNode->vNbrNodes.at(i);
-    pNbrNode = vNodes.at(nId);
-    vNbr = pNbrNode->pos;
+    nId = node.vNbrNodes.at(i);
+    const CNode3D& NbrNode = vNodes.at(nId);
+    vNbr = NbrNode.pos;
     vOrg = 0.5 * (vC + vNbr);
     vNorm = vNbr - vC;          // plane normal looks always out of the cell.
     fDist = vNorm.length();
@@ -351,31 +350,26 @@ bool CDirichletTesselation::bound_deriv_calc_cond(const Vector3D& vNorm, const V
 }
 
 
-void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* pNode, const CNodesCollection& vNodes) const
+void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, const CNode3D& node, const CNodesVector& vNodes) const
 {
-  CNode3D* pNbrNode = NULL;
-  Vector3D vC = pNode->pos, e;
+  Vector3D vC = node.pos, e;
   float Axx = 0, Axy = 0, Axz = 0, Ayy = 0, Ayz = 0, Azz = 0, fDet, fDist;
 
-  size_t nNbrCount = pNode->vNbrNodes.size();
+  size_t nNbrCount = node.vNbrNodes.size();
 
   pCell->nFaceCount = nNbrCount;
   pCell->pNbrDist = new float[nNbrCount];
   pCell->pFaceSquare = new float[10];      // Cxx, Cxy, Cxz, Cyy, Cyz, Czz, fDet, nx, ny, nz.
 
-  Vector3D vNorm = get_bound_norm(pNode);
+  Vector3D vNorm = get_bound_norm(node);
   pCell->pFaceSquare[7] = (float)vNorm.x;
   pCell->pFaceSquare[8] = (float)vNorm.y;
   pCell->pFaceSquare[9] = (float)vNorm.z;
 
-// DEBUG
-//  int nCount = 0;
-// END DEBUG
-
   for(size_t i = 0; i < nNbrCount; i++)
   {
-    pNbrNode = vNodes.at(pNode->vNbrNodes.at(i));
-    e = pNbrNode->pos - vC;
+    const CNode3D& NbrNode = vNodes.at(node.vNbrNodes.at(i));
+    e = NbrNode.pos - vC;
     fDist = e.length();
     pCell->pNbrDist[i] = fDist;
     e /= fDist;
@@ -390,10 +384,6 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
     Ayy += e.y * e.y;
     Ayz += e.y * e.z;
     Azz += e.z * e.z;
-
-// DEBUG
-//    nCount++;
-// END DEBUG
   }
 
 // DEBUG
@@ -420,9 +410,9 @@ void CDirichletTesselation::init_boundary_cell(CDirichletCell* pCell, CNode3D* p
   pCell->pFaceSquare[6] = fDet;
 }
 
-Vector3D CDirichletTesselation::get_bound_norm(CNode3D* pBoundNode) const
+Vector3D CDirichletTesselation::get_bound_norm(const CNode3D& node) const
 {
-  size_t nNbrCount = pBoundNode->vNbrFaces.size();
+  size_t nNbrCount = node.vNbrFaces.size();
   if(nNbrCount == 0)
     return scvNull;
 
@@ -434,11 +424,11 @@ Vector3D CDirichletTesselation::get_bound_norm(CNode3D* pBoundNode) const
   Vector3D vNorm(0, 0, 0);
   for(size_t i = 0; i < nNbrCount; i++)
   {
-    nReg = pBoundNode->vNbrFaces.at(i).nReg;
+    nReg = node.vNbrFaces.at(i).nReg;
     if(nReg >= nRegCount)
       continue;
 
-    nFace = pBoundNode->vNbrFaces.at(i).nFace;
+    nFace = node.vNbrFaces.at(i).nFace;
     if(nFace >= vRegs.at(nReg)->vFaces.size())
       continue;
 
@@ -458,15 +448,15 @@ Matrix3D CDirichletTesselation::get_bound_cell_mtx(CDirichletCell* pCell) const
   return m;
 }
 
-Vector3D CDirichletTesselation::get_bound_cell_grad(CDirichletCell* pCell, CNode3D* pNode, const std::vector<float>& vScalarField) const
+Vector3D CDirichletTesselation::get_bound_cell_grad(CDirichletCell* pCell, const CNode3D& node, const std::vector<float>& vScalarField) const
 {
-  float fPhi, fPhiC = vScalarField.at(pNode->nInd);
+  float fPhi, fPhiC = vScalarField.at(node.nInd);
   Vector3D b(0, 0, 0), vNrm(pCell->pFaceSquare[7], pCell->pFaceSquare[8], pCell->pFaceSquare[9]), e;
   for(size_t i = 0; i < pCell->nFaceCount; i++)
   {
-    fPhi = vScalarField.at(pNode->vNbrNodes.at(i));
+    fPhi = vScalarField.at(node.vNbrNodes.at(i));
 
-    e = get_neighbor_vector(pNode->nInd, i) / pCell->pNbrDist[i];
+    e = get_neighbor_vector(node.nInd, i) / pCell->pNbrDist[i];
     if(!bound_deriv_calc_cond(vNrm, e))
       continue;
 
@@ -481,11 +471,11 @@ Vector3D CDirichletTesselation::get_bound_cell_grad(CDirichletCell* pCell, CNode
 
 Vector3D CDirichletTesselation::get_neighbor_vector(size_t nNodeId, size_t nNbrId) const
 {
-  CNodesCollection& vNodes = m_pMesh->get_nodes();
-  CNode3D* pNode = vNodes.at(nNodeId);
-  Vector3D v0 = pNode->pos;
-  size_t nNbrNodeIndex = pNode->vNbrNodes.at(nNbrId);
-  Vector3D v1 = vNodes.at(nNbrNodeIndex)->pos;
+  CNodesVector& vNodes = m_pMesh->get_nodes();
+  const CNode3D& node = vNodes.at(nNodeId);
+  Vector3D v0 = node.pos;
+  size_t nNbrNodeIndex = node.vNbrNodes.at(nNbrId);
+  Vector3D v1 = vNodes.at(nNbrNodeIndex).pos;
   return v1 - v0;
 }
 

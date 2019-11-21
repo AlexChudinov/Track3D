@@ -389,7 +389,7 @@ protected:
 
 // The Coulomb field is accumulated in the nodes from iteration to iteration to provide better stability.
   bool                    accumulate_clmb_field(UINT nIter);
-  void                    accum_clmb_field_in_node(CNode3D* pNode, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter);
+  void                    accum_clmb_field_in_node(CNode3D& node, CBarnesHut* pBHObj, CElectricFieldData* pData, UINT nIter);
 
 // In the course of iterations the full current gradually increases from zero to the user-defined value. 
   UINT                    get_const_curr_iter_count() const { return 15; } // during the last 15 iterations the current remains constant, m_fFullCurrent.
