@@ -4,6 +4,7 @@
 #include "ParticleTracking.h"
 #include "Perturbation.h"
 #include "BarnesHut.h"
+#include "Primitives.h"
 #include <math.h>
 
 #include "../utilities/ParallelFor.h"
@@ -22,7 +23,9 @@ CFieldPerturbation* CFieldPerturbation::create(int nType)
     case CFieldPerturbation::ptbStackOfRings: return new CStackRingPerturbation();
     case CFieldPerturbation::ptbUniform: return new CUniformAddField();
     case CFieldPerturbation::ptbDoubleLayer: return new CDoubleLayerField();
-    case CFieldPerturbation::ptbFlatChannelRF: return new CFlatChannelRF();
+    case CFieldPerturbation::ptbFlatChannelRF: return new CAnalytRFField();
+    case CFieldPerturbation::ptbCylSubstrateRF: return new CCurvedSubstrateRF();
+    case CFieldPerturbation::ptbElliptSubstrRF: return new CEllipticalSubstrateRF();
   }
 
   return NULL;
@@ -36,7 +39,9 @@ const char* CFieldPerturbation::perturbation_name(int nType)
     case CFieldPerturbation::ptbStackOfRings: return _T("Stack of Charged Rings");
     case CFieldPerturbation::ptbUniform: return _T("Uniform Field");
     case CFieldPerturbation::ptbDoubleLayer: return _T("Thin Charged Dielectric Film");
-    case CFieldPerturbation::ptbFlatChannelRF: return _T("Analytical RF Field in a Channel");
+    case CFieldPerturbation::ptbFlatChannelRF: return _T("Analytical RF Field, Flat Substrate");
+    case CFieldPerturbation::ptbCylSubstrateRF: return _T("Analytical RF Field, Round Cylinder Substrate");
+    case CFieldPerturbation::ptbElliptSubstrRF: return _T("Analytical RF Field, Elliptical Substrate");
   }
 
   return _T("None");
@@ -81,6 +86,17 @@ void CFieldPtbCollection::clear_perturbations()
   }
 
   clear();
+}
+
+bool CFieldPtbCollection::sel_region_changed(CStringVector* pRegNames)
+{
+  for(size_t i = 0; i < size(); i++)
+  {
+    if(at(i)->sel_region_changed(pRegNames))
+      return true;
+  }
+
+  return false;
 }
 
 void CFieldPtbCollection::save(CArchive& ar)
@@ -755,30 +771,32 @@ void CDoubleLayerField::load(CArchive& ar)
 }
 
 //-----------------------------------------------------------------------------
-// CFlatChannelRF - a model of the RF field in a narrow channel from a set of 
+// CAnalytRFField - a model of the RF field in a narrow channel from a set of 
 //                  narrow stripes (MEMS devices).
 //-----------------------------------------------------------------------------
-CFlatChannelRF::CFlatChannelRF()
-  : CFieldPerturbation(), m_fStripeWidth(0), m_fGapWidth(0), m_pA(NULL), m_pB(NULL), m_pLmb(NULL), m_pRes(NULL)
+CAnalytRFField::CAnalytRFField()
+  : CFieldPerturbation(), m_fStripeWidth(0), m_fGapWidth(0), m_pA(NULL), m_pB(NULL), m_pLmb(NULL), m_pRes(NULL), m_pBoundShape(NULL)
 {
   m_nType = CFieldPerturbation::ptbFlatChannelRF;
   set_default();
 }
  
-CFlatChannelRF::~CFlatChannelRF()
+CAnalytRFField::~CAnalytRFField()
 {
   delete_arrays();
+  if(m_pBoundShape != NULL)
+    delete m_pBoundShape;
 }
 
-Vector3D CFlatChannelRF::field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase)
+Vector3D CAnalytRFField::field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase)
 {
   if(!m_bReady)   // m_bEnable is checked before call (in CTracker::get_ion_accel()).
     return vNull;
 
-  if(!m_BoundBox.inside(vPos))
+  if(!m_pBoundShape->contains(vPos))
     return vNull;
 
-  Vector2D v = trans_to_model_coord(vPos);
+  Vector2D v = world_to_model_coord(vPos);
 
   UINT ix, jy;
   double ksix, ksiy;
@@ -801,19 +819,49 @@ Vector3D CFlatChannelRF::field_on_the_fly(const Vector3D& vPos, double fTime, do
 
   Vector2D vRes = r00 * (1 - ksix - ksiy + ksix*ksiy) + r10 * (1 - ksiy) * ksix + r01 * (1 - ksix) * ksiy + r11 * ksix * ksiy;
 
-  Vector3D vF(vRes.x, vRes.y, 0); // Temporarily! In the nearest future different direction of m_vDirX and m_vDirZ must be supported.
+  Vector3D vLocX, vLocZ(0, 0, 1);
+  Vector3D vLocY = m_pBoundShape->get_loc_normal(vPos);
+  switch(m_nTransDir)
+  {
+    case strOrtFlowDir:
+    {
+      vLocX = vLocY * vLocZ;
+      break;
+    }
+    case strAlongFlowDir:
+    {
+      vLocX = vLocZ;
+      break;
+    }
+  }
+
+  Vector3D vF = vRes.x * vLocX + vRes.y * vLocY;
+
   vF *= m_fAmpl * sin(m_fOmega * fTime + fPhase);
   return vF;
 }
 
-bool CFlatChannelRF::prepare()
+Vector2D CAnalytRFField::world_to_model_coord(const Vector3D& vPos) const
 {
-  set_dir();
-  calc_bounding_box();
+  Vector2D v = m_pBoundShape->model_coord(vPos);
+  UINT n = UINT(v.x / m_fWaveLength);
+  if(n > 0)
+    v.x -= n * m_fWaveLength;
+
+  return v;
+}
+
+bool CAnalytRFField::prepare()
+{
+  if(m_bReady)
+    return true;
+
+  if(!calc_bounding_box())
+    return false;
 
   if(!calc_coeff())
   {
-    AfxMessageBox(_T("CFlatChannelRF::prepare(): Bad perturbation parameters. Simulation terminated."));
+    AfxMessageBox(_T("CAnalytRFField::prepare(): Bad perturbation parameters. Simulation terminated."));
     CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
     pObj->terminate();
     return false;
@@ -837,36 +885,33 @@ bool CFlatChannelRF::prepare()
   return true;
 }
 
-void CFlatChannelRF::set_default()
+void CAnalytRFField::set_default()
 {
+  m_nVersion = 2;   // backward compatibility.
+
   m_bReady = false;
   m_bOnTheFly = true;
+
+  m_bRegVisible = true;
+  m_nMergeOpt = CSelectedAreas::optSubst;
 
   set_stripe_width(0.0024); // 24 mcm.
   set_gap_width(0.0016);    // 16 mcm.
 
   m_fChannelHeight = 0.01;  // 100 mcm.
-  m_fChannelLength = 1.0;   // 10 mm.
-  m_fChannelWidth = 2.0;
 
   set_rf_freq(2.0e+7);                  // radio frequency, 20 MHz.
   m_fAmpl = 150.0 * SI_to_CGS_Voltage;  // amplitude, 150 V in CGSE.
 
-  m_vStartPoint = Vector3D(0, 0, -1.0); // Left-Bottom-Far corner of the analytical domain.
-  m_vDirX = Vector3D(1, 0, 0);
-  m_vDirY = Vector3D(0, 1, 0);
-// Translational direction, nothing changes along it. Can be either (0, 0, 1) or (1, 0, 0).
-  m_vDirZ = Vector3D(0, 0, 1);
-
   m_nDecompCount = 5;
-  m_nTransDir = strAlongZ;
+  m_nTransDir = strOrtFlowDir;
 
 // Dimensions of the result array:
   m_nNx = 30;
   m_nNy = 30;
 }
 
-void CFlatChannelRF::allocate_arrays()
+void CAnalytRFField::allocate_arrays()
 {
   delete_arrays();
   if(m_nDecompCount == 0)
@@ -881,7 +926,7 @@ void CFlatChannelRF::allocate_arrays()
     m_pRes[i] = new Vector2D[m_nNy];
 }
 
-void CFlatChannelRF::delete_arrays()
+void CAnalytRFField::delete_arrays()
 {
   if(m_pA != NULL)
     delete[] m_pA;
@@ -906,7 +951,7 @@ void CFlatChannelRF::delete_arrays()
   }
 }
 
-bool CFlatChannelRF::calc_coeff()
+bool CAnalytRFField::calc_coeff()
 {
   if(m_fWaveLength < Const_Almost_Zero || m_nDecompCount == 0)
     return false;
@@ -928,14 +973,14 @@ bool CFlatChannelRF::calc_coeff()
   return true;
 }
 
-double CFlatChannelRF::coeff_Fourier(UINT k)
+double CAnalytRFField::coeff_Fourier(UINT k)
 {
   double fCoeff = 4 * m_fWaveLength / (Const_PI * Const_PI * k * k * m_fGapWidth);
   double fArg = Const_PI * k * m_fGapWidth / m_fWaveLength;
   return fCoeff * sin(fArg);
 }
 
-Vector2D CFlatChannelRF::field_in_model_coord(double x, double y) const
+Vector2D CAnalytRFField::field_in_model_coord(double x, double y) const
 {
   Vector2D vRes(0, 0);
   if(x < 0 || x > m_fWaveLength || y < 0 || y > m_fChannelHeight) 
@@ -960,31 +1005,14 @@ Vector2D CFlatChannelRF::field_in_model_coord(double x, double y) const
   return vRes;
 }
 
-Vector2D CFlatChannelRF::trans_to_model_coord(const Vector3D& vPos) const
-{
-  Vector3D vLoc = vPos - m_vStartPoint;
-  vLoc -= (vLoc & m_vDirZ) * m_vDirZ;
-  double xmod = (vLoc & m_vDirX);
-  if(xmod > 0)
-  {
-    UINT n = UINT(xmod / m_fWaveLength);
-    if(n > 0)
-      xmod -= n * m_fWaveLength;
-  }
-
-  double ymod = (vLoc & m_vDirY);
-
-  return Vector2D(xmod, ymod);
-}
-
-Vector2D CFlatChannelRF::model_coord(UINT ix, UINT jy) const
+Vector2D CAnalytRFField::model_coord(UINT ix, UINT jy) const
 {
   double x = ix * m_fWaveLength / m_nNx;          // periodicity in x, f(x) == f(x + m_fWaveLength).
   double y = jy * m_fChannelHeight / (m_nNy - 1); // at jy == m_nNy - 1, y must be equal to m_fChannelHeight.
   return Vector2D(x, y);
 }
 
-bool CFlatChannelRF::cell_indices(const Vector2D& vModPos, UINT& ix, double& ksix, UINT& jy, double& ksiy) const
+bool CAnalytRFField::cell_indices(const Vector2D& vModPos, UINT& ix, double& ksix, UINT& jy, double& ksiy) const
 {
   if(vModPos.x < 0 || vModPos.y < 0)
     return false;
@@ -1005,34 +1033,39 @@ bool CFlatChannelRF::cell_indices(const Vector2D& vModPos, UINT& ix, double& ksi
   return true;
 }
 
-void CFlatChannelRF::calc_bounding_box()
+bool CAnalytRFField::calc_bounding_box()
 {
-  Vector3D vMax = Vector3D(m_vStartPoint.x + m_fChannelLength, m_vStartPoint.y + m_fChannelHeight, m_vStartPoint.z + m_fChannelWidth);
-  m_BoundBox = CBox(m_vStartPoint, vMax);
+  if(m_pBoundShape != NULL)
+    delete m_pBoundShape;
+
+  m_pBoundShape = new CPrimitiveBox(m_vRegNames, m_fChannelHeight);
+  return m_pBoundShape->is_ready();
 }
 
-void CFlatChannelRF::set_dir()
-{
-  switch(m_nTransDir)
-  {
-    case strAlongZ: m_vDirX = Vector3D(1, 0, 0); m_vDirZ = Vector3D(0, 0, 1); break;
-    case strAlongX: m_vDirX = Vector3D(0, 0, 1); m_vDirZ = Vector3D(-1, 0, 0); break;
-  }
-}
-
-const char* CFlatChannelRF::get_trans_dir_name(int nDir) const
+const char* CAnalytRFField::get_trans_dir_name(int nDir) const
 {
   switch(nDir)
   {
-    case strAlongZ: return _T(" Z");
-    case strAlongX: return _T(" X");
+    case strOrtFlowDir: return _T(" Orthogonal to Flow");
+    case strAlongFlowDir: return _T(" Parallel to Flow");
   }
   return _T(" ");
 }
 
-void CFlatChannelRF::save(CArchive& ar)
+bool CAnalytRFField::sel_region_changed(CStringVector* pRegNames)
 {
-  UINT nVersion = 1;
+  if((DWORD_PTR)pRegNames == get_region_names_ptr())
+  {
+    m_bReady = false;
+    return true;
+  }
+
+  return false;
+}
+
+void CAnalytRFField::save(CArchive& ar)
+{
+  UINT nVersion = 3;  // since 3 the CCurvedSubstrateRF::save() saves the x0, y0 and R to the stream.
   ar << nVersion;
 
   CFieldPerturbation::save(ar);
@@ -1041,25 +1074,26 @@ void CFlatChannelRF::save(CArchive& ar)
   ar << m_fGapWidth;
 
   ar << m_fChannelHeight;
-  ar << m_fChannelLength;
-  ar << m_fChannelWidth;
 
   ar << m_fFreq;
   ar << m_fAmpl;
 
   ar << m_nDecompCount;
 
-  ar << m_vStartPoint.x;
-  ar << m_vStartPoint.y;
-  ar << m_vStartPoint.z;
-
   ar << m_nTransDir;
+
+  size_t nRegNamesCount = m_vRegNames.size();
+  ar << nRegNamesCount;
+  for(size_t i = 0; i < nRegNamesCount; i++)
+  {
+    CString sName(m_vRegNames.at(i).c_str());
+    ar << sName;
+  }
 }
 
-void CFlatChannelRF::load(CArchive& ar)
+void CAnalytRFField::load(CArchive& ar)
 {
-  UINT nVersion;
-  ar >> nVersion;
+  ar >> m_nVersion;
 
   CFieldPerturbation::load(ar);
 
@@ -1067,23 +1101,47 @@ void CFlatChannelRF::load(CArchive& ar)
   ar >> m_fGapWidth;
 
   ar >> m_fChannelHeight;
-  ar >> m_fChannelLength;
-  ar >> m_fChannelWidth;
+  if(m_nVersion < 2)
+  {
+    double fChannelLength, fChannelWidth;
+    ar >> fChannelLength;
+    ar >> fChannelWidth;
+  }
 
   ar >> m_fFreq;
   ar >> m_fAmpl;
 
   ar >> m_nDecompCount;
 
-  ar >> m_vStartPoint.x;
-  ar >> m_vStartPoint.y;
-  ar >> m_vStartPoint.z;
+  if(m_nVersion < 2)
+  {
+    Vector3D vStartPoint;
+    ar >> vStartPoint.x;
+    ar >> vStartPoint.y;
+    ar >> vStartPoint.z;
+  }
 
-  if(nVersion >= 1)
+  if(m_nVersion >= 1)
     ar >> m_nTransDir;
+
+  if(m_nVersion >= 2)
+  {
+    size_t nRegNamesCount;
+    ar >> nRegNamesCount;
+    if(nRegNamesCount > 0)
+      m_vRegNames.reserve(nRegNamesCount);
+
+    for(size_t i = 0; i < nRegNamesCount; i++)
+    {
+      CString sName;
+      ar >> sName;
+      std::string stdName((const char*)sName);
+      m_vRegNames.push_back(stdName);
+    }
+  }
 }
 
-bool CFlatChannelRF::test_output()
+bool CAnalytRFField::test_output()
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   std::string cPath = COutputEngine::get_full_path(pObj->get_filename());
@@ -1118,7 +1176,7 @@ bool CFlatChannelRF::test_output()
   return true;
 }
 
-double CFlatChannelRF::phi_in_model_coord(double x, double y) const
+double CAnalytRFField::phi_in_model_coord(double x, double y) const
 {
   double phi = 0, fArgX, fArgY;
   for(UINT i = 0; i < m_nDecompCount; i++)
@@ -1129,6 +1187,108 @@ double CFlatChannelRF::phi_in_model_coord(double x, double y) const
   }
 
   return phi;
+}
+
+//-----------------------------------------------------------------------------
+// CCurvedSubstrateRF - a model of the RF field from a set of narrow stripes
+//                     (MEMS devices). Round cylinder shape of the substrate.
+//-----------------------------------------------------------------------------
+CCurvedSubstrateRF::CCurvedSubstrateRF()
+{
+  m_nType = CFieldPerturbation::ptbCylSubstrateRF;
+
+  set_default();
+
+  m_fx0 = 0;
+  m_fy0 = 3.004;
+  m_fRad = 3.0;
+}
+
+bool CCurvedSubstrateRF::calc_bounding_box()
+{
+  if(m_pBoundShape != NULL)
+    delete m_pBoundShape;
+
+  m_pBoundShape = new CPrimCylSector(m_vRegNames, m_fx0, m_fy0, m_fRad, m_fChannelHeight);
+  return m_pBoundShape->is_ready();
+}
+
+void CCurvedSubstrateRF::save(CArchive& ar)
+{
+  CAnalytRFField::save(ar);
+
+  UINT nVersion = 0;
+  ar << nVersion;
+
+  ar << m_fx0;
+  ar << m_fy0;
+  ar << m_fRad;
+}
+
+void CCurvedSubstrateRF::load(CArchive& ar)
+{
+  CAnalytRFField::load(ar);
+  UINT nParentVersion = get_version();
+  if(nParentVersion < 3)
+    return;   // backward compatibility;
+
+  UINT nVersion;
+  ar >> nVersion;
+
+  ar >> m_fx0;
+  ar >> m_fy0;
+  ar >> m_fRad;
+}
+
+//-----------------------------------------------------------------------------
+// CEllipticalSubstrateRF - Elliptical cylinder shape of the substrate.
+//-----------------------------------------------------------------------------
+CEllipticalSubstrateRF::CEllipticalSubstrateRF()
+{
+  m_nType = CFieldPerturbation::ptbElliptSubstrRF;
+
+  set_default();
+
+  m_fx0 = 0;
+  m_fy0 = 1.304;
+  m_fa = 2.0;
+  m_fb = 1.3;
+}
+
+bool CEllipticalSubstrateRF::calc_bounding_box()
+{
+  if(m_pBoundShape != NULL)
+    delete m_pBoundShape;
+
+  CEllipseData ellipse(m_fx0, m_fy0, m_fa, m_fb);
+  m_pBoundShape = new CEllipticalCylSector(m_vRegNames, ellipse, m_fChannelHeight, 5e-6);
+  return m_pBoundShape->is_ready();
+}
+
+void CEllipticalSubstrateRF::save(CArchive& ar)
+{
+  CAnalytRFField::save(ar);
+
+  UINT nVersion = 0;
+  ar << nVersion;
+
+  ar << m_fx0;
+  ar << m_fy0;
+  ar << m_fa;
+  ar << m_fb;
+}
+
+void CEllipticalSubstrateRF::load(CArchive& ar)
+{
+  CAnalytRFField::load(ar);
+
+  UINT nVersion;
+  ar >> nVersion;
+
+  ar >> m_fx0;
+  ar >> m_fy0;
+  ar >> m_fa;
+  ar >> m_fb;
 }
 
 };  // namespace EvaporatingParticle

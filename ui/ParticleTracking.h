@@ -32,6 +32,7 @@ public:
   EvaporatingParticle::CDirichletTesselation* GetDirichletTess();
   EvaporatingParticle::CTrackDraw*            GetDrawObj();
   EvaporatingParticle::CExportOpenFOAM*       GetExporter();
+  EvaporatingParticle::CExternalGridExport*   GetExtGridExporter();
   EvaporatingParticle::CCalcCollection*       GetCalcs();
   EvaporatingParticle::CFieldDataColl*        GetFields();
   EvaporatingParticle::CCrossSectColl*        GetPlanes();
@@ -64,6 +65,7 @@ private:
   EvaporatingParticle::CDirichletTesselation  m_DirichletTess;
   EvaporatingParticle::CTrackDraw             m_Drawer;
   EvaporatingParticle::CExportOpenFOAM        m_Exporter;
+  EvaporatingParticle::CExternalGridExport    m_ExtGridExporter;
   EvaporatingParticle::CCalcCollection        m_vCalcs;
   EvaporatingParticle::CFieldDataColl         m_vFields;
   EvaporatingParticle::CCrossSectColl         m_vPlanes;

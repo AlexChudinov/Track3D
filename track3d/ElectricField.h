@@ -31,7 +31,7 @@ public:
     fvCount         = 7
   };
 
-// All changes in boundary conditions MUST result in the field re-calculation. The following GET-functions return "true" if something changes.
+// All changes in boundary conditions MUST result in the field re-calculation. The following SET-functions return "true" if something changes.
   int                           get_bc_type() const;
   DWORD_PTR                     get_bc_type_ptr() const;
   bool                          set_bc_type(int nNewType);

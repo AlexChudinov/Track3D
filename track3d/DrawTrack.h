@@ -9,8 +9,7 @@
 
 #include "vector2d.hpp"
 #include "matrix3d.hpp"
-//#include <string>
-//#include <vector>
+
 
 namespace EvaporatingParticle
 {
@@ -53,6 +52,21 @@ struct CEdgeVertex
 };
 
 typedef std::vector<CEdgeVertex> CEdgeVertexColl;
+
+//-------------------------------------------------------------------------------------------------
+// CColoredRegVertices - support of drawing areas by user-defined colors.
+//-------------------------------------------------------------------------------------------------
+class CColoredRegVertices : public std::vector<CFaceVertex>
+{
+public:
+  COLORREF  get_reg_color() const { return m_dwClr; }
+  void      set_reg_color(COLORREF dwClr) { m_dwClr = dwClr; }
+
+private:
+  COLORREF  m_dwClr;
+};
+
+typedef std::vector<CColoredRegVertices> CColoredRegions;
 
 struct CRay;
 struct CFace;
@@ -128,6 +142,23 @@ public:
   UINT              get_cell_index() const;
   DWORD_PTR         get_cell_index_ptr() const;
   void              set_cell_index(UINT nId);
+
+// User control upon material properties:
+  float             get_mat_ambient() const;
+  DWORD_PTR         get_mat_ambient_ptr() const;
+  void              set_mat_ambient(float fAmb);
+
+  float             get_mat_diffuse() const;
+  DWORD_PTR         get_mat_diffuse_ptr() const;
+  void              set_mat_diffuse(float fDiff);
+
+  float             get_mat_specular() const;
+  DWORD_PTR         get_mat_specular_ptr() const;
+  void              set_mat_specular(float fSpec);
+
+  float             get_mat_shininess() const;
+  DWORD_PTR         get_mat_shininess_ptr() const;
+  void              set_mat_shininess(float fShin);
 
 // Contours and vector plots:
   void              add_contour();
@@ -253,6 +284,7 @@ protected:
   void              get_resolution(long& nx, long& ny) const;
 
   void              build_faces_array();
+  void              build_cs_faces_array();   // cross-section regions.
   void              build_wireframe_array();
   void              build_aux_arrays();
 
@@ -299,11 +331,13 @@ protected:
   void              get_over_axis(const CPoint& point);
   void              draw_letter(double* pInvRot, const Vector3D& vWorldPos, int nLetterType);
 
+  void              clear_clr_regions();
+
 private:
-  std::vector<CFaceVertex> m_vFaceVert;
-  std::vector<CFaceVertex> m_vFaceCrossSectVert;     // faces of manually created cross-sections, to be drawn in FLAT mode.
-  std::vector<CFaceVertex> m_vFacesSelRegionVert;    // faces of selected regions.
-  std::vector<CFaceVertex> m_vSelFacesVert;          // manually selected faces, belonging, probably, to different regions.
+  CColoredRegions   m_vClrFaceVert;               // faces of the model belonging to user-defined colored areas.
+  std::vector<CFaceVertex> m_vFaceCrossSectVert;  // faces of manually created cross-sections, to be drawn in FLAT mode.
+  std::vector<CFaceVertex> m_vFacesSelRegionVert; // faces of selected regions.
+  std::vector<CFaceVertex> m_vSelFacesVert;       // manually selected faces, belonging, probably, to different regions.
 
 // Colored Tracks
   CColoredTracks    m_ColoredTracks;
@@ -343,6 +377,13 @@ private:
                     m_fBkgrGreen,
                     m_fBkgrBlue;
 
+// User control upon material properties:
+  float             m_fMatAmbient,
+                    m_fMatDiffuse,
+                    m_fMatSpec,
+                    m_fMatShininess;
+
+// Rotation center.
   bool              m_bRotCenter; // if true the rotation takes place around the center m_vCenter, otherwise around zero point.
   Vector3D          m_vCenter;    // run-time variable used generally in tests.
 
@@ -747,6 +788,70 @@ inline void CTrackDraw::append_sel_faces_ids(const CFaceIndices & faceInds)
 inline CRegFacePair CTrackDraw::get_face_under_cursor_id() const
 {
   return m_FaceUnderCursor;
+}
+
+inline float CTrackDraw::get_mat_ambient() const
+{
+  return m_fMatAmbient;
+}
+
+inline DWORD_PTR CTrackDraw::get_mat_ambient_ptr() const
+{
+  return (DWORD_PTR)&m_fMatAmbient;
+}
+
+inline void CTrackDraw::set_mat_ambient(float fAmb)
+{
+  m_fMatAmbient = fAmb;
+  RGBF_Color::clamp(m_fMatAmbient);
+}
+
+inline float CTrackDraw::get_mat_diffuse() const
+{
+  return m_fMatDiffuse;
+}
+
+inline DWORD_PTR CTrackDraw::get_mat_diffuse_ptr() const
+{
+  return (DWORD_PTR)&m_fMatDiffuse;
+}
+
+inline void CTrackDraw::set_mat_diffuse(float fDiff)
+{
+  m_fMatDiffuse = fDiff;
+  RGBF_Color::clamp(m_fMatDiffuse);
+}
+
+inline float CTrackDraw::get_mat_specular() const
+{
+  return m_fMatSpec;
+}
+
+inline DWORD_PTR CTrackDraw::get_mat_specular_ptr() const
+{
+  return (DWORD_PTR)&m_fMatSpec;
+}
+
+inline void CTrackDraw::set_mat_specular(float fSpec)
+{
+  m_fMatSpec = fSpec;
+  RGBF_Color::clamp(m_fMatSpec);
+}
+
+inline float CTrackDraw::get_mat_shininess() const
+{
+  return m_fMatShininess;
+}
+
+inline DWORD_PTR CTrackDraw::get_mat_shininess_ptr() const
+{
+  return (DWORD_PTR)&m_fMatShininess;
+}
+
+inline void CTrackDraw::set_mat_shininess(float fShin)
+{
+  m_fMatShininess = fShin;
+  RGBF_Color::clamp(m_fMatShininess);
 }
 
 };  // namespace EvaporatingParticle

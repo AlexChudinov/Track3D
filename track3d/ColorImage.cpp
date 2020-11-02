@@ -8,6 +8,14 @@
 namespace EvaporatingParticle
 {
 
+void RGBF_Color::clamp(float& rgb)
+{
+  if(rgb < 0.0f)
+    rgb = 0.0f;
+  if(rgb > 1.0f)
+    rgb = 1.0f;
+}
+
 CColorImage::CColorImage()
   : m_bEnable(false)
 {

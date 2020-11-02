@@ -27,8 +27,10 @@ public:
     ptbStackOfRings   = 1,  // a stack of equidistant charged rings; the rings can carry different charges.
     ptbUniform        = 2,  // simple uniform addition dE = const to the external DC field.
     ptbDoubleLayer    = 3,  // a model of field produced by a thin charged dielectric film.
-    ptbFlatChannelRF  = 4,  // a 2D analytic model of RF field caused by a set of metallic stripes (in MEMS devices).
-    ptbCount          = 5
+    ptbFlatChannelRF  = 4,  // a 2D analytic model of RF field caused by a set of metallic stripes (MEMS), flat substrate.
+    ptbCylSubstrateRF = 5,  // the same as ptbFlatChannelRF but for curved (round cylinder) substrate.
+    ptbElliptSubstrRF = 6,  // the same as ptbFlatChannelRF but for curved (elliptical) substrate.
+    ptbCount          = 7
   };
 
   static 
@@ -45,6 +47,8 @@ public:
   virtual bool        calc_field() { return true; }
   virtual Vector3D    get_field(size_t nNodeId) { return Vector3D(); }
   virtual float       get_phi(size_t nNodeId) { return 0; }
+
+  virtual bool        sel_region_changed(CStringVector* pRegNames) { return false; }
 
   int                 type() const;
   const char*         name() const;
@@ -76,6 +80,8 @@ public:
   void                clear_perturbations();
   Vector3D            apply(const Vector3D& vPos) const;
 
+  bool                sel_region_changed(CStringVector* pRegNames);
+
   void                save(CArchive& ar);
   void                load(CArchive& ar);
 };
@@ -88,6 +94,8 @@ class CChargedRingPerturbation : public CFieldPerturbation
 public:
   CChargedRingPerturbation();
   virtual ~CChargedRingPerturbation();
+
+  virtual bool        prepare();
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
 
@@ -111,7 +119,6 @@ public:
 
 protected:
   void                set_default();
-  bool                prepare();
 
   double              get_dPhi() const;
 
@@ -147,6 +154,8 @@ public:
     distrRegress = 1,
     distrCount   = 2
   };
+
+  virtual bool        prepare();
 
   virtual Vector3D    field_ptb(const Vector3D& vPos);
 
@@ -184,7 +193,6 @@ public:
 
 protected:
   void                set_default();
-  bool                prepare();
 
   void                calc_ring_charges();
 
@@ -294,40 +302,49 @@ private:
   bool                  m_bReady;
 };
 
+class CPrimitive;
 //-----------------------------------------------------------------------------
-// CFlatChannelRF - a model of the RF field in a narrow channel from a set of 
-//                  narrow stripes (MEMS devices).
+// CAnalytRFField - a base class for all models of the RF field in a narrow 
+//                  channel from a set of narrow stripes (MEMS devices).
 //-----------------------------------------------------------------------------
-class CFlatChannelRF : public CFieldPerturbation
+class CAnalytRFField : public CFieldPerturbation
 {
 public:
-  CFlatChannelRF();
-  virtual ~CFlatChannelRF();
+  CAnalytRFField();
+  virtual ~CAnalytRFField();
 
   virtual bool        prepare();
   virtual Vector3D    field_ptb(const Vector3D& vPos) { return Vector3D(); }
   virtual Vector3D    field_on_the_fly(const Vector3D& vPos, double fTime, double fPhase);
 
+  virtual bool        sel_region_changed(CStringVector* pRegNames);
+
 // User interface:
-  double              get_stripe_width() const;
+  CStringVector&      get_region_names();
+  DWORD_PTR           get_region_names_ptr() const;
+
+  bool                get_visibility_flag() const;
+  DWORD_PTR           get_visibility_flag_ptr() const;
+
+// The existing regions can be merged with those in selected Named Areas. Three merge options are available: add, substitute and remove.
+  int                 get_merge_option() const;
+  DWORD_PTR           get_merge_option_ptr() const;
+  void                set_merge_option(int nOpt);
+
+  CString             get_last_merged() const;
+  void                set_last_merged(const CString& sName);
+
+  double              get_stripe_width() const;     // by default, 24 mcm in CGS.
   DWORD_PTR           get_stripe_width_ptr() const;
   void                set_stripe_width(double fW);
 
-  double              get_gap_width() const;
+  double              get_gap_width() const;        // by default, 16 mcm in CGS.
   DWORD_PTR           get_gap_width_ptr() const;
   void                set_gap_width(double fW);
 
   double              get_channel_height() const;
   DWORD_PTR           get_channel_height_ptr() const;
   void                set_channel_height(double fH);
-
-  double              get_channel_length() const;
-  DWORD_PTR           get_channel_length_ptr() const;
-  void                set_channel_length(double fChanLen);
-
-  double              get_channel_width() const;
-  DWORD_PTR           get_channel_width_ptr() const;
-  void                set_channel_width(double fChanWidth);
 
   double              get_rf_freq() const;
   DWORD_PTR           get_rf_freq_ptr() const;
@@ -341,12 +358,12 @@ public:
   DWORD_PTR           get_decomp_count_ptr() const;
   void                set_decomp_count(UINT nCount);
 
-  Vector3D            get_start_point() const;
-  DWORD_PTR           get_start_point_ptr() const;
-  void                set_start_point(const Vector3D& vPos);
-
-// Stripes orientation. The virtual stripes can be stretched either along Z or along X in the global c.s.
-  enum { strAlongZ = 0, strAlongX = 1, strCount = 2 };
+  enum // Stripes orientation. The virtual stripes can be stretched either orthogonal to the flow or parallel to the flow.
+  { 
+    strOrtFlowDir   = 0,
+    strAlongFlowDir = 1,
+    strCount        = 2
+  };
 
   const char*         get_trans_dir_name(int nDir) const;
 
@@ -357,21 +374,25 @@ public:
   virtual void        save(CArchive& ar);
   virtual void        load(CArchive& ar);
 
+  CPrimitive*         get_bound_shape() const;
+
 protected:
   void                set_default();
 
   void                allocate_arrays();
   void                delete_arrays();
 
-  void                set_dir();
   bool                calc_coeff();
-  void                calc_bounding_box();
+
+  virtual bool        calc_bounding_box();
 
   double              coeff_Fourier(UINT k);
 
+// Transformation from world to model coordinates (x, y), such that 0 < x < L; 0 < y < H. 
+  Vector2D            world_to_model_coord(const Vector3D& vPos) const;
+
   double              phi_in_model_coord(double x, double y) const;
   Vector2D            field_in_model_coord(double x, double y) const;
-  Vector2D            trans_to_model_coord(const Vector3D& vPos) const;
 
   Vector2D            model_coord(UINT ix, UINT jy) const;
   bool                cell_indices(const Vector2D& vModPos, UINT& ix, double& ksix, UINT& jy, double& ksiy) const;
@@ -380,30 +401,33 @@ protected:
   bool                test_output();
 // END DEBUG
 
-private:
-  double              m_fStripeWidth,
-                      m_fGapWidth,
+  UINT                get_version() const;
 
-                      m_fChannelHeight,
-                      m_fChannelLength,
-                      m_fChannelWidth,
+// Data:
+// Bounding primitive. In the case of the flat substrate (this class) it is CPrimitiveBox; in the case of the
+// cylinder (curved) substrate it is CPrimCylSector.
+  CPrimitive*         m_pBoundShape;
+// A set of region names belonging to one and the same surface - substrate.
+  CStringVector       m_vRegNames;
+  bool                m_bRegVisible;
 
-                      m_fFreq,  // radio frequency, Hz.
+  int                 m_nMergeOpt;
+  CString             m_sLastMerged;
+
+  double              m_fStripeWidth,   // structure parameters, stripe width and...
+                      m_fGapWidth,      // ... gap between stripes.
+
+                      m_fChannelHeight;
+
+  double              m_fFreq,  // radio frequency, Hz.
                       m_fAmpl;  // amplitude, CGSE.
 
-  int                 m_nTransDir;    // stripes orientation, can be either strAlongZ or strAlongX.
+  int                 m_nTransDir;    // stripes orientation, can be either strOrtFlowDir or strAlongFlowDir.
 
   double              m_fOmega,       // run-time, m_fOmega = 2*pi*m_fFreq.
                       m_fWaveLength;  // run-time, m_fWaveLength = 2 * (m_fStripeWidth + m_fGapWidth).
 
   UINT                m_nDecompCount; // count of items in the Fourier decomposition.
-
-  Vector3D            m_vStartPoint,
-                      m_vDirX,  // Direction across the virtual periodic stripes.
-                      m_vDirY,  // Always (0, 1, 0).
-                      m_vDirZ;  // Translational direction, nothing changes along it. Can be either (0, 0, 1) or (1, 0, 0).
-
-  CBox                m_BoundBox;
 
   double*             m_pA;   // coefficients of Fourier decomposition of the boundary potential.
   double*             m_pB;   // coefficients at sinh(lambda*y) of U(y) = cosh(lambda*y) + B*sinh(lambda*y) decomposition.
@@ -415,6 +439,79 @@ private:
   Vector2D**          m_pRes;  // pre-computed RF field's amplitude for a single cell (x = [0, L], y = [0, H]).
 
   bool                m_bReady; // run-time, false by default.
+
+private:
+  UINT                m_nVersion; // backward compatibility.
+};
+
+//-----------------------------------------------------------------------------
+// CCurvedSubstrateRF
+//-----------------------------------------------------------------------------
+class CCurvedSubstrateRF : public CAnalytRFField
+{
+public:
+  CCurvedSubstrateRF();
+
+  double              get_x0() const;
+  DWORD_PTR           get_x0_ptr() const;
+  void                set_x0(double fX0);
+
+  double              get_y0() const;
+  DWORD_PTR           get_y0_ptr() const;
+  void                set_y0(double fY0);
+
+  double              get_radius() const;
+  DWORD_PTR           get_radius_ptr() const;
+  void                set_radius(double fR);
+
+  virtual void        save(CArchive& ar);
+  virtual void        load(CArchive& ar);
+
+protected:
+  virtual bool        calc_bounding_box();
+
+private:
+  double              m_fx0,    // cylinder axix position.
+                      m_fy0,
+                      m_fRad;   // cylinder radius.
+};
+
+//-----------------------------------------------------------------------------
+// CEllipticalSubstrateRF
+//-----------------------------------------------------------------------------
+class CEllipticalSubstrateRF : public CAnalytRFField
+{
+public:
+  CEllipticalSubstrateRF();
+
+  double              get_x0() const;
+  DWORD_PTR           get_x0_ptr() const;
+  void                set_x0(double fX0);
+
+  double              get_y0() const;
+  DWORD_PTR           get_y0_ptr() const;
+  void                set_y0(double fY0);
+
+  double              get_a() const;
+  DWORD_PTR           get_a_ptr() const;
+  void                set_a(double fA);
+
+  double              get_b() const;
+  DWORD_PTR           get_b_ptr() const;
+  void                set_b(double fB);
+
+  virtual void        save(CArchive& ar);
+  virtual void        load(CArchive& ar);
+
+protected:
+  virtual bool        calc_bounding_box();
+
+private:
+// Ellipse parameters:
+  double              m_fx0,
+                      m_fy0,
+                      m_fa,
+                      m_fb;
 };
 
 //-----------------------------------------------------------------------------
@@ -731,19 +828,64 @@ inline DWORD_PTR CDoubleLayerField::get_enable_multi_thread_ptr() const
 }
 
 //-----------------------------------------------------------------------------
-// CFlatChannelRF - inline implementation.
+// CAnalytRFField - inline implementation.
 //-----------------------------------------------------------------------------
-inline double CFlatChannelRF::get_gap_width() const
+inline CStringVector& CAnalytRFField::get_region_names()
+{
+  return m_vRegNames;
+}
+
+inline DWORD_PTR CAnalytRFField::get_region_names_ptr() const
+{
+  return (DWORD_PTR)&m_vRegNames;
+}
+
+inline bool CAnalytRFField::get_visibility_flag() const
+{
+  return m_bRegVisible;
+}
+
+inline DWORD_PTR CAnalytRFField::get_visibility_flag_ptr() const
+{
+  return (DWORD_PTR)&m_bRegVisible;
+}
+
+inline int CAnalytRFField::get_merge_option() const
+{
+  return m_nMergeOpt;
+}
+
+inline DWORD_PTR CAnalytRFField::get_merge_option_ptr() const
+{
+  return (DWORD_PTR)&m_nMergeOpt;
+}
+
+inline void CAnalytRFField::set_merge_option(int nOpt)
+{
+  m_nMergeOpt = nOpt;
+}
+
+inline CString CAnalytRFField::get_last_merged() const
+{
+  return m_sLastMerged;
+}
+
+inline void CAnalytRFField::set_last_merged(const CString& sName)
+{
+  m_sLastMerged = sName;
+}
+
+inline double CAnalytRFField::get_gap_width() const
 {
   return m_fGapWidth;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_gap_width_ptr() const
+inline DWORD_PTR CAnalytRFField::get_gap_width_ptr() const
 {
   return (DWORD_PTR)&m_fGapWidth;
 }
 
-inline void CFlatChannelRF::set_gap_width(double fW)
+inline void CAnalytRFField::set_gap_width(double fW)
 {
   if(m_fGapWidth != fW)
   {
@@ -753,17 +895,17 @@ inline void CFlatChannelRF::set_gap_width(double fW)
   }
 }
 
-inline double CFlatChannelRF::get_stripe_width() const
+inline double CAnalytRFField::get_stripe_width() const
 {
   return m_fStripeWidth;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_stripe_width_ptr() const
+inline DWORD_PTR CAnalytRFField::get_stripe_width_ptr() const
 {
   return (DWORD_PTR)&m_fStripeWidth;
 }
 
-inline void CFlatChannelRF::set_stripe_width(double fW)
+inline void CAnalytRFField::set_stripe_width(double fW)
 {
   if(m_fStripeWidth != fW)
   {
@@ -773,17 +915,17 @@ inline void CFlatChannelRF::set_stripe_width(double fW)
   }
 }
 
-inline double CFlatChannelRF::get_channel_height() const
+inline double CAnalytRFField::get_channel_height() const
 {
   return m_fChannelHeight;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_channel_height_ptr() const
+inline DWORD_PTR CAnalytRFField::get_channel_height_ptr() const
 {
   return (DWORD_PTR)&m_fChannelHeight;
 }
 
-inline void CFlatChannelRF::set_channel_height(double fH)
+inline void CAnalytRFField::set_channel_height(double fH)
 {
   if(m_fChannelHeight != fH)
   {
@@ -792,78 +934,48 @@ inline void CFlatChannelRF::set_channel_height(double fH)
   }
 }
 
-inline double CFlatChannelRF::get_channel_length() const
-{
-  return m_fChannelLength;
-}
-
-inline DWORD_PTR CFlatChannelRF::get_channel_length_ptr() const
-{
-  return (DWORD_PTR)&m_fChannelLength;
-}
-
-inline void CFlatChannelRF::set_channel_length(double fChanLen)
-{
-  m_fChannelLength = fChanLen;
-}
-
-inline double CFlatChannelRF::get_channel_width() const
-{
-  return m_fChannelWidth;
-}
-
-inline DWORD_PTR CFlatChannelRF::get_channel_width_ptr() const
-{
-  return (DWORD_PTR)&m_fChannelWidth;
-}
-
-inline void CFlatChannelRF::set_channel_width(double fHalfWidth)
-{
-  m_fChannelWidth = fHalfWidth;
-}
-
-inline double CFlatChannelRF::get_rf_freq() const
+inline double CAnalytRFField::get_rf_freq() const
 {
   return m_fFreq;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_rf_freq_ptr() const
+inline DWORD_PTR CAnalytRFField::get_rf_freq_ptr() const
 {
   return (DWORD_PTR)&m_fFreq;
 }
 
-inline void CFlatChannelRF::set_rf_freq(double fFreq)
+inline void CAnalytRFField::set_rf_freq(double fFreq)
 {
   m_fFreq = fFreq;
   m_fOmega = Const_2PI * m_fFreq;
 }
 
-inline double CFlatChannelRF::get_rf_ampl() const
+inline double CAnalytRFField::get_rf_ampl() const
 {
   return m_fAmpl;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_rf_ampl_ptr() const
+inline DWORD_PTR CAnalytRFField::get_rf_ampl_ptr() const
 {
   return (DWORD_PTR)&m_fAmpl;
 }
 
-inline void CFlatChannelRF::set_rf_ampl(double fAmpl)
+inline void CAnalytRFField::set_rf_ampl(double fAmpl)
 {
   m_fAmpl = fAmpl;
 }
 
-inline UINT CFlatChannelRF::get_decomp_count() const
+inline UINT CAnalytRFField::get_decomp_count() const
 {
   return m_nDecompCount;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_decomp_count_ptr() const
+inline DWORD_PTR CAnalytRFField::get_decomp_count_ptr() const
 {
   return (DWORD_PTR)&m_nDecompCount;
 }
 
-inline void CFlatChannelRF::set_decomp_count(UINT nCount)
+inline void CAnalytRFField::set_decomp_count(UINT nCount)
 {
   if(m_nDecompCount != nCount)
   {
@@ -872,36 +984,17 @@ inline void CFlatChannelRF::set_decomp_count(UINT nCount)
   }
 }
 
-inline Vector3D CFlatChannelRF::get_start_point() const
-{
-  return m_vStartPoint;
-}
-
-inline DWORD_PTR CFlatChannelRF::get_start_point_ptr() const
-{
-  return (DWORD_PTR)&m_vStartPoint;
-}
-
-inline void CFlatChannelRF::set_start_point(const Vector3D& vPos)
-{
-  if(m_vStartPoint != vPos)
-  {
-    m_vStartPoint = vPos;
-    m_bReady = false;
-  }
-}
-
-inline int CFlatChannelRF::get_trans_dir() const
+inline int CAnalytRFField::get_trans_dir() const
 {
   return m_nTransDir;
 }
 
-inline DWORD_PTR CFlatChannelRF::get_trans_dir_ptr() const
+inline DWORD_PTR CAnalytRFField::get_trans_dir_ptr() const
 {
   return (DWORD_PTR)&m_nTransDir;
 }
 
-inline void CFlatChannelRF::set_trans_dir(int nTransDir)
+inline void CAnalytRFField::set_trans_dir(int nTransDir)
 {
   if(m_nTransDir != nTransDir)
   {
@@ -909,5 +1002,155 @@ inline void CFlatChannelRF::set_trans_dir(int nTransDir)
     m_bReady = false;
   }
 }
+
+inline CPrimitive* CAnalytRFField::get_bound_shape() const
+{
+  return m_pBoundShape;
+}
+
+inline UINT CAnalytRFField::get_version() const
+{
+  return m_nVersion;
+}
+
+//-----------------------------------------------------------------------------
+// CCurvedSubstrateRF - in fact, a round cylinder substrate.
+//-----------------------------------------------------------------------------
+inline double CCurvedSubstrateRF::get_x0() const
+{
+  return m_fx0;
+}
+
+inline DWORD_PTR CCurvedSubstrateRF::get_x0_ptr() const
+{
+  return (DWORD_PTR)&m_fx0;
+}
+
+inline void CCurvedSubstrateRF::set_x0(double fX0)
+{
+  if(m_fx0 != fX0)
+  {
+    m_fx0 = fX0;
+    m_bReady = false;
+  }
+}
+
+inline double CCurvedSubstrateRF::get_y0() const
+{
+  return m_fy0;
+}
+
+inline DWORD_PTR CCurvedSubstrateRF::get_y0_ptr() const
+{
+  return (DWORD_PTR)&m_fy0;
+}
+
+inline void CCurvedSubstrateRF::set_y0(double fY0)
+{
+  if(m_fy0 != fY0)
+  {
+    m_fy0 = fY0;
+    m_bReady = false;
+  }
+}
+
+inline double CCurvedSubstrateRF::get_radius() const
+{
+  return m_fRad;
+}
+
+inline DWORD_PTR CCurvedSubstrateRF::get_radius_ptr() const
+{
+  return (DWORD_PTR)&m_fRad;
+}
+
+inline void CCurvedSubstrateRF::set_radius(double fR)
+{
+  if(m_fRad != fR)
+  {
+    m_fRad = fR;
+    m_bReady = false;
+  }
+}
+
+//-----------------------------------------------------------------------------
+// CEllipticalSubstrateRF
+//-----------------------------------------------------------------------------
+inline double CEllipticalSubstrateRF::get_x0() const
+{
+  return m_fx0;
+}
+
+inline DWORD_PTR CEllipticalSubstrateRF::get_x0_ptr() const
+{
+  return (DWORD_PTR)&m_fx0;
+}
+
+inline void CEllipticalSubstrateRF::set_x0(double fX0)
+{
+  if(m_fx0 != fX0)
+  {
+    m_fx0 = fX0;
+    m_bReady = false;
+  }
+}
+
+inline double CEllipticalSubstrateRF::get_y0() const
+{
+  return m_fy0;
+}
+
+inline DWORD_PTR CEllipticalSubstrateRF::get_y0_ptr() const
+{
+  return (DWORD_PTR)&m_fy0;
+}
+
+inline void CEllipticalSubstrateRF::set_y0(double fY0)
+{
+  if(m_fy0 != fY0)
+  {
+    m_fy0 = fY0;
+    m_bReady = false;
+  }
+}
+
+inline double CEllipticalSubstrateRF::get_a() const
+{
+  return m_fa;
+}
+
+inline DWORD_PTR CEllipticalSubstrateRF::get_a_ptr() const
+{
+  return (DWORD_PTR)&m_fa;
+}
+
+inline void CEllipticalSubstrateRF::set_a(double fA)
+{
+  if(m_fa != fA)
+  {
+    m_fa = fA;
+    m_bReady = false;
+  }
+}
+
+inline double CEllipticalSubstrateRF::get_b() const
+{
+  return m_fb;
+}
+
+inline DWORD_PTR CEllipticalSubstrateRF::get_b_ptr() const
+{
+  return (DWORD_PTR)&m_fb;
+}
+
+inline void CEllipticalSubstrateRF::set_b(double fB)
+{
+  if(m_fb != fB)
+  {
+    m_fb = fB;
+    m_bReady = false;
+  }
+}
+
 
 };  // namespace EvaporatingParticle

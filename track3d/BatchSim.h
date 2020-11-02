@@ -25,7 +25,7 @@ struct CIonSimParams  // all 5 double parameters are in CGSE.
   CIonSimParams();
 
   CIonSimParams(double fM, double fQ, double fK0, double fCS, double fCurr)
-    : fMass(fM), fCharge(fQ), fMob(fK0), fCrossSect(fCS), fFullCurr(fCurr)
+    : fMass(fM), fCharge(fQ), fMob(fK0), fCrossSect(fCS), fFullCurr(fCurr), sLegend(" ")
   {
   }
 
@@ -36,6 +36,10 @@ struct CIonSimParams  // all 5 double parameters are in CGSE.
           fFullCurr;
 
   std::vector<CFieldParams> vFieldPar;
+
+// A string that is added to the end of any file name saying what parameter is being varied. 
+// Note: Each string in the input batch file must end with the legend!
+  CString sLegend;
 };
 
 typedef std::vector<CIonSimParams> CSimParamsVector;
@@ -118,7 +122,8 @@ private:
   CSimParamsVector      m_vSimParams;     // an array of simulation parameters for batch calculations.
   CIonSimParams         m_BackUpParams;   // parameters of the CTracker object and the Fields Collection to be stored before batch simulations.
 
-  CString               m_sTskFile;       // run-time project file name for intermediate output.
+  CString               m_sTskFile,       // run-time project file name for intermediate output.
+                        m_sLegend;        // any intermediate file name must end up with this legend, which is set manually by user in the input batch file.
 
 // These variables are not intended for frequent usage. In the latest version of the CTracker the sliding average is not supported yet.
   bool                  m_bUseSlidingAverage;

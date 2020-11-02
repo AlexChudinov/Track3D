@@ -15,7 +15,6 @@ void CPropertiesWnd::add_draw_ctrls()
   EvaporatingParticle::CTrackDraw* pObj = CParticleTrackingApp::Get()->GetDrawObj();
 
 // Drawing:
-//  CMFCPropertyGridProperty* pDrawGroup = new CMFCPropertyGridProperty(_T("Drawing"));
   CMFCPropertyGridProperty* pFacesGroup = new CMFCPropertyGridProperty(_T("Geometry"));
 // Geometry:
   COleVariant var(pObj->get_draw_mode_name(pObj->get_draw_mode()));
@@ -26,19 +25,15 @@ void CPropertiesWnd::add_draw_ctrls()
   pRespProp->AllowEdit(FALSE);
   pFacesGroup->AddSubItem(pRespProp);
 
-// Color and opacity
-  COLORREF clr = pObj->get_faces_color();
-  CColorResponseProperty* pColorBtn = new CColorResponseProperty(_T("Faces Color"), clr, NULL, _T(""), pObj->get_faces_color_ptr());
-  pFacesGroup->AddSubItem(pColorBtn);
-
-  pRespProp = new CResponseProperty(this, _T("Faces Opacity"), COleVariant(pObj->get_opacity()), _T("Opacity of the faces material. Unity gives opaque faces, zero means transparent faces"), pObj->get_opacity_ptr());
+// Faces opacity and background color.
+  pRespProp = new CResponseProperty(this, _T("Faces Opacity"), COleVariant(pObj->get_opacity()), _T("Opacity of all the faces in the scene. Unity gives opaque faces, zero means transparent faces."), pObj->get_opacity_ptr());
   pFacesGroup->AddSubItem(pRespProp);
 
-  CString cHiddenRegNames = pObj->get_hidden_names_str();
-  CSelectRegionButton* pHiddenRegButton = new CSelectRegionButton(this, _T("Hidden 2D Regions"), cHiddenRegNames, _T("Click to select 2D regions to hide."), pObj->get_hidden_reg_names_ptr());
-  pFacesGroup->AddSubItem(pHiddenRegButton);
+  COLORREF clr = pObj->get_bkgr_color();
+  CColorResponseProperty* pBkgColorBtn = new CColorResponseProperty(_T("Background Color"), clr, NULL, _T(""), pObj->get_bkgr_color_ptr());
+  pFacesGroup->AddSubItem(pBkgColorBtn);
 
-  CSelectRegionButton* pShowRegButton = new CSelectRegionButton(this, _T("Show All 2D Regions"), _T(""), _T("Click to show all 2D regions."), NULL);
+  CSelectRegionButton* pShowRegButton = new CSelectRegionButton(this, _T("Show All 2D Regions"), _T(""), _T("Click to make visible all 2D regions."), NULL);
   pFacesGroup->AddSubItem(pShowRegButton);
 
   m_wndPropList.AddProperty(pFacesGroup);
@@ -96,10 +91,6 @@ void CPropertiesWnd::add_draw_ctrls()
 // General:
   CMFCPropertyGridProperty* pGeneralGroup = new CMFCPropertyGridProperty(_T("General"));
 
-  clr = pObj->get_bkgr_color();
-  CColorResponseProperty* pBkgColorBtn = new CColorResponseProperty(_T("Background Color"), clr, NULL, _T(""), pObj->get_bkgr_color_ptr());
-  pGeneralGroup->AddSubItem(pBkgColorBtn);
-
   CCheckBoxButton* pGenericCheckBox = new CCheckBoxButton(this, _T("Rotate around Center"), (_variant_t)pObj->get_rot_center(), _T("If true the rotation takes place around the bounding box center; otherwise - around coordinate origin."), pObj->get_rot_center_ptr());
   pGeneralGroup->AddSubItem(pGenericCheckBox);
 
@@ -111,6 +102,22 @@ void CPropertiesWnd::add_draw_ctrls()
 
   m_wndPropList.AddProperty(pGeneralGroup);
 
+// Material properties:
+  CMFCPropertyGridProperty* pMaterialGroup = new CMFCPropertyGridProperty(_T("Lighting Properties"));
+  CSetAndRedrawResponder* pAmbientProp = new CSetAndRedrawResponder(this, _T("Ambient"), COleVariant((double)pObj->get_mat_ambient()), _T("Intensity of ambient light. This value ranges from 0 to 1."), pObj->get_mat_ambient_ptr());
+  pMaterialGroup->AddSubItem(pAmbientProp);
+
+  CSetAndRedrawResponder* pDiffProp = new CSetAndRedrawResponder(this, _T("Diffuse"), COleVariant((double)pObj->get_mat_diffuse()), _T("Intensity of diffusively reflected light. This value ranges from 0 to 1."), pObj->get_mat_diffuse_ptr());
+  pMaterialGroup->AddSubItem(pDiffProp);
+
+  CSetAndRedrawResponder* pSpecProp = new CSetAndRedrawResponder(this, _T("Specular"), COleVariant((double)pObj->get_mat_specular()), _T("Intensity of specular light. This value ranges from 0 to 1."), pObj->get_mat_specular_ptr());
+  pMaterialGroup->AddSubItem(pSpecProp);
+
+  CSetAndRedrawResponder* pShininessProp = new CSetAndRedrawResponder(this, _T("Shininess"), COleVariant((double)pObj->get_mat_shininess()), _T("This value controls the size of the reflected light spot. The higher shininess is the smaller is the reflected spot. This value ranges from 0 to 1."), pObj->get_mat_shininess_ptr());
+  pMaterialGroup->AddSubItem(pShininessProp);
+
+  m_wndPropList.AddProperty(pMaterialGroup);
+
 // Cross-section planes:
   add_cs_plane_ctrls();
 
@@ -120,6 +127,23 @@ void CPropertiesWnd::add_draw_ctrls()
 
 void CPropertiesWnd::set_draw_data()
 {
+  EvaporatingParticle::CTrackDraw* pObj = CParticleTrackingApp::Get()->GetDrawObj();
+
+  CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_mat_ambient_ptr());
+  if(pProp != NULL)
+    pObj->set_mat_ambient((float)(pProp->GetValue().dblVal));
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_mat_diffuse_ptr());
+  if(pProp != NULL)
+    pObj->set_mat_diffuse((float)(pProp->GetValue().dblVal));
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_mat_specular_ptr());
+  if(pProp != NULL)
+    pObj->set_mat_specular((float)(pProp->GetValue().dblVal));
+
+  pProp = m_wndPropList.FindItemByData(pObj->get_mat_shininess_ptr());
+  if(pProp != NULL)
+    pObj->set_mat_shininess((float)(pProp->GetValue().dblVal));
 }
 
 void CPropertiesWnd::add_cs_plane_ctrls()
@@ -279,6 +303,22 @@ void CPropertiesWnd::update_draw_ctrls()
     pProp->Enable(bEnableClr);
 
   pProp = m_wndPropList.FindItemByData(pDrawObj->get_opacity_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnableClr);
+
+  pProp = m_wndPropList.FindItemByData(pDrawObj->get_mat_ambient_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnableClr);
+
+  pProp = m_wndPropList.FindItemByData(pDrawObj->get_mat_diffuse_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnableClr);
+
+  pProp = m_wndPropList.FindItemByData(pDrawObj->get_mat_specular_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bEnableClr);
+
+  pProp = m_wndPropList.FindItemByData(pDrawObj->get_mat_shininess_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnableClr);
 

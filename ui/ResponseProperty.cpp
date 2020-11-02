@@ -259,9 +259,9 @@ BOOL CCrossSectionResponer::OnUpdateValue()
 //---------------------------------------------------------------------------------------
 BOOL CCalcResponseProperty::OnUpdateValue()
 {
-  m_pWndProp->set_data_to_model();
-
   BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+
+  m_pWndProp->set_data_to_model();
 
   DWORD_PTR pData = GetData();
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
@@ -309,9 +309,8 @@ BOOL CCalcResponseProperty::OnUpdateValue()
       case EvaporatingParticle::CCalculator::ctPlaneYZ:
       {
         EvaporatingParticle::CPlaneYZCalculator* pPlaneYZCalc = (EvaporatingParticle::CPlaneYZCalculator*)pCalc;
-        if(pPlaneYZCalc->get_plane_x_ptr() == pData)
+        if(pPlaneYZCalc->get_plane_x_ptr() == pData || pPlaneYZCalc->get_seq_clc_dir_ptr() == pData)
         {
-          pPlaneYZCalc->set_plane_x(0.1 * GetValue().dblVal);
           pPlaneYZCalc->update();
           pPlaneYZCalc->do_calculate();
           pDrawObj->draw();
@@ -327,6 +326,18 @@ BOOL CCalcResponseProperty::OnUpdateValue()
           pTrackCalc->set_cs_pos(0.1 * GetValue().dblVal);
           pTrackCalc->do_calculate();
         }
+
+        break;
+      }
+      case EvaporatingParticle::CCalculator::ctAlongLine:
+      {
+        EvaporatingParticle::CLineCalculator* pLineCalc = (EvaporatingParticle::CLineCalculator*)pCalc;
+// CLineCalculator::get_update_flag() returns false (and that is correct), so that the code above will not work for this calculator. 
+// Here I want only the read-only "Average" edit-line to become zero if the variable type has been changed.
+        if(pLineCalc->get_clc_var_type_ptr() == pData)
+          pLineCalc->set_line_average(0);
+
+        break;
       }
     }
   }
@@ -359,6 +370,31 @@ BOOL CColorResponseProperty::OnUpdateValue()
 }
 
 //---------------------------------------------------------------------------------------
+//  CAreaFacesColorResponder
+//---------------------------------------------------------------------------------------
+BOOL CAreaFacesColorResponder::OnUpdateValue()
+{
+  BOOL bRes = CMFCPropertyGridColorProperty::OnUpdateValue();
+
+  DWORD_PTR pData = GetData();
+  EvaporatingParticle::CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  int nAreasCount = pSelAreasColl->size();
+  for(int i = -1; i < nAreasCount; i++)
+  {
+    EvaporatingParticle::CSelectedAreas* pSelArea = (i >= 0) ? pSelAreasColl->at(i) : pSelAreasColl->get_default_area();
+    if(pData == pSelArea->get_faces_color_ptr())
+    {
+      pSelArea->set_faces_color(GetColor());
+      EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+      pDrawObj->draw();
+      break;
+    }
+  }
+
+  return bRes;
+}
+
+//---------------------------------------------------------------------------------------
 //  CGeneralResponseProperty
 //---------------------------------------------------------------------------------------
 BOOL CGeneralResponseProperty::OnUpdateValue()
@@ -374,9 +410,9 @@ BOOL CGeneralResponseProperty::OnUpdateValue()
 //---------------------------------------------------------------------------------------
 BOOL CElectricFieldResponder::OnUpdateValue()
 {
-  m_pWndProp->set_data_to_model();
-
   BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+
+  m_pWndProp->set_data_to_model();
   DWORD_PTR pData = GetData();
 
   CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
@@ -422,10 +458,30 @@ static CPotentialBoundCond* get_bc_object(DWORD_PTR pRegNames)
   return NULL;
 }
 
+static CAnalytRFField* get_analyt_rf_object(DWORD_PTR pRegNames)
+{
+  CFieldPtbCollection& coll = CParticleTrackingApp::Get()->GetTracker()->get_field_ptb();
+  size_t nPtbCount = coll.size();
+  for(size_t i = 0; i < nPtbCount; i++)
+  {
+    CFieldPerturbation* pPtb = coll.at(i);
+    int nType = pPtb->type();
+    if(nType == CFieldPerturbation::ptbFlatChannelRF || nType == CFieldPerturbation::ptbCylSubstrateRF || nType == CFieldPerturbation::ptbElliptSubstrRF)
+    {
+      CAnalytRFField* pAnalytPtb = (CAnalytRFField*)pPtb;
+      if(pRegNames == pAnalytPtb->get_region_names_ptr())
+        return pAnalytPtb;
+    }
+  }
+
+  return NULL;
+}
+
 BOOL CNamedAreasSelResponder::OnUpdateValue()
 {
-  m_pWndProp->set_data_to_model();
   BOOL bRes = CMFCPropertyGridProperty::OnUpdateValue();
+
+  m_pWndProp->set_data_to_model();
 
   CStringVector* pRegNames = (CStringVector*)GetData();
   CString sNamedArea = (CString)GetValue();   // user selected this string, it can be "None".
@@ -440,15 +496,29 @@ BOOL CNamedAreasSelResponder::OnUpdateValue()
     CString sName = pSelArea->get_name();
     if(sName == sNamedArea)
     {
+// Two possible types of objects who can posess the region names collection:
       CPotentialBoundCond* pBC = get_bc_object(GetData());
-      if(pBC == NULL)
+      CAnalytRFField* pAnalytPtb = get_analyt_rf_object(GetData());
+      if(pBC != NULL)
+      {
+        pSelArea->merge_items(*pRegNames, pBC->get_merge_option());
+        pDrawObj->enter_sel_context(pRegNames);
+        pDrawObj->exit_sel_context(pRegNames);
+        pBC->set_last_merged(sNamedArea);
+        break;
+      }
+      else if(pAnalytPtb != NULL)
+      {
+        pSelArea->merge_items(*pRegNames, pAnalytPtb->get_merge_option());
+        pDrawObj->enter_sel_context(pRegNames);
+        pDrawObj->exit_sel_context(pRegNames);
+        pAnalytPtb->set_last_merged(sNamedArea);
+        break;
+      }
+      else
+      {
         return FALSE;
-
-      pSelArea->merge_items(*pRegNames, pBC->get_merge_option());
-      pDrawObj->enter_sel_context(pRegNames);
-      pDrawObj->exit_sel_context(pRegNames);
-      pBC->set_last_merged(sNamedArea);
-      break;
+      }
     }
   }
 
@@ -456,6 +526,19 @@ BOOL CNamedAreasSelResponder::OnUpdateValue()
   pDrawObj->draw();
   return bRes;
 }
+
+//---------------------------------------------------------------------------------------
+//  CSetAndRedrawResponder. 
+//---------------------------------------------------------------------------------------
+BOOL CSetAndRedrawResponder::OnUpdateValue()
+{
+  BOOL bRes = CGeneralResponseProperty::OnUpdateValue();
+  EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->invalidate_contours();
+  pDrawObj->draw();
+  return bRes;
+}
+
 
 
 

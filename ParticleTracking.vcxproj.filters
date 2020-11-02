@@ -222,6 +222,15 @@
     <ClInclude Include="track3d\BatchSim.h">
       <Filter>track3d\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="track3d\Primitives.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\DropletSizeGen.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="track3d\SparseMatrix.h">
+      <Filter>track3d\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="track3d\BarnesHut.cpp">
@@ -408,6 +417,15 @@
       <Filter>track3d\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="track3d\BatchSim.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\Primitives.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\DropletSizeGen.cpp">
+      <Filter>track3d\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="track3d\SparseMatrix.cpp">
       <Filter>track3d\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

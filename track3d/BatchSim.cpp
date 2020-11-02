@@ -25,6 +25,7 @@ CIonSimParams::CIonSimParams()
   fMob = 1.05 / SI_to_CGS_Voltage;
   fCrossSect = 160 * fCoeffCS;
   fFullCurr = 100 * Const_nA_to_CGSE;
+  sLegend = CString(" ");
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -122,10 +123,14 @@ bool CBatchSim::read_sim_params()
     param.vFieldPar.resize(nFieldsCount);
     for(UINT k = 0; k < nFieldsCount; k++)
     {
-      nRes = (k == nFieldsCount - 1) ? fscanf_s(pStream, "%lf, %lf", &fScale, &fFreq) : fscanf_s(pStream, "%lf, %lf,", &fScale, &fFreq);
+//      nRes = (k == nFieldsCount - 1) ? fscanf_s(pStream, "%lf, %lf", &fScale, &fFreq) : fscanf_s(pStream, "%lf, %lf,", &fScale, &fFreq);
+      nRes = fscanf_s(pStream, "%lf, %lf,", &fScale, &fFreq);
       param.vFieldPar[k].fAmpl = fScale;
       param.vFieldPar[k].fFreq = 1000 * fFreq;  // in the input file frequency is in kHz.
     }
+
+    nRes = fscanf(pStream, "%s", sHeader);
+    param.sLegend = CString(sHeader);
 
     m_vSimParams.push_back(param);
     if(nRes == EOF)
@@ -194,6 +199,7 @@ bool CBatchSim::prepare_step(UINT nStep)
   if(nStep >= m_vSimParams.size())
     return false;
 
+  m_sLegend = m_vSimParams.at(nStep).sLegend;
   return set_sim_params_to_tracker(m_vSimParams.at(nStep));
 }
 
@@ -269,12 +275,13 @@ bool CBatchSim::get_filenames(CString& sTransFile, CString& sFragmFile, CString&
   int nCurr = int(0.5 + m_pObj->get_full_current() / Const_nA_to_CGSE);
   CString sCurr(itoa(nCurr, buff, 10));
 
-  sTransFile = sDirName + sMassOvrCharge + CString("_Trans_I=") + sCurr + CString("nA.csv");
-  sFragmFile = sDirName + sMassOvrCharge + CString("_Fragm_I=") + sCurr + CString("nA.csv");
-  sIonTempFile = sDirName + sMassOvrCharge + CString("_Ion_Temp_I=") + sCurr + CString("nA.csv");
-  sClmbFile = sDirName + CString("Space_Charge_I=") + sCurr + CString("nA.csv");
+  CString sExt(".csv");
+  sTransFile = sDirName + sMassOvrCharge + CString("_Trans_I=") + sCurr + CString("nA_") + m_sLegend + sExt;
+  sFragmFile = sDirName + sMassOvrCharge + CString("_Fragm_I=") + sCurr + CString("nA_") + m_sLegend + sExt;
+  sIonTempFile = sDirName + sMassOvrCharge + CString("_Ion_Temp_I=") + sCurr + CString("nA_") + m_sLegend + sExt;
+  sClmbFile = sDirName + CString("Space_Charge_I=") + sCurr + CString("nA_") + m_sLegend + sExt;
 
-  m_sTskFile = sPath + sMassOvrCharge + CString("_I=") + sCurr + CString("nA.tsk");
+  m_sTskFile = sPath + sMassOvrCharge + CString("_I=") + sCurr + CString("nA_") + m_sLegend + CString(".tsk");
 
   return true;
 }
@@ -333,12 +340,10 @@ void CBatchSim::debug_output()
       params.fMass / Const_AMU_CGS, params.fCharge / Const_Charge_CGS, params.fMob * SI_to_CGS_Voltage, params.fCrossSect / fCoeffCS, params.fFullCurr / Const_nA_to_CGSE);
 
     for(UINT j = 0; j < nFieldCount; j++)
-    {
-      if(j == nFieldCount - 1)
-        fprintf(pStream, "%10.2lf,%10.2lf\n", params.vFieldPar[j].fAmpl, 0.001 * params.vFieldPar[j].fFreq);
-      else
-        fprintf(pStream, "%10.2lf,%10.2lf,", params.vFieldPar[j].fAmpl, 0.001 * params.vFieldPar[j].fFreq);
-    }
+      fprintf(pStream, "%10.2lf,%10.2lf,", params.vFieldPar[j].fAmpl, 0.001 * params.vFieldPar[j].fFreq);
+
+    fputs((const char*)(params.sLegend), pStream);
+    fputs("\n", pStream);
   }
 
   fclose(pStream);

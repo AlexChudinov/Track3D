@@ -59,12 +59,16 @@ public:
   virtual void        get_min_max();      // minimal and maximal values of the drawn variable over the cross-section...
   virtual void        get_glob_min_max(); // ... and over all the computational domain.
 
+  virtual void        invalidate();
+
   const char*         get_var_name(int nVar) const;
 
 protected:
   virtual void        set_default();
 
   virtual bool        build_draw_array();
+
+  void                set_correct_phi_to_nodes();
 
   void                reorder_vertices(CFace* pFace, Vector3D* pFaceVert, double* pVal) const;
 
@@ -117,12 +121,17 @@ public:
 
   enum  // index of variable the track will be colored by.
   {
-    tcmDefault     = 0,
-    tcmIonTemp     = 1,
-    tcmIonEqTemp   = 2,
-    tcmIonConc     = 3, // AC 12/08/2016 Show ion fragmentation percentage
-    tcmStartRadius = 4, // To see how far from the central point at the starting plane the track has started.
-    tcmCount       = 5
+    tcmDefault        = 0,
+    tcmIonTemp        = 1,
+    tcmIonEqTemp      = 2,
+    tcmIonConc        = 3, // AC 12/08/2016 Show ion fragmentation percentage
+    tcmStartRadiusXY  = 4, // To see how far from the central point at the starting plane the track has started.
+    tcmStartRadiusYZ  = 5,
+    tcmStartRadiusXZ  = 6,
+    tcmStartX         = 7,
+    tcmStartY         = 8,
+    tcmStartZ         = 9,
+    tcmCount          = 10
   };
 
   virtual void        draw();
@@ -137,12 +146,14 @@ public:
 
   const char*         get_var_name(int nVar) const;
 
-  static double       get_start_radius(size_t nTrackIndex);
+  static double       get_start_radius(size_t nTrackIndex, int nVarIndex = tcmDefault);
 
 protected:
   virtual void        set_default();
 
   double              get_vert_value(const CTrackItem& item, size_t nTrackIndex) const;
+
+  double              get_start_coord(size_t nTrackIndex) const;
 
   void                clear();
 
@@ -174,6 +185,13 @@ public:
     varCount       = 3
   };
 
+  enum  // direction of the cross-section normal, X by default.
+  {
+    nrmDirX  = 0,
+    nrmDirY  = 1,
+    nrmDirZ  = 2
+  };
+
   double              get_cross_sect_pos() const;
   DWORD_PTR           get_cross_sect_pos_ptr() const;
   void                set_cross_sect_pos(double fX);
@@ -189,6 +207,8 @@ public:
   double              get_max_val() const;
   DWORD_PTR           get_max_val_ptr() const;
   void                set_max_val(double fVal);
+
+  void                set_norm_dir(int nDir);
 
   size_t              get_points_count() const;
   void                get_colored_point(size_t nIndex, Vector3D& vPoint, double& fVal, RGB_Color& clr) const;
@@ -209,16 +229,18 @@ protected:
   double              get_vert_value(const CTrackItem& item, size_t nTrackIndex) const;
 
   void                collect_intersections();
+  bool                is_intersected(const Vector3D& vPrev, const Vector3D& vCurr);
   void                clear();
 
 private:
-  double              m_fCrossSectX;
+  double              m_fCrossSectX;  // can be X, Y or Z depending on m_nDir.
 
   CVert3DColl         m_vPoints;
   CValueVector        m_vCrossSectValues;
   CColorVector        m_vCrossSectColors;
 
-  int                 m_nVar;
+  int                 m_nVar,
+                      m_nDir;
 
   double              m_vUserDefMin[varCount];
   double              m_vUserDefMax[varCount];
@@ -428,6 +450,11 @@ inline void CColoredCrossSection::set_max_val(double fVal)
 inline size_t CColoredCrossSection::get_points_count() const
 {
   return m_vPoints.size();
+}
+
+inline void CColoredCrossSection::set_norm_dir(int nDir)
+{
+  m_nDir = nDir;
 }
 
 };  // namespace EvaporatingParticle

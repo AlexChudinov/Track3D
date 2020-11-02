@@ -12,7 +12,9 @@
 
 #include "EvaporationModel.h"
 #include "CalcThread.h"
+
 #include <algorithm>
+#include <random>
 
 #include "mathematics.h"
 
@@ -49,13 +51,16 @@ CTracker::~CTracker()
 
 void CTracker::set_default()
 {
-  m_nType = CTrack::ptDroplet;
+  m_nType = CTrack::ptIon;
+
   m_bUseMultiThread = true;
+  m_nCalcThreadPriority = thpBelowNorm;
+
   m_nIntegrType = intModMidpnt;
   m_bOldIntegrator = false;
   m_bAnsysFields = true;
   m_bSaveImage = false;         // by default the screen image is not captured and saved at every iteration.
-  m_bUseRadialCoulomb = true;
+  m_bUseRadialCoulomb = false;
   m_bUsePreCalcCoulomb = false;
   m_bSaveTracks = false;
 
@@ -64,16 +69,13 @@ void CTracker::set_default()
   double fTimeStep = 2.e-8;       // sec
   set_time_step(fTimeStep);
 
-  m_fInitD = 1.0e-4;      // cm, 1 mcm particles by default.
   m_fPartDens = 1.0;      // g/cm3, water by default.
-
   m_fMolarMass = Const_Molar_Mass_Air * Const_AMU_CGS;
-  m_fInitMass = get_particle_mass(m_fInitD);  // g.
 
 // Electrostatics:
   m_bEnableField = true;
-  m_fCharge = 1.e+4 * Const_Charge_CGS;
-  m_fAmplDC = 1.; // obsolete, this variable is never used.
+  m_fCharge = 1.0 * Const_Charge_CGS;
+  m_fAmplDC = 1.; // it is worth to use this variable if the only DC field computed by Ansys is in the scene.
 
 // Restrictions:
   m_fMinD = 1.0e-6;       // cm.
@@ -85,12 +87,12 @@ void CTracker::set_default()
   create_evapor_model();
 
 // Ion type of particles:
-  m_fIonMobility = 1. / SI_to_CGS_Voltage;  // 1 cm2/(s*V) in CGSE.
+  m_fIonMobility = 1.05 / SI_to_CGS_Voltage;  // 1 cm2/(s*V) in CGSE.
   const double cfA2 = Const_Angstrem_CGS * Const_Angstrem_CGS;
   set_ion_cross_section(160 * cfA2);        // collision cross-section, 160 squared angstrem, 1.6e-14 cm^2.
   m_bVelDependent = false;                  // if true, the collision cross-section is inversely proportional to the relative velocity.
   m_bUserDefCS = true;                      // if true, the user defines the collision cross-section manually; otherwise the Mason-Schamp formula is used.
-  set_ion_mass(Const_AMU_CGS * 16000);      // protein molecule.
+  set_ion_mass(Const_AMU_CGS * 508);        // protein molecule.
   m_fActEnergy = 1.0;       // eV.
 
 // Coulomb effects:
@@ -98,15 +100,15 @@ void CTracker::set_default()
   m_fInitBunchRadius = 0.029;  // cm, corresponds to 0.29 mm - full radius of the round capillary.
   set_full_current(100 * Const_nA_to_CGSE); // 100 nA by default;
 
-  m_bAxialSymm = true;
+  m_bAxialSymm = false;
 
 // Iterational calculations of the Coulomb effects:
   m_nIterCount = 10;
   m_fRadialCoulombX = 10000;
 // Barnes-Hut parameters:
-  m_fBHDist = 1.5;
+  m_fBHDist = 4.5;
   m_fBHCritR = 0.001; // cm.
-  m_nMaxRecDepth = 12;
+  m_nMaxRecDepth = 13;
   m_bEnableQuadTerms = false;
 
 // DEBUG
@@ -176,9 +178,9 @@ void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTime
   Vector3D vVel(pItemState[3], pItemState[4], pItemState[5]);
   double fIonTemp = pItemState[6];
 
-// After this call vPos and vVel are in the gas-dynamic domain. If the reflection is really
-// done, the bReflDone flag will be "true". Note that vAccel is a dummy parameter here.
-  bool bReflDone = pObj->sym_corr(vPos, vVel, vAccel);
+// After this call vPos and vVel are in the gas-dynamic domain. If the reflection has been really
+// done, the data.nSymFlag will be non-zero.
+  CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
 
   CNode3D node;
   double fTime = *pTime;
@@ -204,8 +206,8 @@ void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTime
     pI->fIonMob = fMob;
 
 // vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration:
-    if(bReflDone)
-      pObj->sym_corr(vPos, vVel, vAccel, true);
+    if(data.nSymFlag)
+      pObj->sym_corr_back(vPos, vVel, vAccel, data);
 
     pTimeDeriv[7] = 0;
   }
@@ -224,8 +226,8 @@ void CTracker::GetTimeDeriv(void* pData, const double* pItemState, double* pTime
     double fD = pObj->get_particle_diameter(fMass);
     vAccel = pObj->get_accel(node, vVel, fMass, fD, fTime, fRe);  // the Reynolds number is computed here.
 // vAccel is the reflected particle acceleration. Turn back the position, velocity and acceleration:
-    if(bReflDone)
-      pObj->sym_corr(vPos, vVel, vAccel, true);
+    if(data.nSymFlag)
+      pObj->sym_corr_back(vPos, vVel, vAccel, data);
 
     CEvaporationModel* pEvaporModel = pObj->get_evapor_model();
     pTimeDeriv[6] = -pEvaporModel->get_cooling_rate(node, fTemp, fD, fRe);
@@ -358,7 +360,7 @@ void CTracker::do_track()
     RandomProcess* pDiffJump = create_random_jump(track.get_rand_seed());
     CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
     CNode3D currNode;
-    bool bReflDonePrev, bReflDoneCurr;
+    int nReflDonePrev, nReflDoneCurr;
     Vector3D vAccel;
 
     while(true)
@@ -405,14 +407,15 @@ void CTracker::do_track()
       {
         currItem.set_param(data.nElemId, fTime, pState);
 // Symmetry support:
-        bReflDoneCurr = sym_corr(currItem.pos, currItem.vel, vAccel);
-        bReflDonePrev = sym_corr(prevItem.pos, prevItem.vel, vAccel);
+        CSymCorrData dataCurr = sym_corr_forward(currItem.pos, currItem.vel);
+        CSymCorrData dataPrev = sym_corr_forward(prevItem.pos, prevItem.vel);
         m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
         prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
-        if(bReflDonePrev)
-          sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
-        if(bReflDoneCurr)
-          sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
+        if(dataPrev.nSymFlag)
+          sym_corr_back(prevItem.pos, prevItem.vel, vAccel, dataPrev);
+        if(dataCurr.nSymFlag)
+          sym_corr_back(currItem.pos, currItem.vel, vAccel, dataCurr);
 
         prevItem.state(pState); // the initial velocity is perturbed for the next time step.
       }
@@ -586,19 +589,25 @@ int CTracker::get_symmetry_type() const
   if((nSymXY != 0) && (nSymXZ != 0))
     return CBarnesHut::symBoth;
 
-  return CBarnesHut::symNone;
+  return CBarnesHut::symNone; // NOTE: in the case of axial symmetry symNone must be returned.
 }
 
 void CTracker::get_BH_cube(Vector3D& c, double& edge, double& fMinX, double& fMaxX) const
 {
   c = m_Box.get_center();
   Vector3D vMin = m_Box.vMin;
-// Temporary limitation, which is, in general, incorrect:
-  Vector3D vSrcPos = m_Src.get_src_pos();
-  if(vSrcPos.x > vMin.x)
-    vMin.x = vSrcPos.x;
-
   Vector3D vMax = m_Box.vMax;
+
+  if(m_nSymPlanes & spAxial)
+  {
+// In the case of axial symmetry the BH cube is the bounding cube for the whole system, not only for a narrow wedge.
+    c.y = 0;
+    c.z = 0;
+    vMin.y = -vMax.y;
+    vMin.z = -vMax.y;
+    vMax.z = vMax.y;
+  }
+
   double vEdges[3] = { vMax.x - vMin.x, vMax.y - vMin.y, vMax.z - vMin.z };
   edge = vEdges[0];
   for(UINT i = 1; i < 3; i++)
@@ -699,7 +708,7 @@ UINT CTracker::main_thread_func(LPVOID pData)
     RandomProcess* pDiffJump = pObj->create_random_jump(track.get_rand_seed());
     CIonTrackItem prevItem(pItem->nElemId, pItem->pos, pItem->vel, pItem->get_temp(), 1.0, pItem->get_ion_mob(), fTime), currItem = prevItem;
     CNode3D currNode;
-    bool bReflDonePrev, bReflDoneCurr;
+    int nReflDonePrev, nReflDoneCurr;
     Vector3D vAccel;
 
     while(true)
@@ -746,14 +755,15 @@ UINT CTracker::main_thread_func(LPVOID pData)
       {
         currItem.set_param(data.nElemId, fTime, pState);
 // Symmetry support:
-        bReflDoneCurr = pObj->sym_corr(currItem.pos, currItem.vel, vAccel);
-        bReflDonePrev = pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel);
+        CSymCorrData dataCurr = pObj->sym_corr_forward(currItem.pos, currItem.vel);
+        CSymCorrData dataPrev = pObj->sym_corr_forward(prevItem.pos, prevItem.vel);
         pObj->m_vElems.at(currItem.nElemId)->interpolate(currItem.pos, currNode);
         prevItem = pColl->gasDependedRndJmp(std::make_pair(prevItem, currNode), std::make_pair(currItem, currNode));
-        if(bReflDonePrev)
-          pObj->sym_corr(prevItem.pos, prevItem.vel, vAccel, true);
-        if(bReflDoneCurr)
-          pObj->sym_corr(currItem.pos, currItem.vel, vAccel, true);
+
+        if(dataPrev.nSymFlag)
+          pObj->sym_corr_back(prevItem.pos, prevItem.vel, vAccel, dataPrev);
+        if(dataCurr.nSymFlag)
+          pObj->sym_corr_back(currItem.pos, currItem.vel, vAccel, dataCurr);
 
         prevItem.state(pState); // the initial velocity is perturbed for the next time step.
       }
@@ -841,6 +851,18 @@ void CTracker::set_tracking_progress()
   set_progress(m_pCalcThreads->get_progress());
 }
 
+const char* CTracker::get_priority_name(int nPriority) const
+{
+  switch(nPriority)
+  {
+    case thpNormal: return _T("Normal");
+    case thpBelowNorm: return _T("Below Normal");
+    case thpLowest: return _T("Lowest");
+  }
+
+  return _T("Normal");
+}
+
 //-------------------------------------------------------------------------------------------------
 // Droplets type of particles.
 //-------------------------------------------------------------------------------------------------
@@ -854,7 +876,7 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
   if(m_bAnsysFields)
   {
     if(m_bEnableField)
-      accel += fEoverM * node.field;
+      accel += node.field * fEoverM * m_fAmplDC;  // node.field is in CGS units, it was calculated for unit voltage 1 V; thus m_fAmplDC is just a dimensionless multiplier.
 
     if(m_bEnableRF)
     {
@@ -869,6 +891,11 @@ Vector3D CTracker::get_accel(const CNode3D& node, const Vector3D& vVel, double f
   }
   
 // Gas-dynamics:
+// DEBUG
+  if(m_bIgnoreEnvGas)
+    return accel;
+// END DEBUG
+
   Vector3D vDiff = node.vel - vVel;
   fRe = get_Re(vDiff, node.dens, node.visc, fD);  // the character length fD varies with time.
   double fCd = get_Cd(fRe);
@@ -952,7 +979,7 @@ Vector3D CTracker::get_ion_accel(const CNode3D&  node,
   if(m_bAnsysFields)
   {
     if(m_bEnableField)  // enable/disable Ansys DC field:
-      vE += node.field;
+      vE += node.field * m_fAmplDC; // m_fAmplDC is just a dimensionless multiplier here, as node.field was computed in Ansys with voltage scale 1 V.
 
     if(m_bEnableRF)     // RF field:
       vE += get_rf_field(node, fTime, fPhase);
@@ -1019,15 +1046,7 @@ Vector3D CTracker::get_rf_field(const CNode3D& node, double fTime, double fPhase
   }
   else if(node.pos.x > fHighX)
   {
-// DEBUG
-//    double fR0 = 0.21;  // 2.1 mm - an inscribed radius in the flatapole.
-//    double fCoeff = 2. * SI_to_CGS_Voltage / (fR0 * fR0);
-//    Vector3D vRF(0, -fCoeff * node.pos.y, fCoeff * node.pos.z);
-
     Vector3D vRF = node.rf;
-//    vRF.x = 0;  // artificial move to get rid of the mirroring effect in the Q0 region.
-
-// END DEBUG
     return vRF * (m_fAmplRF_Q0 * sin(m_fOmega_Q0 * fTime + fPhase));  // purely Q0 field.
   }
 
@@ -1125,40 +1144,31 @@ void CTracker::initial_conditions()
   clear_tracks(); // clear all items from the tracks, even the initial positions.
 
   Vector3D vPos, vVel;
-  double fTime, fPhase, fTemp, fPress, fIonMob = 0;
+  double fTime, fPhase, fTemp, fPress, fIonMob, fDropletMass;
   UINT nEnsIndex;
   size_t nElemId;
 
-  if(!m_Src.generate_initial_cond())
+  if(!m_Src.generate_initial_cond())  // only initial positions and velocities are generated here.
     return;
 
   double w[8];
   srand(m_nRandomSeed);
+
   UINT nCount = m_Src.get_particles_count() * m_Src.get_ensemble_size();  // maximal expected count of particles.
+  m_SizeGen.set_droplets_count(nCount);
+  m_SizeGen.generate();
+
   for(size_t i = 0; i < nCount; i++)
   {
-    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, nEnsIndex, nElemId);  // this function has a built-in index check.
+    m_Src.get(i, vPos, vVel, fTime, fPhase, fTemp, fIonMob, nEnsIndex, nElemId);  // this function has a built-in index check.
 
-// Mobility interpolation (random ion diffusion support):
-    size_t nElemCount = m_vElems.size();
-    if((m_nType == CTrack::ptIon) && (nElemId < nElemCount))
-    {
-      CElem3D* pElem = m_vElems.at(nElemId);
-      if(!pElem->coeff(vPos, w))
-        continue;
-
-      fPress = 0;
-      size_t nNodeCount = pElem->get_node_count();
-      for(size_t j = 0; j < nNodeCount; j++)
-        fPress += w[j] * pElem->get_node(j)->press;
-
-      fIonMob = get_ion_mob(fPress, fTemp);
-    }
+// Droplets initial mass randomization:
+    fDropletMass = m_nType == CTrack::ptDroplet ? get_particle_mass(m_SizeGen.get_droplet_size(i)) : 0.0;
     
     CTrack track(m_nType, nEnsIndex, fPhase);
     track.reserve(100);
 
-    CBaseTrackItem* pItem = create_track_item(nElemId, vPos, vVel, m_fInitMass, fTemp, fIonMob, fTime);
+    CBaseTrackItem* pItem = create_track_item(nElemId, vPos, vVel, fDropletMass, fTemp, fIonMob, fTime);
     track.push_back(pItem);
 
     track.set_rand_seed(rand());  // random diffusion support.
@@ -1222,7 +1232,7 @@ void CTracker::apply_perturbations()
   for(size_t j = 0; j < nPtbCount; j++)
   {
     CFieldPerturbation* pPtb = m_vFieldPtbColl.at(j);
-    if(!pPtb->prepare())
+    if(!pPtb->get_enable() || !pPtb->prepare())
       continue;
 
     if(pPtb->get_on_the_fly())
@@ -1316,7 +1326,6 @@ double CTracker::get_full_current_at(UINT nIter) const
 
   double fKsi = double(nIter) / nVarIterCount;
   return m_fFullCurrent * fKsi * fKsi * (3 - 2 * fKsi);
-//  return m_fFullCurrent * fKsi; // try the linear grouth with iteration number.
 }
 
 double CTracker::get_correction_coeff() const
@@ -1375,7 +1384,7 @@ void CTracker::save(CArchive& ar)
 {
   set_data(); // data are copied from the properties list to the model.
 
-  const UINT nVersion = 31;  // 31 - m_BatchSim object; 30 - Named Areas; 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
+  const UINT nVersion = 33;  // 33 - m_nCalcThreadPriority; 32 - m_SizeGen object; 31 - m_BatchSim object; 30 - Named Areas; 29 - m_bUserDefCS; 27 - Collision parameters; 26 - CAnsysMesh as the ancestor; 25 - Random diffusion parameters; 24 - Saving pre-calculated Coulomb field; 23 - m_bAnsysFields; 21 - saving fields; 20 - m_vFieldPtbColl; 19 - m_Transform; 16 - m_nIntegrType; 15 - saving tracks; 14 - m_OutputEngine; 11 - Coulomb for non-axial cases; 10 - Calculators; 9 - RF in flatapole; 8 - m_bVelDependent; 7 - m_bByInitRadii and m_nEnsByRadiusCount; 6 - Data Importer; 5 - Coulomb effect parameters; 4 - m_bOnlyPassedQ00 and m_fActEnergy; 3 - the export OpenFOAM object is saved since this version.
   ar << nVersion;
 
   CAnsysMesh::save(ar);
@@ -1388,7 +1397,7 @@ void CTracker::save(CArchive& ar)
   ar << m_nType;
   ar << m_fTimeStep;
   ar << m_fMaxIntegrTime;
-  ar << m_fInitD;
+//  ar << m_fInitD;
 
 // Electrostatics:
   ar << m_bEnableField;
@@ -1425,7 +1434,6 @@ void CTracker::save(CArchive& ar)
 // Since version 11:
   ar << m_bAxialSymm;
   ar << m_nIterCount;
-//  ar << m_nPlanesCount;
   ar << m_fBHDist;
 // Since version 12:
   ar << m_fBHCritR;
@@ -1487,6 +1495,9 @@ void CTracker::save(CArchive& ar)
   pSelAreasColl->save(ar);  // since version 30.
 
   m_BatchSim.save(ar);
+  m_SizeGen.save(ar);
+
+  ar << m_nCalcThreadPriority;
 }
 
 static UINT __stdcall read_data_thread_func(LPVOID pData)
@@ -1571,7 +1582,14 @@ void CTracker::load(CArchive& ar)
   if(nVersion < 14)
     ar >> fOutputTimeStep;
 
-  ar >> m_fInitD;
+  if(nVersion < 32)
+  {
+    double fInitD;
+    ar >> fInitD;
+    m_SizeGen.set_distr_type(CDropletSizeGen::dstConst);
+    m_SizeGen.set_min_size(fInitD);
+  }
+
   if(nVersion < 26)
     ar >> m_nSymPlanes;
 
@@ -1784,8 +1802,11 @@ void CTracker::load(CArchive& ar)
   else
     m_BatchSim.set_curr_incr_iter(get_current_incr(m_nIterCount));
   
-// Derived variables:
-  m_fInitMass = get_particle_mass(m_fInitD);
+  if(nVersion >= 32)
+    m_SizeGen.load(ar);
+
+  if(nVersion >= 33)
+    ar >> m_nCalcThreadPriority;
 
 // DEBUG
   subst_time_in_tracks();
@@ -1807,7 +1828,7 @@ void CTracker::load(CArchive& ar)
   {
     CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->set_phi_to_nodes();
-    pDrawObj->set_hidden_reg_names();
+    pDrawObj->invalidate_faces();
     pDrawObj->invalidate_contours();
     pDrawObj->draw();
   }
@@ -1815,7 +1836,7 @@ void CTracker::load(CArchive& ar)
 
 void CTracker::save_track_const(CArchive& ar, const CTrack& track)
 {
-  const UINT nVersion = 2;  // 2 - m_nRandSeed; 1 - Two different types of track items - for ions and for droplets.
+  const UINT nVersion = 3;  // 3 - m_nTermReason; 2 - m_nRandSeed; 1 - Two different types of track items - for ions and for droplets.
   ar << nVersion;
 
   ar << track.get_type();
@@ -1823,6 +1844,7 @@ void CTracker::save_track_const(CArchive& ar, const CTrack& track)
   ar << track.get_phase();
   ar << track.get_current();
   ar << track.get_rand_seed();
+  ar << track.get_term_reason();
 }
 
 void CTracker::load_track_const(CArchive& ar, CTrack& track)
@@ -1858,6 +1880,13 @@ void CTracker::load_track_const(CArchive& ar, CTrack& track)
     UINT nSeed;
     ar >> nSeed;
     track.set_rand_seed(nSeed);
+  }
+
+  if(nVersion >= 3)
+  {
+    int nTermReason;
+    ar >> nTermReason;
+    track.get_term_reason() = nTermReason;
   }
 
   track.set_type(nType);
@@ -2056,9 +2085,6 @@ void CTracker::update_interface()
 
   CPropertiesWnd* pPropWnd = pMainWnd->GetWndProperties();
   pPropWnd->set_update_all();
-
-  CFieldDataColl* pFields = CParticleTrackingApp::Get()->GetFields();
-  pFields->update_visibility_status();
 }
 
 void CTracker::set_data()

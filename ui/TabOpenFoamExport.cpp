@@ -7,6 +7,7 @@
 #include "ResponseProperty.h"
 #include "Button.h"
 
+
 //---------------------------------------------------------------------------------------
 // OpenFOAM export
 //---------------------------------------------------------------------------------------
@@ -52,6 +53,60 @@ void CPropertiesWnd::add_export_ctrls()
   pOpenFoamGroup->AddSubItem(pDataGroup);
 
   m_wndPropList.AddProperty(pOpenFoamGroup);
+
+// Export to an external grid:
+  EvaporatingParticle::CExternalGridExport* pExtGridExporter = CParticleTrackingApp::Get()->GetExtGridExporter();
+  CMFCPropertyGridProperty* pExtGridExportGroup = new CMFCPropertyGridProperty(_T("Export ANSYS Data to an External Grid"));
+
+  bool bUseSI = pExtGridExporter->get_use_SI_units();
+  CCheckBoxButton* pUseSIUnitsBtn = new CCheckBoxButton(this, _T("Use SI Units"), (_variant_t)bUseSI, _T("If checked: 1. The data in the input file will be interpreted as meters. 2) The interpolated data will be output in SI units."), pExtGridExporter->get_use_SI_units_ptr());
+  pExtGridExportGroup->AddSubItem(pUseSIUnitsBtn);
+
+  CString cFmtType = EvaporatingParticle::CExternalGridExport::get_format_name(pExtGridExporter->get_format_type());
+  CGeneralResponseProperty* pFmtTypeProp = new CGeneralResponseProperty(this, _T("Files Format Type"), (_variant_t)cFmtType, _T("Select one of two possible file formats (the same for both input and output files)."), pExtGridExporter->get_format_type_ptr());
+  for(int i = EvaporatingParticle::CExternalGridExport::fmtCSV; i < EvaporatingParticle::CExternalGridExport::fmtCount; i++)
+    pFmtTypeProp->AddOption(EvaporatingParticle::CExternalGridExport::get_format_name(i));
+
+  pFmtTypeProp->AllowEdit(FALSE);
+  pExtGridExportGroup->AddSubItem(pFmtTypeProp);
+
+  switch(pExtGridExporter->get_format_type())
+  {
+    case EvaporatingParticle::CExternalGridExport::fmtCSV:
+    {
+      TCHAR BASED_CODE szInFilter[] = _T("CSV Files(*.csv)|*.csv|All Files(*.*)|*.*||");
+      CMFCPropertyGridFileProperty* pInputFileProp = new CMFCPropertyGridFileProperty(_T("Input File: External Grid Points"), TRUE, pExtGridExporter->get_input_file(), _T("csv"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szInFilter, _T("Specify the input file containing a list of external grid points (x, y, z)."), pExtGridExporter->get_input_file_ptr());
+      pExtGridExportGroup->AddSubItem(pInputFileProp);
+
+      TCHAR BASED_CODE szOutFilter[] = _T("CSV Files(*.csv)|*.csv|All Files(*.*)|*.*||");
+      CMFCPropertyGridFileProperty* pOutputFileProp = new CMFCPropertyGridFileProperty(_T("Output File: ANSYS Data"), TRUE, pExtGridExporter->get_output_file(), _T("csv"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szOutFilter, _T("Specify the output file, which will contain gas dynamic parameters in external locations."), pExtGridExporter->get_output_file_ptr());
+      pExtGridExportGroup->AddSubItem(pOutputFileProp);
+
+      break;
+    }
+    case EvaporatingParticle::CExternalGridExport::fmtDAT4:
+    case EvaporatingParticle::CExternalGridExport::fmtDAT3:
+    {
+      TCHAR BASED_CODE szInFilter[] = _T("CSV Files(*.dat)|*.dat|All Files(*.*)|*.*||");
+      CMFCPropertyGridFileProperty* pInputFileProp = new CMFCPropertyGridFileProperty(_T("Input File: External Grid Points"), TRUE, pExtGridExporter->get_input_file(), _T("dat"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szInFilter, _T("Specify the input file containing a list of external grid points (x, y, z)."), pExtGridExporter->get_input_file_ptr());
+      pExtGridExportGroup->AddSubItem(pInputFileProp);
+
+      TCHAR BASED_CODE szOutFilter[] = _T("CSV Files(*.dat)|*.dat|All Files(*.*)|*.*||");
+      CMFCPropertyGridFileProperty* pOutputFileProp = new CMFCPropertyGridFileProperty(_T("Output File: ANSYS Data"), TRUE, pExtGridExporter->get_output_file(), _T("dat"),
+        OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szOutFilter, _T("Specify the output file, which will contain gas dynamic parameters in external locations."), pExtGridExporter->get_output_file_ptr());
+      pExtGridExportGroup->AddSubItem(pOutputFileProp);
+
+      break;
+    }
+  }
+
+  CExternalGridExportButton* pDoExportButton = new CExternalGridExportButton(this, _T("Do Export Data"), _T(" "), _T("Click this button to export ANSYS data to a set of external points. Note: the input file must exist and the output file location must be specified."), (DWORD_PTR)pExtGridExporter);
+  pExtGridExportGroup->AddSubItem(pDoExportButton);
+
+  m_wndPropList.AddProperty(pExtGridExportGroup);
 }
 
 static const size_t nTypeCount = 4;
@@ -105,6 +160,7 @@ void CPropertiesWnd::add_bc_ctrls(CMFCPropertyGridProperty* pOpenFOAMGroup)
 
 void CPropertiesWnd::set_export_data()
 {
+// Export to OpnFOAM:
   EvaporatingParticle::CExportOpenFOAM* pExportObj = CParticleTrackingApp::Get()->GetExporter();
 
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pExportObj->get_enable_bound_cond_ptr());
@@ -139,6 +195,37 @@ void CPropertiesWnd::set_export_data()
     CString cFile = (CString)pProp->GetValue();
     std::string str = std::string(CT2CA(cFile));
     pExportObj->set_boundary_cond_file(str.c_str());
+  }
+
+// Export to an external grid:
+  EvaporatingParticle::CExternalGridExport* pExtGridExporter = CParticleTrackingApp::Get()->GetExtGridExporter();
+
+  pProp = m_wndPropList.FindItemByData(pExtGridExporter->get_format_type_ptr());
+  if(pProp != NULL)
+  {
+    CString cType = (CString)pProp->GetValue();
+    for(int i = EvaporatingParticle::CExternalGridExport::fmtCSV; i < EvaporatingParticle::CExternalGridExport::fmtCount; i++)
+    {
+      if(cType == CString(EvaporatingParticle::CExternalGridExport::get_format_name(i)))
+      {
+        pExtGridExporter->set_format_type(i);
+        break;
+      }
+    }
+  }
+
+  pProp = m_wndPropList.FindItemByData(pExtGridExporter->get_input_file_ptr());
+  if(pProp != NULL)
+  {
+    CString cFile = (CString)pProp->GetValue();
+    pExtGridExporter->set_input_file(cFile);
+  }
+
+  pProp = m_wndPropList.FindItemByData(pExtGridExporter->get_output_file_ptr());
+  if(pProp != NULL)
+  {
+    CString cFile = (CString)pProp->GetValue();
+    pExtGridExporter->set_output_file(cFile);
   }
 }
 
@@ -181,6 +268,7 @@ void CPropertiesWnd::update_export_ctrls()
 {
   bool bMeshReady = !m_bBusy && CParticleTrackingApp::Get()->GetTracker()->is_ready();
 
+// Export to OpenFOAM:
   EvaporatingParticle::CExportOpenFOAM* pExportObj = CParticleTrackingApp::Get()->GetExporter();
 
   bool bEnable = false;
@@ -213,6 +301,17 @@ void CPropertiesWnd::update_export_ctrls()
   pProp = m_wndPropList.FindItemByData(pExportObj->get_boundary_cond_file_ptr());
   if(pProp != NULL)
     pProp->Enable(bEnable);
+
+// Export to an external grid:
+  EvaporatingParticle::CExternalGridExport* pExtGridExporter = CParticleTrackingApp::Get()->GetExtGridExporter();
+
+  pProp = m_wndPropList.FindItemByData(pExtGridExporter->get_input_file_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bMeshReady);
+
+  pProp = m_wndPropList.FindItemByData(pExtGridExporter->get_output_file_ptr());
+  if(pProp != NULL)
+    pProp->Enable(bMeshReady);
 }
 
 void CPropertiesWnd::update_bc_ctrls(bool bEnable)

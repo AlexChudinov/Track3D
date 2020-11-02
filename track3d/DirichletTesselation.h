@@ -83,12 +83,11 @@ public:
   Matrix3D            get_bound_cell_mtx(CDirichletCell* pCell) const;  // returns matrix C of the boundary cell.
 
   bool                init();
+  void                clear();
 
   void                invalidate();
 
 protected:
-  void                clear();
-
 // For Dirichlet cells built around inner nodes, i.e. for strongly CONVEX cells.
 // Input for the following two functions: vPos is the result of intersection of these three planes a, b and c.
   bool                inside(const CPlane& a, const CPlane& b, const CPlane& c, const Vector3D& vPos, const CPlanesSet& vFaces) const;

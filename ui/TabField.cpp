@@ -47,7 +47,7 @@ void CPropertiesWnd::add_field_ctrls()
 
     pGenGroup->AddSubItem(pFieldType);
 
-    CGeneralResponseProperty* pAmplProp = new CGeneralResponseProperty(this, _T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
+    CSetAndRedrawResponder* pAmplProp = new CSetAndRedrawResponder(this, _T("Voltage Scale, V"), COleVariant(pData->get_scale()), _T("Set here the desirable value of voltage at the selected electrodes."), pData->get_scale_ptr());
     pGenGroup->AddSubItem(pAmplProp);
 
     if(pData->get_type() == CElectricFieldData::typeFieldRF)
@@ -264,8 +264,8 @@ void CPropertiesWnd::add_field_ctrls()
       
 
 // Hide/Show selected regions:
-      CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->get_visibility_flag(), _T("Change the visibility status of the selected regions"), pBC->get_visibility_flag_ptr());
-      pBoundRegsGroup->AddSubItem(pHideShowBtn);
+//      CHideShowRegsCheckBox* pHideShowBtn = new CHideShowRegsCheckBox(this, _T("Visibility"), (_variant_t)pBC->get_visibility_flag(), _T("Change the visibility status of the selected regions"), pBC->get_visibility_flag_ptr());
+//      pBoundRegsGroup->AddSubItem(pHideShowBtn);
       
       pBoundCondGroup->AddSubItem(pBoundRegsGroup);
 

@@ -220,26 +220,26 @@ public:
 		typedef Allocator<_Other> other;
 	};
 
-	pointer address(reference _Val) const
+	pointer address(reference _Val) const _NOEXCEPT
 	{	// return address of mutable _Val
 		return (_STD addressof(_Val));
 	}
 
-	const_pointer address(const_reference _Val) const
+	const_pointer address(const_reference _Val) const _NOEXCEPT
 	{	// return address of nonmutable _Val
 		return (_STD addressof(_Val));
 	}
 
-	Allocator()
+	Allocator() //_THROW0()
 	{	// construct default allocator (do nothing)
 	}
 
-	Allocator(const Allocator<T>&)
+	Allocator(const Allocator<T>&) //_THROW0()
 	{	// construct by copying (do nothing)
 	}
 
 	template<class _Other>
-	Allocator(const Allocator<_Other>&)
+	Allocator(const Allocator<_Other>&) //_THROW0()
 	{	// construct from a related allocator (do nothing)
 	}
 
@@ -274,7 +274,7 @@ public:
 		_Ptr->~_Uty();
 	}
 
-	size_t max_size() const
+	size_t max_size() const // _NOEXCEPT
 	{	// estimate maximum array size
 		return ((size_t)(-1) / sizeof(T));
 	}

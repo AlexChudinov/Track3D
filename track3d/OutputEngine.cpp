@@ -6,6 +6,7 @@
 #include "OutputEngine.h"
 #include "ParticleTracking.h"
 #include "EvaporationModel.h"
+#include "DropletSizeGen.h"
 #include "BeamCrossSection.h"
 #include "ColorContour.h"
 
@@ -117,7 +118,8 @@ bool COutputEngine::output_droplet_track(UINT nTrackIndex)
     return false;
 
   CEvaporationModel* pEvaporModel = pObj->get_evapor_model();
-  double fInitD = pObj->get_init_diameter();
+  CDropletSizeGen& gen = pObj->get_size_gen_obj();
+  double fInitD = gen.get_mean_size();
   if(fInitD < Const_Almost_Zero)
     return false;
 

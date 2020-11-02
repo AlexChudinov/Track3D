@@ -24,6 +24,32 @@ struct RGB_Color
                 blue;
 };
 
+struct RGBF_Color
+{
+  RGBF_Color(float r = 0.0f, float g = 0.0f, float b = 0.0f)
+    : red(r), green(g), blue(b)
+  {
+  }
+
+  RGBF_Color(COLORREF clr)
+  {
+    red = (float)GetRValue(clr) / 255;
+    green = (float)GetGValue(clr) / 255;
+    blue = (float)GetBValue(clr) / 255;
+  }
+
+  RGBF_Color(const RGBF_Color& clr)
+    : red(clr.red), green(clr.green), blue(clr.blue)
+  {
+  }
+
+  float         red,    // red, green, blue are supposed to be in the range [0; 1].
+                green,
+                blue;
+
+  static  void  clamp(float& rgb);
+};
+
 typedef std::vector<double> CValueVector;
 typedef std::vector<RGB_Color> CColorVector;
 //---------------------------------------------------------------------------------------
@@ -75,7 +101,7 @@ public:
   DWORD_PTR           get_drawn_reg_names_ptr() const;
 
   void                clear_reg_names();
-  void                invalidate();
+  virtual void        invalidate();
 
   virtual void        save(CArchive& archive);
   virtual void        load(CArchive& archive);

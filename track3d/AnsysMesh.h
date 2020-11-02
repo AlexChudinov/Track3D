@@ -10,6 +10,18 @@
 namespace EvaporatingParticle
 {
 
+struct CSymCorrData
+{
+  CSymCorrData()
+    : nSymFlag(0), fNrmY(0), fNrmZ(0)
+  {
+  }
+
+  int     nSymFlag;
+  double  fNrmY,
+          fNrmZ;
+};
+
 class CAnsysMesh : public CObject
 {
 public:
@@ -21,7 +33,8 @@ public:
     spNone  = 0,
     spXY    = 1,
     spXZ    = 2,
-    spYZ    = 4
+    spYZ    = 4,
+    spAxial = 8
   };
 
 // User interface
@@ -47,6 +60,9 @@ public:
 
   bool                    read_gasdyn_data(bool bFieldsOnly = false);
 
+  bool                    get_need_read_ansys_field() const;
+  void                    set_need_read_ansys_field();
+
 protected:
   void                    add_tetra(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3);
   void                    add_pyramid(CNode3D& p0, CNode3D& p1, CNode3D& p2, CNode3D& p3, CNode3D& p4);
@@ -61,7 +77,11 @@ public:
 // Reflect the particle's position, velocity and acceleration against the symmetry plane(s)if necessary.
 // The function returns "true" if reflection has been done and the back reflection is needed. In this case set
 // bForceReflect to "true" in the next call to ensure that the back reflection will occur.
-  bool                    sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool bForceReflect = false) const;
+//  bool                    sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool bForceReflect = false) const;
+//  int                     sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, int nForceReflect = 0) const;
+
+  CSymCorrData            sym_corr_forward(Vector3D& vPos, Vector3D& vVel) const;
+  void                    sym_corr_back(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, const CSymCorrData& data) const;
 
   CNodesVector&           get_nodes();
   CElementsCollection&    get_elems();
@@ -74,7 +94,8 @@ public:
 // Mesh transformation:
   CTransform&             get_transform();
 
-  static CRegion*         get_region(const std::string& sName); // returns a region pointer by its name or NULL if the name is not found.
+  static CRegion*         get_region(const std::string& sName);     // returns a region pointer or NULL if the name is not found.
+  static int              get_region_id(const std::string& sName);  // returns a region index or -1 if the name is not found.
 
 //-------------------------------------------------------------------------------------------------
 // Streaming:
@@ -106,6 +127,9 @@ protected:
 // Termination:
   bool                    abort(FILE* pStream = NULL);
 
+// Particle source management:
+  virtual void            invalidate_src() {};
+
   std::string             m_sDataFile;
 
   CBox                    m_Box;          // bounding box.
@@ -129,6 +153,8 @@ protected:
 // Run-time:
   bool                    m_bReady,       // this flag is set to "false" in set_filename(), to "true" in read_data().
                           m_bAux;         // this flag is set in the constructor and never changed afterwards; the only example - second step of import OpenFOAM.
+
+  bool                    m_bNeedReadAnsysField;  // this flag is set to "true" every time when user checks "Use Ansys Fields" check-box.
 };
 
 //---------------------------------------------------------------------------------------
@@ -151,6 +177,8 @@ inline bool CAnsysMesh::set_filename(const char* pName)
 
   m_sDataFile = pName;
   m_bReady = false; // force the data files to be re-read.
+
+  invalidate_src(); // make the particle source be re-calculated.
   return true;
 }
 
@@ -218,6 +246,17 @@ inline bool CAnsysMesh::is_ready()
 {
   return m_bReady;
 }
+
+inline bool CAnsysMesh::get_need_read_ansys_field() const
+{
+  return m_bNeedReadAnsysField;
+}
+
+inline void CAnsysMesh::set_need_read_ansys_field()
+{ 
+  m_bNeedReadAnsysField = true;
+}
+
 
 };  // namespace EvaporatingParticle
 

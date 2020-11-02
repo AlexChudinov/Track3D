@@ -227,6 +227,11 @@ EvaporatingParticle::CExportOpenFOAM* CParticleTrackingApp::GetExporter()
   return &m_Exporter;
 }
 
+EvaporatingParticle::CExternalGridExport* CParticleTrackingApp::GetExtGridExporter()
+{
+  return &m_ExtGridExporter;
+}
+
 EvaporatingParticle::CCalcCollection* CParticleTrackingApp::GetCalcs()
 {
   return &m_vCalcs;
@@ -254,6 +259,9 @@ void CParticleTrackingApp::SelectedRegionChanged(EvaporatingParticle::CNamesVect
     m_Tracker.get_src()->invalidate();
     return;
   }
+
+  if(m_Tracker.get_field_ptb().sel_region_changed(pRegNames))
+    return;
 
   if(m_vCalcs.sel_region_changed(pRegNames))
     return;

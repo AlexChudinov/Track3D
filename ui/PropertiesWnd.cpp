@@ -176,7 +176,21 @@ static UINT __stdcall main_thread_func(LPVOID pData)
   {
     if(pObj->is_ready())
     {
-      pObj->read_gasdyn_data(true); // restore only ANSYS-calculated electric fields, the other node data will be unchanged.
+      if(pObj->get_need_read_ansys_field())
+      {
+        pObj->read_gasdyn_data(true); // restore only ANSYS-calculated electric fields, the other node data will be unchanged.
+        pObj->apply_perturbations();  // field perturbations are applied and stored in the mesh nodes.
+      }
+    }
+    else
+    {
+      if(!pObj->read_data())
+      {
+        CDialog* pDlg = (CDialog*)pData;
+        pDlg->PostMessage(WM_CLOSE);
+        return 0;
+      }
+
       pObj->apply_perturbations();  // field perturbations are applied and stored in the mesh nodes.
     }
   }

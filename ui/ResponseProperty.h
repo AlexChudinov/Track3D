@@ -78,6 +78,20 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+//  CAreaFacesColorResponder
+//---------------------------------------------------------------------------------------
+class CAreaFacesColorResponder : public CMFCPropertyGridColorProperty
+{
+public:
+  CAreaFacesColorResponder(const CString& strName, const COLORREF& color, CPalette* pPalette = NULL, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0)
+    : CMFCPropertyGridColorProperty(strName, color, pPalette, lpszDescr, dwData)
+  {
+  }
+
+  virtual BOOL  OnUpdateValue();
+};
+
+//---------------------------------------------------------------------------------------
 //  CGeneralResponseProperty
 //---------------------------------------------------------------------------------------
 class CGeneralResponseProperty : public CMFCPropertyGridProperty
@@ -121,6 +135,22 @@ public:
   {
   }
 
+  virtual BOOL    OnUpdateValue();
+};
+
+//---------------------------------------------------------------------------------------
+//  CSetAndRedrawResponder. 
+//---------------------------------------------------------------------------------------
+class CSetAndRedrawResponder : public CGeneralResponseProperty
+{
+public:
+  CSetAndRedrawResponder(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0)
+    : CGeneralResponseProperty(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+// Note: this function does NOT set the value from the control to the model. It just calls m_pWndProp->set_data_to_model().
+// Thus: make sure a proper set-function is written and called from CPropertiesWnd::set_some_data().
   virtual BOOL    OnUpdateValue();
 };
 

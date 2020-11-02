@@ -9,7 +9,6 @@
 namespace EvaporatingParticle
 {
 
-static const double scfRandCoeff = 1. / (RAND_MAX + 1);
 
 CSource::CSource()
 {
@@ -46,7 +45,9 @@ void CSource::set_default()
 
   m_vFaceOffset = 0.002;  // cm, by default m_vFaceOffset is set to 0.05 mm.
 
-  m_bUseInitialGasVel = false;
+  m_sFileName = CString("");
+
+  m_bUseInitialGasVel = true;
   m_bReady = false;
 }
 
@@ -56,6 +57,7 @@ void CSource::get(UINT nPartIndex,
                   double&   fTime,
                   double&   fPhase,
                   double&   fTemp,
+                  double&   fIonMob,
                   UINT&     nEnsIndex,
                   size_t&   nElemId) const
 {
@@ -69,291 +71,459 @@ void CSource::get(UINT nPartIndex,
   fTime = point.time;
   fPhase = point.phase;
   fTemp = point.temp;
+  fIonMob = point.mob;
   nEnsIndex = point.ind;
   nElemId = point.elem;
 }
 
-typedef math::Reflector<Vector3D, double, CTracker> CSymmReflect;
+bool CSource::gen_random_cone(double fPeriodRF, UINT nEnsSize)
+{
+  AfxMessageBox("Cone type of source with random distribution is not supported yet.");
+  return false;
+}
+
+bool CSource::gen_homogen_cone(double fPeriodRF, UINT nEnsSize)
+{
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  Vector3D vPos = m_vPos, vVel, vAccel;
+  CSymCorrData data = pObj->sym_corr_forward(vPos, vVel); // after this call vPos must be inside the ANSYS mesh.
+// Check whether the modified position is really inside the simulation domain.
+  if(!pObj->interpolate(vPos, 0, 0, node, pElem))
+    return false;
+
+  if(data.nSymFlag)
+    pObj->sym_corr_back(vPos, vVel, vAccel, data);  // if position has been modified, get it back.
+
+  UINT nEnsIndex = 0;
+  vVel = m_fAbsVel * m_vDir;
+  add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);  // one particle starts exactly in m_vDir direction.
+  nEnsIndex++;
+
+  double fPitch, fAzim;
+  double fPitchIncr = m_nPitchCount > 0 ? 0.5 * m_fConeAngle / m_nPitchCount : 0;
+  double fAzimIncr = m_nAzimCount > 0 ? Const_2PI / m_nAzimCount : 0;
+  Matrix3D mRotPitch, mRotAzim;
+
+  UINT nMaxInd = m_nInjType == itRandom ? m_nCount : 1 + m_nPitchCount * m_nAzimCount;  // progress bar support.
+  for(UINT i = 0; i < m_nPitchCount; i++)
+  {
+    if(pObj->get_terminate_flag())
+      return terminate();
+
+    fPitch = (i + 1) * fPitchIncr;
+    mRotPitch = Matrix3D::rot(m_vLocY, fPitch);
+    for(UINT j = 0; j < m_nAzimCount; j++)
+    {
+      fAzim = j * fAzimIncr;
+      mRotAzim = Matrix3D::rot(m_vDir, fAzim);
+      vVel = m_fAbsVel * (mRotAzim * (mRotPitch * m_vDir));
+      add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+      nEnsIndex++;
+// Progress bar support:
+      pObj->set_progress(100 * (j + i * m_nAzimCount) / nMaxInd);
+    }
+  }
+
+  return true;
+}
+
+bool CSource::gen_homogen_spot(double fPeriodRF, UINT nEnsSize)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  UINT nEnsIndex = 0;
+  Vector3D vPos = m_vPos, vVel, vAccel, vShift;
+  CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+  if(pObj->interpolate(vPos, 0, 0, node, pElem))
+  {
+    vVel = node.vel;
+    if(data.nSymFlag)
+      pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+    if(!m_bUseInitialGasVel)
+      vVel = m_fAbsVel * m_vDir;
+
+    add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+    nEnsIndex++;
+  }
+
+  double fRad, fRadIncr = m_nPitchCount > 0 ? m_fRadius / m_nPitchCount : 0;
+  double fAzim, fAzimIncr = m_nAzimCount > 0 ? Const_2PI / m_nAzimCount : 0;
+  Matrix3D mRotAzim;
+  UINT nMaxInd = 1 + m_nPitchCount * m_nAzimCount;
+  for(UINT i = 0; i < m_nPitchCount; i++)
+  {
+    if(pObj->get_terminate_flag())
+      return terminate();
+
+    fRad = (i + 1) * fRadIncr;
+    for(UINT j = 0; j < m_nAzimCount; j++)
+    {
+      fAzim = j * fAzimIncr;
+      mRotAzim = Matrix3D::rot(m_vDir, fAzim);
+      vShift = mRotAzim * m_vLocY;
+      vPos = m_vPos + fRad * vShift;
+      CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+      if(pObj->interpolate(vPos, 0, 0, node, pElem))
+      {
+        vVel = node.vel;
+        if(data.nSymFlag)
+          pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+        if(!m_bUseInitialGasVel)
+          vVel = m_fAbsVel * m_vDir;
+
+        add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+        nEnsIndex++;
+      }
+// Progress bar support:
+      pObj->set_progress(100 * (j + i * m_nAzimCount) / nMaxInd);
+    }
+  }
+
+  return true;
+}
+
+bool CSource::gen_random_spot(double fPeriodRF, UINT nEnsSize)
+{
+  double fdX, fdY, fAmpl = 2 * m_fRadius;
+  int nAttempt = 0;
+  UINT nCount = m_nCount * nEnsSize;
+  if(nCount == 0)
+    return false;
+
+  m_RndGen.seed(m_nRandomSeed);
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
+
+  Vector3D vPos = m_vPos, vVel, vAccel;
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+
+  int nLoop = 1;
+  UINT nEnsIndex = 0;
+  while((m_vData.size() < nCount) && (nAttempt < RAND_MAX))
+  {
+    if((nLoop % 3 == 0) && pObj->get_terminate_flag())
+      return terminate();
+
+    fdX = -m_fRadius + fAmpl * uniDistr(m_RndGen);
+    fdY = -m_fRadius + fAmpl * uniDistr(m_RndGen);
+
+    vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
+    if((vPos - m_vPos).length() > m_fRadius)
+      continue;
+
+    CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
+    {
+      vVel = node.vel;
+      if(data.nSymFlag)
+        pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+      if(!m_bUseInitialGasVel)
+        vVel = m_fAbsVel * m_vDir;
+
+      add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+      nEnsIndex++;
+    }
+// Progress bar support:
+    pObj->set_progress(100 * m_vData.size() / m_nCount);
+    nAttempt++;
+    nLoop++;
+  }
+
+  return true;
+}
+
+bool CSource::gen_homogen_rect(double fPeriodRF, UINT nEnsSize)
+{
+  if(m_fHeight < Const_Almost_Zero || m_fWidth < Const_Almost_Zero)
+    return false;
+
+  Vector3D vPos, vVel, vAccel;
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+
+  double fdX, fdY, fHalfWidth = 0.5 * m_fWidth, fHalfHeight = 0.5 * m_fHeight;
+  UINT nCount = m_nCount * nEnsSize;
+
+  double fRatio = m_fWidth / m_fHeight;
+  double fNx = sqrt(fRatio * nCount);
+  UINT Nx = UINT(0.5 + fNx);
+  UINT Ny = UINT(0.5 + (double)nCount / fNx);
+
+  double fOneOvrNx = Nx > 1 ? 1. / (Nx - 1) : 1;
+  double fOneOvrNy = Ny > 1 ? 1. / (Ny - 1) : 1;
+  UINT nEnsIndex = 0;
+  for(UINT i = 0; i < Nx; i++)
+  {
+    if(pObj->get_terminate_flag())
+      return terminate();
+
+    fdX = -fHalfWidth + m_fWidth * i * fOneOvrNx;
+    for(UINT j = 0; j < Ny; j++)
+    {
+      fdY = -fHalfHeight + m_fHeight * j * fOneOvrNy;
+
+      vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
+      CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+      if(pObj->interpolate(vPos, 0, 0, node, pElem))
+      {
+        vVel = node.vel;
+        if(data.nSymFlag)
+          pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+        if(!m_bUseInitialGasVel)
+          vVel = m_fAbsVel * m_vDir;
+
+        add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+        nEnsIndex++;
+      }
+// Progress bar support:
+      pObj->set_progress(100 * (j + i * Ny) / m_nCount);
+    }
+  }
+
+  return true;
+}
+
+bool CSource::gen_random_rect(double fPeriodRF, UINT nEnsSize)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  double fdX, fdY, fHalfWidth = 0.5 * m_fWidth, fHalfHeight = 0.5 * m_fHeight;
+  UINT nCount = m_nCount * nEnsSize;
+
+  m_RndGen.seed(m_nRandomSeed);
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+  int nLoop = 1, nAttempt = 0;
+  Vector3D vPos, vVel, vAccel;
+  UINT nEnsIndex = 0;
+
+  while((m_vData.size() < nCount) && (nAttempt < RAND_MAX))
+  {
+    if((nLoop % 3 == 0) && pObj->get_terminate_flag())
+      return terminate();
+
+    fdX = -fHalfWidth + m_fWidth * uniDistr(m_RndGen);
+    fdY = -fHalfHeight + m_fHeight * uniDistr(m_RndGen);
+
+    vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
+    CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
+    {
+      vVel = node.vel;
+      if(data.nSymFlag)
+        pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+      if(!m_bUseInitialGasVel)
+        vVel = m_fAbsVel * m_vDir;
+
+      add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+      nEnsIndex++;
+    }
+// Progress bar support:
+    pObj->set_progress(100 * m_vData.size() / m_nCount);
+    nAttempt++;
+    nLoop++;
+  }
+
+  return true;
+}
+
+bool CSource::gen_homogen_cyl(double fPeriodRF, UINT nEnsSize)
+{
+  AfxMessageBox("Cylinder type of source with homogeneous distribution is not supported.");
+  return false;
+}
+
+bool CSource::gen_random_cyl(double fPeriodRF, UINT nEnsSize)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+
+  m_RndGen.seed(m_nRandomSeed);
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
+
+  int nLoop = 1;
+  double fdPitch, fZ;
+  Matrix3D mRotPitch;
+  Vector3D vGlobZ(0, 0, 1), vLocDir, vPos, vVel, vAccel;
+
+  UINT nEnsIndex = 0;
+  UINT nCount = m_nCount * nEnsSize;
+  while((m_vData.size() < nCount) && (nLoop < RAND_MAX))
+  {
+    if((nLoop % 3 == 0) && pObj->get_terminate_flag())
+      return terminate();
+
+    fdPitch = m_fConeAngle * (-0.5 + uniDistr(m_RndGen));
+    mRotPitch = Matrix3D::rot(vGlobZ, fdPitch);
+    fZ = m_fHeight * (-0.5 + uniDistr(m_RndGen));
+
+    vLocDir = mRotPitch * m_vDir;
+    vPos = m_vPos + m_fRadius * vLocDir + fZ * vGlobZ;
+    CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
+    {
+      vVel = node.vel;
+      if(data.nSymFlag)
+        pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+      if(!m_bUseInitialGasVel)
+        vVel = m_fAbsVel * m_vDir;
+
+      add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+      nEnsIndex++;
+    }
+// Progress bar support:
+    pObj->set_progress(100 * m_vData.size() / m_nCount);
+    nLoop++;
+  }
+
+  return true;
+}
+
+bool CSource::gen_from_file(double fPeriodRF, UINT nEnsSize)
+{
+  std::vector<Vector3D> vPosColl;
+  if(!read_pos_from_file(vPosColl))
+    return false;
+
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+  Vector3D vPos, vVel, vAccel;
+
+  UINT nEnsIndex = 0;
+  m_nCount = vPosColl.size();
+  for(UINT i = 0; i < m_nCount; i++)
+  {
+    vPos = vPosColl.at(i);
+    CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
+    {
+      vVel = node.vel;
+      if(data.nSymFlag)
+        pObj->sym_corr_back(vPos, vVel, vAccel, data);
+
+      if(!m_bUseInitialGasVel)
+        vVel = m_fAbsVel * m_vDir;
+
+      add_particle(vPos, vVel, node, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
+      nEnsIndex++;
+    }
+// Progress bar support:
+    pObj->set_progress(100 * i / m_nCount);
+  }
+
+  return true;
+}
+
+bool CSource::read_pos_from_file(std::vector<Vector3D>& vPosColl)
+{
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, (const char*)m_sFileName, (const char*)("r"));
+  if(nErr != 0 || pStream == 0)
+    return false;
+
+  size_t nPntCount = 0;
+  int nRes = fscanf_s(pStream, "%zd", &nPntCount);
+  if(nRes == EOF || nRes == 0 || nPntCount == 0)
+  {
+    fclose(pStream);
+    return false;
+  }
+
+  float x, y, z;
+  Vector3D vNull(0, 0, 0);
+  vPosColl.resize(nPntCount, vNull);
+  for(size_t i = 0; i < nPntCount; i++)
+  {
+    nRes = fscanf_s(pStream, "%f, %f, %f", &x, &y, &z);
+    if(nRes == EOF || nRes == 0)
+    {
+      fclose(pStream);
+      return false;
+    }
+
+    vPosColl[i] = Vector3D(x, y, z);
+  }
+
+  fclose(pStream);
+  return true;
+}
 
 bool CSource::generate_initial_cond()
 {
   if(m_bReady)
-    return true;  // if the m_vData array is filled and nothing has changed since that time, use the old data.
+    return true;  // if the m_vData array is filled and nothing has been changed since that time, use the old data.
 
   m_vData.clear();
   CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->clear_selected_traject(); // the initial conditions have been changed, clear all track selections.
 
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
-  UINT nSymmPlane = (UINT)pObj->get_sym_plane();
+
   UINT nEnsSize = (pObj->get_particle_type() == CTrack::ptIon && !pObj->get_2D_flag())? m_nEnsembleSize : 1;
   double fPeriodRF = Const_2PI / pObj->get_rf_frequency();
 
-  CSymmReflect reflector(pObj, nSymmPlane);
-  const CElem3D* pElem = NULL;
-  CNode3D node;
-
   calc_loc_triad();
-
-  Matrix3D mRotPitch, mRotAzim;
-  Vector3F vPos, vVel, vShift, vReflPos, vReflCoeff;
-  UINT nEnsIndex = 0;
-// Progress bar support:
-  UINT nMaxInd = m_nInjType == itRandom ? m_nCount : 1 + m_nPitchCount * m_nAzimCount;
 
   switch(m_nType)
   {
     case stCone:
     {
-      if(m_nInjType == itRandom)
-      {
-      }
-      else  // itHomogen
-      {
-        vPos = m_vPos;
-        vReflPos = Vector3F(reflector.reflectionCoefs(vPos)) && vPos;  // this must be inside the ANSYS mesh as it is.
-// Check whether the position is really inside the simulation domain.
-        if(!pObj->interpolate(vReflPos, 0, 0, node, pElem))
-          return false;
-
-        vVel = m_fAbsVel * m_vDir;
-        add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-        nEnsIndex++;
-
-        double fPitch, fAzim;
-        double fPitchIncr = m_nPitchCount > 0 ? 0.5 * m_fConeAngle / m_nPitchCount : 0;
-        double fAzimIncr = m_nAzimCount > 0 ? Const_2PI / m_nAzimCount : 0;
-        for(UINT i = 0; i < m_nPitchCount; i++)
-        {
-          if(pObj->get_terminate_flag())
-            return terminate();
-
-          fPitch = (i + 1) * fPitchIncr;
-          mRotPitch = Matrix3D::rot(m_vLocY, fPitch);
-          for(UINT j = 0; j < m_nAzimCount; j++)
-          {
-            fAzim = j * fAzimIncr;
-            mRotAzim = Matrix3D::rot(m_vDir, fAzim);
-            vVel = m_fAbsVel * (mRotAzim * (mRotPitch * m_vDir));
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-            nEnsIndex++;
-// Progress bar support:
-            pObj->set_progress(100 * (j + i * m_nAzimCount) / nMaxInd);
-          }
-        }
-      }
-
-      m_nCount = m_vData.size();
+      m_bReady = m_nInjType == itRandom ? gen_random_cone(fPeriodRF, nEnsSize) : gen_homogen_cone(fPeriodRF, nEnsSize);
       break;
     }
     case stSpot:
     {
-      if(m_nInjType == itRandom)
-      {
-        double fdX, fdY, fAmpl = 2 * m_fRadius;
-        int nAttempt = 0;
-        UINT nCount = m_nCount * nEnsSize;
-        srand(m_nRandomSeed);
-        int nLoop = 1;
-        while((m_vData.size() < nCount) && (nAttempt < RAND_MAX))
-        {
-          if((nLoop % 3 == 0) && pObj->get_terminate_flag())
-            return terminate();
-
-          fdX = -m_fRadius + fAmpl * rand() * scfRandCoeff;
-          fdY = -m_fRadius + fAmpl * rand() * scfRandCoeff;
-
-          vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
-          if((vPos - m_vPos).length() > m_fRadius)
-            continue;
-
-          vReflCoeff = reflector.reflectionCoefs(vPos);
-          vReflPos = vReflCoeff && vPos;
-          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-          {
-            vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-            nEnsIndex++;
-          }
-// Progress bar support:
-          pObj->set_progress(100 * m_vData.size() / nMaxInd);
-          nAttempt++;
-          nLoop++;
-        }
-      }
-      else  // itHomogen
-      {
-        float fRad, fAzim;
-        vPos = m_vPos;
-        vReflCoeff = reflector.reflectionCoefs(vPos);
-        vReflPos = vReflCoeff && vPos;
-        if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-        {
-          vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-          add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-          nEnsIndex++;
-        }
-
-        double fRadIncr = m_nPitchCount > 0 ? m_fRadius / m_nPitchCount : 0;
-        double fAzimIncr = m_nAzimCount > 0 ? Const_2PI / m_nAzimCount : 0;
-        for(UINT i = 0; i < m_nPitchCount; i++)
-        {
-          if(pObj->get_terminate_flag())
-            return terminate();
-
-          fRad = (i + 1) * fRadIncr;
-          for(UINT j = 0; j < m_nAzimCount; j++)
-          {
-            fAzim = j * fAzimIncr;
-            mRotAzim = Matrix3D::rot(m_vDir, fAzim);
-            vShift = mRotAzim * m_vLocY;
-            vPos = m_vPos + fRad * vShift;
-            vReflCoeff = reflector.reflectionCoefs(vPos);
-            vReflPos = vReflCoeff && vPos;
-            if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-            {
-              vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-              add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-              nEnsIndex++;
-            }
-// Progress bar support:
-            pObj->set_progress(100 * (j + i * m_nAzimCount) / nMaxInd);
-          }
-        }
-
-        m_nCount = m_vData.size();
-      }
-
+      m_bReady = m_nInjType == itRandom ? gen_random_spot(fPeriodRF, nEnsSize) : gen_homogen_spot(fPeriodRF, nEnsSize);
       break;
     }
     case stRect:
     {
-      int nAttempt = 0;
-      double fdX, fdY, fHalfWidth = 0.5 * m_fWidth, fHalfHeight = 0.5 * m_fHeight;
-      UINT nCount = m_nCount * nEnsSize;
-
-      if(m_nInjType == itRandom)
-      {
-        srand(m_nRandomSeed);
-        int nLoop = 1;
-        while((m_vData.size() < nCount) && (nAttempt < RAND_MAX))
-        {
-          if((nLoop % 3 == 0) && pObj->get_terminate_flag())
-            return terminate();
-
-          fdX = -fHalfWidth + m_fWidth * rand() * scfRandCoeff;
-          fdY = -fHalfHeight + m_fHeight * rand() * scfRandCoeff;
-
-          vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
-          vReflCoeff = reflector.reflectionCoefs(vPos);
-          vReflPos = vReflCoeff && vPos;
-          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-          {
-            vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-            nEnsIndex++;
-          }
-// Progress bar support:
-          pObj->set_progress(100 * m_vData.size() / m_nCount);
-          nAttempt++;
-          nLoop++;
-        }
-      }
-      else  // itHomogen
-      {
-        if(m_fHeight < Const_Almost_Zero || m_fWidth < Const_Almost_Zero)
-          return false;
-
-        double fRatio = m_fWidth / m_fHeight;
-        double fNx = sqrt(fRatio * nCount);
-        UINT Nx = UINT(0.5 + fNx);
-        UINT Ny = UINT(0.5 + (double)nCount / fNx);
-
-        double fOneOvrNx = Nx > 1 ? 1. / (Nx - 1) : 1;
-        double fOneOvrNy = Ny > 1 ? 1. / (Ny - 1) : 1;
-        for(UINT i = 0; i < Nx; i++)
-        {
-          if(pObj->get_terminate_flag())
-            return terminate();
-
-          fdX = -fHalfWidth + m_fWidth * i * fOneOvrNx;
-          for(UINT j = 0; j < Ny; j++)
-          {
-            fdY = -fHalfHeight + m_fHeight * j * fOneOvrNy;
-
-            vPos = m_vPos + fdX * m_vLocX + fdY * m_vLocY;
-            vReflCoeff = reflector.reflectionCoefs(vPos);
-            vReflPos = vReflCoeff && vPos;
-            if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-            {
-              vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * m_vDir;
-              add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-              nEnsIndex++;
-            }
-// Progress bar support:
-            pObj->set_progress(100 * (j + i * Ny) / m_nCount);
-          }
-        }
-
-        m_nCount = m_vData.size();
-      }
-
-      break;
-    }
-    case stRing:
-    {
-      break;
-    }
-    case stSphere:
-    {
+      m_bReady = m_nInjType == itRandom ? gen_random_rect(fPeriodRF, nEnsSize) : gen_homogen_rect(fPeriodRF, nEnsSize);
       break;
     }
     case stCylinder:
     {
-      if(m_nInjType == itRandom)
-      {
-        UINT nCount = m_nCount * nEnsSize;
-        srand(m_nRandomSeed);
-        int nLoop = 1;
-        double fdPitch, fZ;
-        Vector3D vGlobZ(0, 0, 1), vLocDir;
-        while((m_vData.size() < nCount) && (nLoop < RAND_MAX))
-        {
-          if((nLoop % 3 == 0) && pObj->get_terminate_flag())
-            return terminate();
-
-          fdPitch = m_fConeAngle * (-0.5 + rand() * scfRandCoeff);
-          mRotPitch = Matrix3D::rot(vGlobZ, fdPitch);
-          fZ = m_fHeight * (-0.5 + rand() * scfRandCoeff);
-
-          vLocDir = mRotPitch * m_vDir;
-          vPos = m_vPos + m_fRadius * vLocDir + fZ * vGlobZ;
-
-          vReflCoeff = reflector.reflectionCoefs(vPos);
-          vReflPos = vReflCoeff && vPos;
-          if(pObj->interpolate(vReflPos, 0, 0, node, pElem))
-          {
-            vVel = m_bUseInitialGasVel ? vReflCoeff && node.vel : m_fAbsVel * vLocDir;
-            add_particle(vPos, vVel, node.temp, fPeriodRF, pElem->nInd, nEnsSize, nEnsIndex);
-            nEnsIndex++;
-          }
-// Progress bar support:
-          pObj->set_progress(100 * m_vData.size() / nMaxInd);
-          nLoop++;
-        }
-      }
+      m_bReady = m_nInjType == itRandom ? gen_random_cyl(fPeriodRF, nEnsSize) : gen_homogen_cyl(fPeriodRF, nEnsSize);
       break;
     }
     case stSelReg:
     {
-      srand(m_nRandomSeed);
-      populate_regions();
+      m_RndGen.seed(m_nRandomSeed);
+      m_bReady = populate_regions();
+      break;
+    }
+    case stPosFromFile:
+    {
+      m_bReady = gen_from_file(fPeriodRF, nEnsSize);
       break;
     }
   }
 
-  m_bReady = true;
-  return true;
+  m_nCount = m_vData.size();
+  return m_bReady;
 }
 
 bool CSource::terminate()
@@ -365,21 +535,24 @@ bool CSource::terminate()
 
 void CSource::add_particle(const Vector3D& vPos,
                            const Vector3D& vVel,
-                           double          fGasTemp,
+                           const CNode3D&  node,
                            double          fPeriodRF,
                            size_t          nElemId,
                            UINT            nEnsSize,
                            UINT            nEnsIndex)
 {
-  double fStartTime, fPhase;
+  double fStartTime, fPhase, fIonMob;
   double fCoeff = nEnsSize > 0 ? 1. / nEnsSize : 1;
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
 
   for(UINT i = 0; i < nEnsSize; i++)
   {
     fStartTime = double(i) * fCoeff * fPeriodRF;
-    fPhase = Const_2PI * rand() * scfRandCoeff;
-    CPhasePoint pnt(vPos, vVel, fStartTime, fPhase, fGasTemp, nEnsIndex, nElemId);
+    fPhase = Const_2PI * uniDistr(m_RndGen);
+    fIonMob = pObj->get_ion_mob(node.press, node.temp);
+    CPhasePoint pnt(vPos, vVel, fStartTime, fPhase, node.temp, fIonMob, nEnsIndex, nElemId);
     m_vData.push_back(pnt);
   }
 }
@@ -423,12 +596,11 @@ const char* CSource::get_src_type_name(int nType) const
   switch(nType)
   {
     case stCone: return _T("Cone");
-    case stSpot: return _T("Spot");
-    case stRect: return _T("Rectangle");
-    case stRing: return _T("Circular Ring");
-    case stSphere: return _T("Hemisphere");
-    case stCylinder: return _T("Cylinder");
+    case stSpot: return _T("Round Spot");
+    case stRect: return _T("Rectangular Spot");
+    case stCylinder: return _T("Cylinder (for 2D)");
     case stSelReg: return _T("Selected Regions");
+    case stPosFromFile: return _T("Positions from File");
   }
 
   return _T("None");
@@ -457,6 +629,12 @@ bool CSource::populate_regions()
   {
     delete[] pWeight;
     return false;   // the full area is almost zero.
+  }
+
+  if(m_nInjType == itHomogen)
+  {
+    AfxMessageBox("Homogeneous distribution at the selected regions is not supported.");
+    return false;
   }
 
   bool bDoNotReflect = false;
@@ -578,26 +756,28 @@ void CSource::populate_face(CFace* pFace, UINT nPntCount, bool bReflect)
   Vector3D e2 = pFace->p2->pos - v0;
   Vector3D vPos, vVel, vNorm = pFace->norm;
 
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
+
   UINT nSuccess = 0;
   while(nSuccess < nPntCount)
   {
-    fAlpha = scfRandCoeff * rand();
-    fBeta = scfRandCoeff * rand();
+    fAlpha = uniDistr(m_RndGen);
+    fBeta = uniDistr(m_RndGen);
     vPos = v0 + 0.5 * (fAlpha * e1 + fBeta * e2) - m_vFaceOffset * vNorm;
 
     if(pObj->interpolate(vPos, 0, 0, node, pElem))
     {
       vVel = m_bUseInitialGasVel ? node.vel : m_fAbsVel * m_vDir;
-      add_particle(vPos, vVel, node.temp, 0., pElem->nInd, 1, 0);
+      add_particle(vPos, vVel, node, 0., pElem->nInd, 1, 0);
       nSuccess++;
 
       if(bReflect)
-        reflect(vPos, vVel, node.temp, pElem->nInd);
+        reflect(vPos, vVel, node, pElem->nInd);
     }
   }
 }
 
-void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, size_t nElemId)
+void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, const CNode3D& node, size_t nElemId)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   int nSymmPlane = pObj->get_sym_plane();
@@ -608,7 +788,7 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
   {
     vReflPos.z = -vPos.z;
     vReflVel.z = -vVel.z;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, node, 0., nElemId, 1, 0);
   }
 
   vReflPos = vPos;
@@ -618,7 +798,7 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
   {
     vReflPos.y = -vPos.y;
     vReflVel.y = -vVel.y;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, node, 0., nElemId, 1, 0);
   }
 
   vReflPos = vPos;
@@ -629,20 +809,21 @@ void CSource::reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, 
     vReflPos.y = -vPos.y;
     vReflVel.z = -vVel.z;
     vReflVel.y = -vVel.y;
-    add_particle(vReflPos, vReflVel, fTemp, 0., nElemId, 1, 0);
+    add_particle(vReflPos, vReflVel, node, 0., nElemId, 1, 0);
   }
 }
 
-UINT CSource::choose_face(UINT nFirst, UINT nLast) const
+UINT CSource::choose_face(UINT nFirst, UINT nLast)
 {
   UINT nCount = nLast - nFirst;
-  return nFirst + (UINT)(0.5 + scfRandCoeff * nCount * rand());
+  std::uniform_real_distribution<double> uniDistr(0.0, 1.0);
+  return nFirst + (UINT)(0.5 + nCount * uniDistr(m_RndGen));
 }
 
 // Streams support:
 void CSource::save(CArchive& ar)
 {
-  const UINT nVersion = 4;  // 4 - m_vSelRegNames; 3 - m_fWidth and m_fHeight for the stRect type of the source.
+  const UINT nVersion = 5;  // 5 - m_sFileName, reading positions from a file support; 4 - m_vSelRegNames; 3 - m_fWidth and m_fHeight for the stRect type of the source.
   ar << nVersion;
 
   ar << m_nType;
@@ -673,6 +854,8 @@ void CSource::save(CArchive& ar)
     CString cName(m_vSelRegNames.at(j).c_str());
     ar << cName;
   }
+
+  ar << m_sFileName;
 }
 
 void CSource::load(CArchive& ar)
@@ -725,6 +908,11 @@ void CSource::load(CArchive& ar)
       std::string sName((const char*)cName);
       m_vSelRegNames.push_back(sName);
     }
+  }
+
+  if(nVersion >= 5)
+  {
+    ar >> m_sFileName;
   }
 
   m_bReady = false;

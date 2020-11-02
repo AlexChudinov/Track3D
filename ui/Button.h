@@ -413,6 +413,23 @@ public:
 };
 
 //---------------------------------------------------------------------------------------
+// CExternalGridExportButton.
+//---------------------------------------------------------------------------------------
+class CExternalGridExportButton : public CCalcFieldButton
+{
+  DECLARE_DYNAMIC(CExternalGridExportButton)
+
+public:
+  CExternalGridExportButton(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr = NULL, DWORD_PTR dwData = 0,
+		LPCTSTR lpszEditMask = NULL, LPCTSTR lpszEditTemplate = NULL, LPCTSTR lpszValidChars = NULL)
+    : CCalcFieldButton(pWndProp, strName, varValue, lpszDescr, dwData, lpszEditMask, lpszEditTemplate, lpszValidChars)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
 // CSaveFieldButton.
 //---------------------------------------------------------------------------------------
 class CSaveFieldButton : public CProprtyListButton
@@ -563,6 +580,22 @@ class CInvalidateFieldCheckBox : public CCheckBoxButton
 
 public:
   CInvalidateFieldCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
+    : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
+  {
+  }
+
+  virtual void    OnClickButton(CPoint point);
+};
+
+//---------------------------------------------------------------------------------------
+// CUseAnsysFieldCheckBox
+//---------------------------------------------------------------------------------------
+class CUseAnsysFieldCheckBox : public CCheckBoxButton
+{
+  DECLARE_DYNAMIC(CUseAnsysFieldCheckBox)
+
+public:
+  CUseAnsysFieldCheckBox(CPropertiesWnd* pWndProp, const CString& strName, const COleVariant& varValue, LPCTSTR lpszDescr, DWORD_PTR dwData)
     : CCheckBoxButton(pWndProp, strName, varValue, lpszDescr, dwData)
   {
   }

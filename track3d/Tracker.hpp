@@ -12,7 +12,8 @@
 #include "Perturbation.h"
 #include "matrix3d.hpp"
 #include "math.h"
-#include "BatchSim.h"   // batch simulations support.
+#include "BatchSim.h"       // batch simulations support.
+#include "DropletSizeGen.h" // simulation of droplets of different initial diameters.
 
 class CExecutionDialog;
 class DiffusionVelocityJump;
@@ -21,8 +22,6 @@ typedef RandomProcess::RandomProcessType CRandomProcType;
 
 namespace EvaporatingParticle
 {
-
-const double cfDCVoltage = 2500.; // ANSYS data supplies DC field computed with 2500 V potential at the emitter.
 
 class CSource;
 class CEvaporationModel;
@@ -87,10 +86,6 @@ public:
   DWORD_PTR               get_particle_charge_ptr() const;
   void                    set_particle_charge(double fCharge);
 
-  double                  get_dc_amplitude() const;
-  DWORD_PTR               get_dc_amplitude_ptr() const;
-  void                    set_dc_amplitude(double fAmpl);
-
   int                     get_symmetry_type() const;
 
 // Particle source parameters:
@@ -100,10 +95,6 @@ public:
   int                     get_evapor_model_type() const;
   DWORD_PTR               get_evapor_model_type_ptr() const;
   void                    set_evapor_model_type(int nModel);
-
-  double                  get_init_diameter() const;
-  DWORD_PTR               get_init_diameter_ptr() const;
-  void                    set_init_diameter(double fDiam);
 
 // All evaporation user interface must be called directly using this pointer.
   CEvaporationModel*      get_evapor_model() const;
@@ -247,6 +238,10 @@ public:
   bool                    get_enable_ansys_field() const;
   DWORD_PTR               get_enable_ansys_field_ptr() const;
 
+  double                  get_DC_voltage() const;
+  DWORD_PTR               get_DC_voltage_ptr() const;
+  void                    set_DC_voltage(double fU);
+
   bool                    get_save_image() const;
   DWORD_PTR               get_save_image_ptr() const;
 
@@ -262,6 +257,20 @@ public:
 //-------------------------------------------------------------------------------------------------
 // Multi-threading support.
 //-------------------------------------------------------------------------------------------------
+  enum  // Threads priority.
+  {
+    thpNormal     = 0,
+    thpBelowNorm  = 1,
+    thpLowest     = 2,
+    thpCount      = 3
+  };
+
+  const char*             get_priority_name(int nPriority) const;
+
+  int                     get_calc_thread_priority() const;
+  DWORD_PTR               get_calc_thread_priority_ptr() const;
+  void                    set_calc_thread_priority(int nPriority);
+
   bool                    get_use_multi_thread() const;
   DWORD_PTR               get_use_multi_thread_ptr() const;
   void                    set_use_multi_thread(bool bEnable);
@@ -287,19 +296,17 @@ public:
 
 // OpenFOAM import support:
   CImportOpenFOAM&        get_importer();
-
 // Output to files:
   COutputEngine&          get_output_engine();
-
 // DC Field perturbations:
   CFieldPtbCollection&    get_field_ptb();
   void                    apply_perturbations();
-
 // Mirror Coulomb field support:
   CBarnesHut*             get_BH_object();
-
 // Batch simulations support:
   CBatchSim*              get_batch_sim_obj();
+// Droplets initial diameter distribution:
+  CDropletSizeGen&        get_size_gen_obj();
 
 //-------------------------------------------------------------------------------------------------
 // Mesh specific interface:
@@ -408,6 +415,9 @@ public:
 protected:
   bool                    read_coulomb_field();
 
+// Particle source management:
+  virtual void            invalidate_src();
+
 //-------------------------------------------------------------------------------------------------
 // Droplet-type specific:
 //-------------------------------------------------------------------------------------------------
@@ -437,6 +447,7 @@ private:
 
 // Multi-threading support.
   bool                    m_bUseMultiThread;
+  int                     m_nCalcThreadPriority;
 
   CalcThreadVector*       m_pCalcThreads;   // run-time, for progress bar support only.
 
@@ -458,17 +469,17 @@ private:
                           m_bAnsysFields,   // if true, the ANSYS calculated electric fields are used.
                           m_bSaveImage;     // if true, the screen image will be captured and saved at every iteration, never saved to the disk.
 
-  double                  m_fInitMass,
-                          m_fPartDens,
-                          m_fInitD,
+  double                  m_fPartDens,
                           m_fMinD,      // minimal particle diameter, below which tracking stops automatically, cm ...
                           m_fMinMass,   // ... and corresponding minimal mass, g.
 
                           m_fMolarMass; // environment gas molar mass.
 
+  CDropletSizeGen         m_SizeGen;
+
 // Electrostatics:
   bool                    m_bEnableField;
-  double                  m_fAmplDC,    // DC voltage at the emitter, V. This is a multiplier equal to U/2500.
+  double                  m_fAmplDC,    // this is a multiplier, in V, for Ansys DC field.
                           m_fCharge;    // sum particle's charge, CGSE.
 
   CSource                 m_Src;
@@ -618,6 +629,21 @@ inline void CTracker::set_use_multi_thread(bool bEnable)
   m_bUseMultiThread = bEnable;
 }
 
+inline int CTracker::get_calc_thread_priority() const
+{
+  return m_nCalcThreadPriority;
+}
+
+inline DWORD_PTR CTracker::get_calc_thread_priority_ptr() const
+{
+  return (DWORD_PTR)&m_nCalcThreadPriority;
+}
+
+inline void CTracker::set_calc_thread_priority(int nPriority)
+{
+  m_nCalcThreadPriority = nPriority;
+}
+
 inline int CTracker::get_particle_type() const
 {
   return m_nType;
@@ -630,7 +656,11 @@ inline DWORD_PTR CTracker::get_particle_type_ptr() const
 
 inline void CTracker::set_particle_type(int nType)
 {
-  m_nType = nType;
+  if(m_nType != nType)
+  {
+    m_nType = nType;
+    invalidate_src();
+  }
 }
 
 inline double CTracker::get_molar_mass() const
@@ -706,21 +736,6 @@ inline void CTracker::set_particle_charge(double fCharge)
   m_fChargeMassRatio = m_fCharge / m_fIonMass;
 }
 
-inline double CTracker::get_dc_amplitude() const
-{
-  return m_fAmplDC * cfDCVoltage;
-}
-
-inline DWORD_PTR CTracker::get_dc_amplitude_ptr() const
-{
-  return (DWORD_PTR)&m_fAmplDC;
-}
-
-inline void CTracker::set_dc_amplitude(double fAmpl)
-{
-  m_fAmplDC = fAmpl / cfDCVoltage;
-}
-
 // Particle source parameters:
 inline CSource* CTracker::get_src()
 {
@@ -731,6 +746,11 @@ inline CSource* CTracker::get_src()
 inline int CTracker::get_evapor_model_type() const
 {
   return m_nEvaporModelType;
+}
+
+inline void CTracker::invalidate_src()
+{
+  m_Src.invalidate();
 }
 
 inline DWORD_PTR CTracker::get_evapor_model_type_ptr() const
@@ -750,22 +770,6 @@ inline void CTracker::set_evapor_model_type(int nModelType)
 inline CEvaporationModel* CTracker::get_evapor_model() const
 {
   return m_pEvaporModel;
-}
-
-inline double CTracker::get_init_diameter() const
-{
-  return m_fInitD;
-}
-
-inline DWORD_PTR CTracker::get_init_diameter_ptr() const
-{
-  return (DWORD_PTR)&m_fInitD;
-}
-
-inline void CTracker::set_init_diameter(double fD)
-{
-  m_fInitD = fD;
-  m_fInitMass = get_particle_mass(fD);
 }
 
 inline double CTracker::get_min_D() const
@@ -1211,7 +1215,7 @@ inline double CTracker::get_Cd(double fRe) const
 
 inline double CTracker::get_particle_mass(double fD) const
 {
-  return Const_One_Sixth * Const_PI * fD * fD * fD * m_fPartDens;
+  return fD > Const_Almost_Zero ? Const_One_Sixth * Const_PI * fD * fD * fD * m_fPartDens : 0;
 }
 
 inline double CTracker::get_particle_diameter(double fMass) const
@@ -1255,6 +1259,21 @@ inline bool CTracker::get_enable_ansys_field() const
 inline DWORD_PTR CTracker::get_enable_ansys_field_ptr() const
 {
   return (DWORD_PTR)&m_bAnsysFields;
+}
+
+inline double CTracker::get_DC_voltage() const
+{
+  return m_fAmplDC;
+}
+
+inline DWORD_PTR CTracker::get_DC_voltage_ptr() const
+{
+  return (DWORD_PTR)&m_fAmplDC;
+}
+
+inline void CTracker::set_DC_voltage(double fU)
+{
+  m_fAmplDC = fU;
 }
 
 inline bool CTracker::get_save_image() const
@@ -1377,6 +1396,11 @@ inline CBarnesHut* CTracker::get_BH_object()
 inline CBatchSim* CTracker::get_batch_sim_obj()
 {
   return &m_BatchSim;
+}
+
+inline CDropletSizeGen& CTracker::get_size_gen_obj()
+{
+  return m_SizeGen;
 }
 
 inline double CTracker::get_current_incr(UINT nIterCount) const

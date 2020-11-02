@@ -10,7 +10,7 @@
 //---------------------------------------------------------------------------------------
 // Particle type and data file name
 //---------------------------------------------------------------------------------------
-static const char* cSymPlanes[4] = { "None", "XY Only", "XZ Only", "Both XY and YZ" };
+static const char* cSymPlanes[5] = { "None", "XY Only", "XZ Only", "Both XY and XZ", "Axial Symmetry" };
 
 void CPropertiesWnd::add_type_ctrls()
 {
@@ -54,17 +54,19 @@ void CPropertiesWnd::add_type_ctrls()
   pSymGroup->AddSubItem(pCheck2D);
 
   int nSymPlanes = pObj->get_sym_plane();
-  if((nSymPlanes & EvaporatingParticle::CTracker::spXY) && (nSymPlanes & EvaporatingParticle::CTracker::spXZ))
+  if((nSymPlanes & EvaporatingParticle::CAnsysMesh::spXY) && (nSymPlanes & EvaporatingParticle::CAnsysMesh::spXZ))
     var = COleVariant(_T(cSymPlanes[3]));
-  else if(nSymPlanes & EvaporatingParticle::CTracker::spXZ)
+  else if(nSymPlanes & EvaporatingParticle::CAnsysMesh::spXZ)
     var = COleVariant(_T(cSymPlanes[2]));
-  else if(nSymPlanes & EvaporatingParticle::CTracker::spXY)
+  else if(nSymPlanes & EvaporatingParticle::CAnsysMesh::spXY)
     var = COleVariant(_T(cSymPlanes[1]));
+  else if(nSymPlanes & EvaporatingParticle::CAnsysMesh::spAxial)
+    var = COleVariant(_T(cSymPlanes[4]));
   else
     var = COleVariant(_T(cSymPlanes[0]));
 
-  CMFCPropertyGridProperty* pSym = new CMFCPropertyGridProperty(_T("Type of Symmetry"), var, _T("Specify symmetry planes."), pObj->get_sym_plane_ptr());
-  for(UINT i = 0; i < 4; i++)
+  CMFCPropertyGridProperty* pSym = new CMFCPropertyGridProperty(_T("Type of Symmetry"), var, _T("Specify symmetry type of the simulation domain. Select symmetry plane(s) in the case of planar symmetry or set Axial if the domain is axially symmetric."), pObj->get_sym_plane_ptr());
+  for(UINT i = 0; i < 5; i++)
     pSym->AddOption(_T(cSymPlanes[i]));
 
   pSymGroup->AddSubItem(pSym);
@@ -137,11 +139,13 @@ void CPropertiesWnd::set_type_data()
     CString cType = (CString)pProp->GetValue();
     int nSymPlanes = 0;
     if(cType == cSymPlanes[1])
-      nSymPlanes = EvaporatingParticle::CTracker::spXY;
+      nSymPlanes = EvaporatingParticle::CAnsysMesh::spXY;
     else if(cType == cSymPlanes[2])
-      nSymPlanes = EvaporatingParticle::CTracker::spXZ;
+      nSymPlanes = EvaporatingParticle::CAnsysMesh::spXZ;
     else if(cType == cSymPlanes[3])
-      nSymPlanes = EvaporatingParticle::CTracker::spXY | EvaporatingParticle::CTracker::spXZ;
+      nSymPlanes = EvaporatingParticle::CAnsysMesh::spXY | EvaporatingParticle::CAnsysMesh::spXZ;
+    else if(cType == cSymPlanes[4])
+      nSymPlanes = EvaporatingParticle::CAnsysMesh::spAxial;
 
     pObj->set_sym_plane(nSymPlanes);
   }

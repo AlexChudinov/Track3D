@@ -5,9 +5,11 @@
 #include "ResponseProperty.h"
 #include "Button.h"
 
+using namespace EvaporatingParticle;
+
 void CPropertiesWnd::add_calc_ctrls()
 {
-  CMFCPropertyGridProperty* pCalcGroup = new CMFCPropertyGridProperty(_T("Calculators"));
+//  CMFCPropertyGridProperty* pCalcGroup = new CMFCPropertyGridProperty(_T("Calculators"));
 
   EvaporatingParticle::CCalcCollection* pCalcColl = CParticleTrackingApp::Get()->GetCalcs();
   size_t nCalcCount = pCalcColl->size();
@@ -23,7 +25,14 @@ void CPropertiesWnd::add_calc_ctrls()
     
         CMFCPropertyGridProperty* pXPlaneCalcGroup = new CMFCPropertyGridProperty(pPlaneYZCalc->get_name());
 
-        CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section X, mm"), COleVariant(10 * pPlaneYZCalc->get_plane_x()), _T("Set x-coordinate of the vertical cross-section plane."), pPlaneYZCalc->get_plane_x_ptr());
+        CString sDirName = CCalculator::plane_norm_name(pCalc->get_seq_clc_dir());
+        CCalcResponseProperty* pPlaneNorm = new CCalcResponseProperty(this, _T("Cross-section Normal Dir."), COleVariant(sDirName), _T("Select the normal direction of the cross-section plane."), pPlaneYZCalc->get_seq_clc_dir_ptr());
+        for(UINT j = 0; j < 3; j++)
+          pPlaneNorm->AddOption(CCalculator::plane_norm_name(j));
+
+        pXPlaneCalcGroup->AddSubItem(pPlaneNorm);
+
+        CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section Pos., mm"), COleVariant(10 * pPlaneYZCalc->get_plane_x()), _T("Set the coordinate of the cross-section plane."), pPlaneYZCalc->get_plane_x_ptr());
         pXPlaneCalcGroup->AddSubItem(pXPlanePos);
 
         CPlaneYZCalcCheckBox* pEnableCrossSectDrawing = new CPlaneYZCalcCheckBox(this, _T("Enable Cross-Section Drawing"), (_variant_t)pPlaneYZCalc->get_enable(), _T("Turns ON/OFF the cross-section drawing."), pPlaneYZCalc->get_enable_ptr());
@@ -40,7 +49,7 @@ void CPropertiesWnd::add_calc_ctrls()
 // Character Length specially for Reynolds number calculations:
         if(pCalc->get_clc_var_type() == EvaporatingParticle::CCalculator::clcAveRe)
         {
-          CMFCPropertyGridProperty* pCharLen = new CMFCPropertyGridProperty(_T("Character Length, mm"), COleVariant(10 * pCalc->get_char_length()), _T("Define the character length for Reynolds number calculation."), pCalc->get_char_length_ptr());
+          CMFCPropertyGridProperty* pCharLen = new CMFCPropertyGridProperty(_T("Character Scale, mm"), COleVariant(10 * pCalc->get_char_length()), _T("Define the character length for Reynolds number calculation."), pCalc->get_char_length_ptr());
           pXPlaneCalcGroup->AddSubItem(pCharLen);
         }
 
@@ -52,10 +61,10 @@ void CPropertiesWnd::add_calc_ctrls()
 // Sequential calculations:
         CMFCPropertyGridProperty* pSeqCalcGroup = new CMFCPropertyGridProperty(_T("Sequential Calculations"));
 
-        CMFCPropertyGridProperty* pStartPos = new CMFCPropertyGridProperty(_T("Start Position, mm"), COleVariant(10 * pPlaneYZCalc->get_start_pos()), _T("Set x-coordinate of the start position of the cross-section plane."), pPlaneYZCalc->get_start_pos_ptr());
+        CMFCPropertyGridProperty* pStartPos = new CMFCPropertyGridProperty(_T("Start Position, mm"), COleVariant(10 * pPlaneYZCalc->get_start_pos()), _T("Set the coordinate of the start position of the cross-section plane."), pPlaneYZCalc->get_start_pos_ptr());
         pSeqCalcGroup->AddSubItem(pStartPos);
 
-        CMFCPropertyGridProperty* pStepX = new CMFCPropertyGridProperty(_T("End Position, mm"), COleVariant(10 * pPlaneYZCalc->get_end_pos()), _T("The position of the cross-section plane will be incremented by this step."), pPlaneYZCalc->get_end_pos_ptr());
+        CMFCPropertyGridProperty* pStepX = new CMFCPropertyGridProperty(_T("End Position, mm"), COleVariant(10 * pPlaneYZCalc->get_end_pos()), _T("Set the coordinate of the end position of the cross-section plane."), pPlaneYZCalc->get_end_pos_ptr());
         pSeqCalcGroup->AddSubItem(pStepX);
 
         CMFCPropertyGridProperty* pStepCount = new CMFCPropertyGridProperty(_T("Count of Steps"), COleVariant((long)pPlaneYZCalc->get_seq_calc_count()), _T("Set the total count of cross-section plane positions for this sequence."), pPlaneYZCalc->get_seq_calc_count_ptr());
@@ -82,7 +91,8 @@ void CPropertiesWnd::add_calc_ctrls()
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), var1, _T("Click to delete this calculator."), (DWORD_PTR)pPlaneYZCalc);
         pXPlaneCalcGroup->AddSubItem(pRemoveCalcBtn);
 
-        pCalcGroup->AddSubItem(pXPlaneCalcGroup);
+//        pCalcGroup->AddSubItem(pXPlaneCalcGroup);
+        m_wndPropList.AddProperty(pXPlaneCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctSelRegions:
@@ -114,7 +124,8 @@ void CPropertiesWnd::add_calc_ctrls()
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), var1, _T("Click to delete this calculator."), (DWORD_PTR)pSelRegCalc);
         pSelRegCalcGroup->AddSubItem(pRemoveCalcBtn);
 
-        pCalcGroup->AddSubItem(pSelRegCalcGroup);
+//        pCalcGroup->AddSubItem(pSelRegCalcGroup);
+        m_wndPropList.AddProperty(pSelRegCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctAlongLine:
@@ -165,6 +176,12 @@ void CPropertiesWnd::add_calc_ctrls()
         CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Start Calculations"), var2, _T("Click to start calculations."), (DWORD_PTR)pLineCalc);
         pLineCalcGroup->AddSubItem(pStartCalcBtn);
 
+// Average value over all the line points (read-only edit-line):
+        CString sAverValName = CString(_T("Average ")) + CString(pLineCalc->units());
+        pProp = new CMFCPropertyGridProperty(sAverValName, COleVariant(pLineCalc->get_line_average()), _T("This read-only edit line reads the average value over all the points of the line."), pLineCalc->get_line_average_ptr());
+        pProp->AllowEdit(false);
+        pLineCalcGroup->AddSubItem(pProp);
+
 // Output filename for line calculator:
         CMFCPropertyGridProperty* pDataGroup = new CMFCPropertyGridProperty(_T("Output File"));
         static TCHAR BASED_CODE szFilter[] = _T("Data Files(*.csv)|*.csv|All Files(*.*)|*.*||");
@@ -179,7 +196,8 @@ void CPropertiesWnd::add_calc_ctrls()
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), var1, _T("Click to delete this calculator."), (DWORD_PTR)pLineCalc);
         pLineCalcGroup->AddSubItem(pRemoveCalcBtn);
 
-        pCalcGroup->AddSubItem(pLineCalcGroup);
+//        pCalcGroup->AddSubItem(pLineCalcGroup);
+        m_wndPropList.AddProperty(pLineCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctTrackCalc:
@@ -188,7 +206,15 @@ void CPropertiesWnd::add_calc_ctrls()
 
         CMFCPropertyGridProperty* pTrackCalcGroup = new CMFCPropertyGridProperty(pTrackCalc->get_name());
 
-        CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section X, mm"), COleVariant(10 * pTrackCalc->get_cs_pos()), _T("Set x-coordinate of the vertical cross-section plane."), pTrackCalc->get_cs_pos_ptr());
+        int nDir = pCalc->get_seq_clc_dir();
+        CString sDirName = CCalculator::plane_norm_name(nDir);
+        CCalcResponseProperty* pPlaneNorm = new CCalcResponseProperty(this, _T("Cross-section Normal Dir."), COleVariant(sDirName), _T("Select the normal direction of the cross-section plane."), pTrackCalc->get_seq_clc_dir_ptr());
+        for(UINT j = 0; j < 3; j++)
+          pPlaneNorm->AddOption(CCalculator::plane_norm_name(j));
+
+        pTrackCalcGroup->AddSubItem(pPlaneNorm);
+
+        CCalcResponseProperty* pXPlanePos = new CCalcResponseProperty(this, _T("Cross-Section Pos., mm"), COleVariant(10 * pTrackCalc->get_cs_pos()), _T("Set position coordinate (X, Y or Z) of the cross-section plane."), pTrackCalc->get_cs_pos_ptr());
         pTrackCalcGroup->AddSubItem(pXPlanePos);
 
         COleVariant var(pTrackCalc->get_var_name(pTrackCalc->get_clc_var_type()));
@@ -207,10 +233,12 @@ void CPropertiesWnd::add_calc_ctrls()
 // Sequential calculations:
         CMFCPropertyGridProperty* pSeqCalcGroup = new CMFCPropertyGridProperty(_T("Sequential Calculations"));
 
-        CMFCPropertyGridProperty* pStartPos = new CMFCPropertyGridProperty(_T("Start X, mm"), COleVariant(10 * pTrackCalc->get_start_x()), _T("Set x-coordinate of the start cross-section."), pTrackCalc->get_start_x_ptr());
+        CString sStart = nDir == CCalculator::dirX ? CString("Start X, mm") : (nDir == CCalculator::dirY ? CString("Start Y, mm") : CString("Start Z, mm"));
+        CMFCPropertyGridProperty* pStartPos = new CMFCPropertyGridProperty((const char*)sStart, COleVariant(10 * pTrackCalc->get_start_x()), _T("Set x-coordinate of the start cross-section."), pTrackCalc->get_start_x_ptr());
         pSeqCalcGroup->AddSubItem(pStartPos);
 
-        CMFCPropertyGridProperty* pEndPos = new CMFCPropertyGridProperty(_T("End X, mm"), COleVariant(10 * pTrackCalc->get_end_x()), _T("Set x-coordinate of the end cross-section."), pTrackCalc->get_end_x_ptr());
+        CString sEnd = nDir == CCalculator::dirX ? CString("End X, mm") : (nDir == CCalculator::dirY ? CString("End Y, mm") : CString("End Z, mm"));
+        CMFCPropertyGridProperty* pEndPos = new CMFCPropertyGridProperty((const char*)sEnd, COleVariant(10 * pTrackCalc->get_end_x()), _T("Set x-coordinate of the end cross-section."), pTrackCalc->get_end_x_ptr());
         pSeqCalcGroup->AddSubItem(pEndPos);
 
         CMFCPropertyGridProperty* pCSCount = new CMFCPropertyGridProperty(_T("Count of Cross-Sections"), COleVariant((long)pTrackCalc->get_cs_count()), _T("Set the total count of cross-sections."), pTrackCalc->get_cs_count_ptr());
@@ -235,7 +263,8 @@ void CPropertiesWnd::add_calc_ctrls()
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), var1, _T("Click to delete this calculator."), (DWORD_PTR)pTrackCalc);
         pTrackCalcGroup->AddSubItem(pRemoveCalcBtn);
 
-        pCalcGroup->AddSubItem(pTrackCalcGroup);
+//        pCalcGroup->AddSubItem(pTrackCalcGroup);
+        m_wndPropList.AddProperty(pTrackCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctTrackCrossSect:
@@ -245,7 +274,16 @@ void CPropertiesWnd::add_calc_ctrls()
 
         CMFCPropertyGridProperty* pTrackCalcGroup = new CMFCPropertyGridProperty(pTrackCalc->get_name());
 
-        CMFCPropertyGridProperty* pXPlanePos = new CMFCPropertyGridProperty(_T("Cross-Section X, mm"), COleVariant(10 * pObj->get_cross_sect_pos()), _T("Set x-coordinate of the vertical cross-section plane."), pObj->get_cross_sect_pos_ptr());
+        int nDir = pCalc->get_seq_clc_dir();
+        CString sDirName = CCalculator::plane_norm_name(nDir);
+        CCalcResponseProperty* pPlaneNorm = new CCalcResponseProperty(this, _T("Cross-section Normal Dir."), COleVariant(sDirName), _T("Select the normal direction of the cross-section plane."), pTrackCalc->get_seq_clc_dir_ptr());
+        for(UINT j = 0; j < 3; j++)
+          pPlaneNorm->AddOption(CCalculator::plane_norm_name(j));
+
+        pTrackCalcGroup->AddSubItem(pPlaneNorm);
+
+        CString sName = nDir == CCalculator::dirX ? CString("Cross-Section X, mm") : (nDir == CCalculator::dirY ? CString("Cross-Section Y, mm") : CString("Cross-Section Z, mm"));
+        CMFCPropertyGridProperty* pXPlanePos = new CMFCPropertyGridProperty((const char*)sName, COleVariant(10 * pObj->get_cross_sect_pos()), _T("Set corresponding (X, Y or Z) coordinate of the cross-section plane."), pObj->get_cross_sect_pos_ptr());
         pTrackCalcGroup->AddSubItem(pXPlanePos);
 
         COleVariant var(pObj->get_var_name(pObj->get_var()));
@@ -270,22 +308,46 @@ void CPropertiesWnd::add_calc_ctrls()
         CMFCPropertyGridProperty* pAverageGroup = new CMFCPropertyGridProperty("Average Coordinates");
         pStatisticsGroup->AddSubItem(pAverageGroup);
 
-        CMFCPropertyGridProperty* pAverY = new CMFCPropertyGridProperty(_T("Y, mm"), COleVariant(10 * pTrackCalc->get_center().y), _T("Info: Average Y coordinate in the cross-section."), NULL);
-        pAverY->AllowEdit(FALSE);
-        pAverageGroup->AddSubItem(pAverY);
-        CMFCPropertyGridProperty* pAverZ = new CMFCPropertyGridProperty(_T("Z, mm"), COleVariant(10 * pTrackCalc->get_center().z), _T("Info: Average Z coordinate in the cross-section."), NULL);
-        pAverZ->AllowEdit(FALSE);
-        pAverageGroup->AddSubItem(pAverZ);
+        if(nDir != CCalculator::dirX)
+        {
+          CMFCPropertyGridProperty* pAverX = new CMFCPropertyGridProperty(_T("X, mm"), COleVariant(10 * pTrackCalc->get_center().x), _T("Info: Average X coordinate in the cross-section."), NULL);
+          pAverX->AllowEdit(FALSE);
+          pAverageGroup->AddSubItem(pAverX);
+        }
+        if(nDir != CCalculator::dirY)
+        {
+          CMFCPropertyGridProperty* pAverY = new CMFCPropertyGridProperty(_T("Y, mm"), COleVariant(10 * pTrackCalc->get_center().y), _T("Info: Average Y coordinate in the cross-section."), NULL);
+          pAverY->AllowEdit(FALSE);
+          pAverageGroup->AddSubItem(pAverY);
+        }
+        if(nDir != CCalculator::dirZ)
+        {
+          CMFCPropertyGridProperty* pAverZ = new CMFCPropertyGridProperty(_T("Z, mm"), COleVariant(10 * pTrackCalc->get_center().z), _T("Info: Average Z coordinate in the cross-section."), NULL);
+          pAverZ->AllowEdit(FALSE);
+          pAverageGroup->AddSubItem(pAverZ);
+        }
 
         CMFCPropertyGridProperty* pSigmaGroup = new CMFCPropertyGridProperty("Mean Square Deviation");
         pStatisticsGroup->AddSubItem(pSigmaGroup);
 
-        CMFCPropertyGridProperty* pSigmaY = new CMFCPropertyGridProperty(_T("Sigma Y, mm"), COleVariant(10 * pTrackCalc->get_sigma().y), _T("Info: Mean square deviation in Y direction in the cross-section."), NULL);
-        pSigmaY->AllowEdit(FALSE);
-        pSigmaGroup->AddSubItem(pSigmaY);
-        CMFCPropertyGridProperty* pSigmaZ = new CMFCPropertyGridProperty(_T("Sigma Z, mm"), COleVariant(10 * pTrackCalc->get_sigma().z), _T("Info: Mean square deviation in Z direction in the cross-section."), NULL);
-        pSigmaZ->AllowEdit(FALSE);
-        pSigmaGroup->AddSubItem(pSigmaZ);
+        if(nDir != CCalculator::dirX)
+        {
+          CMFCPropertyGridProperty* pSigmaX = new CMFCPropertyGridProperty(_T("Sigma X, mm"), COleVariant(10 * pTrackCalc->get_sigma().x), _T("Info: Mean square deviation in X direction in the cross-section."), NULL);
+          pSigmaX->AllowEdit(FALSE);
+          pSigmaGroup->AddSubItem(pSigmaX);
+        }
+        if(nDir != CCalculator::dirY)
+        {
+          CMFCPropertyGridProperty* pSigmaY = new CMFCPropertyGridProperty(_T("Sigma Y, mm"), COleVariant(10 * pTrackCalc->get_sigma().y), _T("Info: Mean square deviation in Y direction in the cross-section."), NULL);
+          pSigmaY->AllowEdit(FALSE);
+          pSigmaGroup->AddSubItem(pSigmaY);
+        }
+        if(nDir != CCalculator::dirZ)
+        {
+          CMFCPropertyGridProperty* pSigmaZ = new CMFCPropertyGridProperty(_T("Sigma Z, mm"), COleVariant(10 * pTrackCalc->get_sigma().z), _T("Info: Mean square deviation in Z direction in the cross-section."), NULL);
+          pSigmaZ->AllowEdit(FALSE);
+          pSigmaGroup->AddSubItem(pSigmaZ);
+        }
 
         pTrackCalcGroup->AddSubItem(pStatisticsGroup);
 
@@ -303,7 +365,8 @@ void CPropertiesWnd::add_calc_ctrls()
         CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), var1, _T("Click to delete this calculator."), (DWORD_PTR)pTrackCalc);
         pTrackCalcGroup->AddSubItem(pRemoveCalcBtn);
 
-        pCalcGroup->AddSubItem(pTrackCalcGroup);
+//        pCalcGroup->AddSubItem(pTrackCalcGroup);
+        m_wndPropList.AddProperty(pTrackCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctAlongSelTracks:
@@ -352,7 +415,8 @@ void CPropertiesWnd::add_calc_ctrls()
 
         pTrackCalcGroup->AddSubItem(pActionsGroup);
 
-        pCalcGroup->AddSubItem(pTrackCalcGroup);
+//        pCalcGroup->AddSubItem(pTrackCalcGroup);
+        m_wndPropList.AddProperty(pTrackCalcGroup);
         break;
       }
       case EvaporatingParticle::CCalculator::ctTrackFaceCross:
@@ -380,13 +444,45 @@ void CPropertiesWnd::add_calc_ctrls()
 
         pFaceCalcGroup->AddSubItem(pActionsGroup);
 
-        pCalcGroup->AddSubItem(pFaceCalcGroup);
+//        pCalcGroup->AddSubItem(pFaceCalcGroup);
+        m_wndPropList.AddProperty(pFaceCalcGroup);
+        break;
+      }
+      case EvaporatingParticle::CCalculator::ctEndTrackCalc:
+      {
+        EvaporatingParticle::CEndTrackCalculator* pEndPointsCalc = (EvaporatingParticle::CEndTrackCalculator*)pCalc;
+        CMFCPropertyGridProperty* pEndPointCalcGroup = new CMFCPropertyGridProperty(pEndPointsCalc->get_name());
+
+        CCheckBoxButton* pUseSIUnitsBtn = new CCheckBoxButton(this, _T("Output in SI Units"), (_variant_t)pEndPointsCalc->get_use_SI_units(), _T("If checked the end of track coordinates will be output in meters."), pEndPointsCalc->get_use_SI_units_ptr());
+        pEndPointCalcGroup->AddSubItem(pUseSIUnitsBtn);
+
+// Output filename for the end points calculator:
+        CMFCPropertyGridProperty* pDataGroup = new CMFCPropertyGridProperty(_T("Output File"));
+        static TCHAR BASED_CODE szFilter[] = _T("Data Files(*.csv)|*.csv|All Files(*.*)|*.*||");
+        CMFCPropertyGridFileProperty* pOutFileProp = new CMFCPropertyGridFileProperty(_T("Select Filename"), TRUE, pEndPointsCalc->get_out_file(), _T("csv"),
+          OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, szFilter, _T("Specify location for the result data file."), pEndPointsCalc->get_out_file_ptr());
+
+        pDataGroup->AddSubItem(pOutFileProp);
+        pEndPointCalcGroup->AddSubItem(pDataGroup);
+
+// Actions:
+        CMFCPropertyGridProperty* pActionsGroup = new CMFCPropertyGridProperty(_T("Actions"));
+// Start calculations:
+        CStartCalcButton* pStartCalcBtn = new CStartCalcButton(this, _T("Output End Points of Tracks"), _T(""), _T("Click to start calculations."), (DWORD_PTR)pEndPointsCalc);
+        pActionsGroup->AddSubItem(pStartCalcBtn);
+// Remove calculator:
+        CRemoveCalcButton* pRemoveCalcBtn = new CRemoveCalcButton(this, _T("Remove Calculator"), _T(""), _T("Click to delete this calculator."), (DWORD_PTR)pEndPointsCalc);
+        pActionsGroup->AddSubItem(pRemoveCalcBtn);
+        pEndPointCalcGroup->AddSubItem(pActionsGroup);
+
+//        pCalcGroup->AddSubItem(pEndPointCalcGroup);
+        m_wndPropList.AddProperty(pEndPointCalcGroup);
         break;
       }
     }
   }
 
-  m_wndPropList.AddProperty(pCalcGroup);
+//  m_wndPropList.AddProperty(pCalcGroup);
 }
 
 void CPropertiesWnd::set_calc_data()
@@ -403,7 +499,25 @@ void CPropertiesWnd::set_calc_data()
       {
         EvaporatingParticle::CPlaneYZCalculator* pPlaneYZCalc = (EvaporatingParticle::CPlaneYZCalculator*)pCalc;
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_start_pos_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_seq_clc_dir_ptr());
+        if(pProp != NULL)
+        {
+          CString cValue = (CString)pProp->GetValue();
+          for(UINT j = 0; j < 3; j++)
+          {
+            if(cValue == CString(CCalculator::plane_norm_name(j)))
+            {
+              pPlaneYZCalc->set_seq_clc_dir(j);
+              break;
+            }
+          }
+        }
+        
+        pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_plane_x_ptr());
+        if(pProp != NULL)
+          pPlaneYZCalc->set_plane_x(0.1 * pProp->GetValue().dblVal);
+
+        pProp = m_wndPropList.FindItemByData(pPlaneYZCalc->get_start_pos_ptr());
         if(pProp != NULL)
           pPlaneYZCalc->set_start_pos(0.1 * pProp->GetValue().dblVal);
 
@@ -475,7 +589,21 @@ void CPropertiesWnd::set_calc_data()
       {
         EvaporatingParticle::CTrackCalculator* pTrackCalc = (EvaporatingParticle::CTrackCalculator*)pCalc;
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pTrackCalc->get_start_x_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pTrackCalc->get_seq_clc_dir_ptr());
+        if(pProp != NULL)
+        {
+          CString cValue = (CString)pProp->GetValue();
+          for(UINT j = 0; j < 3; j++)
+          {
+            if(cValue == CString(CCalculator::plane_norm_name(j)))
+            {
+              pTrackCalc->set_seq_clc_dir(j);
+              break;
+            }
+          }
+        }
+
+        pProp = m_wndPropList.FindItemByData(pTrackCalc->get_start_x_ptr());
         if(pProp != NULL)
           pTrackCalc->set_start_x(0.1 * pProp->GetValue().dblVal);
 
@@ -502,7 +630,21 @@ void CPropertiesWnd::set_calc_data()
         EvaporatingParticle::CTrackCrossSectionCalculator* pTrackCalc = (EvaporatingParticle::CTrackCrossSectionCalculator*)pCalc;
         EvaporatingParticle::CColoredCrossSection* pObj = pTrackCalc->get_object();
 
-        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_cross_sect_pos_ptr());
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pTrackCalc->get_seq_clc_dir_ptr());
+        if(pProp != NULL)
+        {
+          CString cValue = (CString)pProp->GetValue();
+          for(UINT j = 0; j < 3; j++)
+          {
+            if(cValue == CString(CCalculator::plane_norm_name(j)))
+            {
+              pTrackCalc->set_seq_clc_dir(j);
+              break;
+            }
+          }
+        }
+
+        pProp = m_wndPropList.FindItemByData(pObj->get_cross_sect_pos_ptr());
         if(pProp != NULL)
           pObj->set_cross_sect_pos(0.1 * pProp->GetValue().dblVal);
 
@@ -551,6 +693,18 @@ void CPropertiesWnd::set_calc_data()
         pProp = m_wndPropList.FindItemByData(pCrossFacesCalc->get_end_coord_ptr());
         if(pProp != NULL)
           pCrossFacesCalc->set_end_coord(0.1 * pProp->GetValue().dblVal);
+
+        break;
+      }
+      case EvaporatingParticle::CCalculator::ctEndTrackCalc:
+      {
+        EvaporatingParticle::CEndTrackCalculator* pEndPointsCalc = (EvaporatingParticle::CEndTrackCalculator*)pCalc;
+        CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pEndPointsCalc->get_out_file_ptr());
+        if(pProp != NULL)
+        {
+          CString cFile = (CString)pProp->GetValue();
+          pEndPointsCalc->set_out_file((const char*)cFile);
+        }
 
         break;
       }

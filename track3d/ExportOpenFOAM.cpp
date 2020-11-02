@@ -65,8 +65,7 @@ void CBoundaryConditions::load(CArchive& ar)
 //---------------------------------------------------------------------------------------
 bool COpenFoamFace::operator == (const COpenFoamFace& face) const
 {
-  size_t nNodeCount = nodes.size();
-  if(nNodeCount != face.nodes.size())
+  if(nNodesCount != face.nNodesCount)
     return false;
 
   bool bFound = false;
@@ -74,10 +73,10 @@ bool COpenFoamFace::operator == (const COpenFoamFace& face) const
   for(size_t j = 0; j < 3; j++)
   {
     bFound = false;
-    CNode3D* p0 = nodes.at(j);
-    for(size_t i = 0; i < nNodeCount; i++)
+    size_t n0 = nodes[j];
+    for(size_t i = 0; i < nNodesCount; i++)
     {
-      if(p0 == face.nodes.at(i))
+      if(n0 == face.nodes[i])
       {
         bFound = true;
         break;
@@ -115,6 +114,7 @@ void CExportOpenFOAM::set_default()
   m_fDefPress = 0.4;    // Pa, this approximately corresponds to 4e-6 atm, a character press in Q00.
   set_def_temp(300.);   // K, this function sets also m_fDefDens.
   m_fDefVx = 100.;      // m/s
+  m_fShiftX = 0;
 }
 
 void CExportOpenFOAM::prepare()
@@ -135,6 +135,10 @@ void CExportOpenFOAM::prepare()
 
   m_pNodes = &(pObj->get_nodes());
   m_pElems = &(pObj->get_elems());
+
+// The element centers will be used in export_internal_data() and export_boundary_data(),
+// when m_pElems and m_pNodes point to elements and nodes of a different CAnsysMesh object.
+  backup_element_centers();
 
   size_t nAuxSize = 6 * m_pElems->size();
   m_pAuxFaces = new COpenFoamFace*[nAuxSize];
@@ -169,6 +173,7 @@ void CExportOpenFOAM::clear()
   }
 
   m_Patches.clear();
+  m_vElemCenters.clear();
 
   m_pNodes = NULL;
   m_pElems = NULL;
@@ -314,12 +319,12 @@ bool CExportOpenFOAM::export_faces()
   for(size_t i = 0; i < nFaceCount; i++)
   {
     COpenFoamFace* pFace = m_Faces.at(i);
-    size_t nNodeCount = pFace->nodes.size();
+    size_t nNodeCount = pFace->nNodesCount;
     fprintf(pStream, "%zd", nNodeCount);
     switch(nNodeCount)
     {
-      case 3: fprintf(pStream, "(%zd %zd %zd)\n", pFace->nodes.at(0)->nInd, pFace->nodes.at(1)->nInd, pFace->nodes.at(2)->nInd); break;
-      case 4: fprintf(pStream, "(%zd %zd %zd %zd)\n", pFace->nodes.at(0)->nInd, pFace->nodes.at(1)->nInd, pFace->nodes.at(2)->nInd, pFace->nodes.at(3)->nInd); break;
+      case 3: fprintf(pStream, "(%zd %zd %zd)\n", pFace->nodes[0], pFace->nodes[1], pFace->nodes[2]); break;
+      case 4: fprintf(pStream, "(%zd %zd %zd %zd)\n", pFace->nodes[0], pFace->nodes[1], pFace->nodes[2], pFace->nodes[3]); break;
     }
 
     set_progress(int(0.5 + 100. * (i + 1) / nFaceCount));
@@ -565,7 +570,7 @@ bool CExportOpenFOAM::read_2D_regions()
 // Important! Nodes in ANSYS output files are enumerated from 1 to nNodeCount. In connectivity data, too!
 // In our arrays we enumerate nodes from 0 to nNodeCount - 1, i.e. subtract unity from the original node index.
       nRes = fscanf_s(pStream, "%d %d %d", &n0, &n1, &n2);
-      pFace = new COpenFoamFace(&(m_pNodes->at(n0 - 1)), &(m_pNodes->at(n1 - 1)), &(m_pNodes->at(n2 - 1)));
+      pFace = new COpenFoamFace(m_pNodes->at(n0 - 1).nInd, m_pNodes->at(n1 - 1).nInd, m_pNodes->at(n2 - 1).nInd);
       pReg->vFaces.push_back(pFace);
     }
 
@@ -573,7 +578,7 @@ bool CExportOpenFOAM::read_2D_regions()
     for(j = 0; j < nQuadCount; j++)
     {
       nRes = fscanf_s(pStream, "%d %d %d %d", &n0, &n1, &n2, &n3);
-      pFace = new COpenFoamFace(&(m_pNodes->at(n0 - 1)), &(m_pNodes->at(n1 - 1)), &(m_pNodes->at(n2 - 1)), &(m_pNodes->at(n3 - 1)));
+      pFace = new COpenFoamFace(m_pNodes->at(n0 - 1).nInd, m_pNodes->at(n1 - 1).nInd, m_pNodes->at(n2 - 1).nInd, m_pNodes->at(n3 - 1).nInd);
       pReg->vFaces.push_back(pFace);
     }
 
@@ -690,16 +695,16 @@ void CExportOpenFOAM::collect_internal_faces()
         CNode3D* p2 = pElem->get_node(2);
         CNode3D* p3 = pElem->get_node(3);
 
-        COpenFoamFace* pf0 = new COpenFoamFace(p0, p2, p1);
+        COpenFoamFace* pf0 = new COpenFoamFace(p0->nInd, p2->nInd, p1->nInd);
         process_face(pElem, pf0);
 
-        COpenFoamFace* pf1 = new COpenFoamFace(p1, p2, p3);
+        COpenFoamFace* pf1 = new COpenFoamFace(p1->nInd, p2->nInd, p3->nInd);
         process_face(pElem, pf1);
 
-        COpenFoamFace* pf2 = new COpenFoamFace(p0, p3, p2);
+        COpenFoamFace* pf2 = new COpenFoamFace(p0->nInd, p3->nInd, p2->nInd);
         process_face(pElem, pf2);
        
-        COpenFoamFace* pf3 = new COpenFoamFace(p0, p1, p3);
+        COpenFoamFace* pf3 = new COpenFoamFace(p0->nInd, p1->nInd, p3->nInd);
         process_face(pElem, pf3);
 
         break;
@@ -712,19 +717,19 @@ void CExportOpenFOAM::collect_internal_faces()
         CNode3D* p3 = pElem->get_node(3);
         CNode3D* p4 = pElem->get_node(4);
 
-        COpenFoamFace* pf0 = new COpenFoamFace(p0, p1, p4);
+        COpenFoamFace* pf0 = new COpenFoamFace(p0->nInd, p1->nInd, p4->nInd);
         process_face(pElem, pf0);
 
-        COpenFoamFace* pf1 = new COpenFoamFace(p1, p2, p4);
+        COpenFoamFace* pf1 = new COpenFoamFace(p1->nInd, p2->nInd, p4->nInd);
         process_face(pElem, pf1);
 
-        COpenFoamFace* pf2 = new COpenFoamFace(p2, p3, p4);
+        COpenFoamFace* pf2 = new COpenFoamFace(p2->nInd, p3->nInd, p4->nInd);
         process_face(pElem, pf2);
        
-        COpenFoamFace* pf3 = new COpenFoamFace(p3, p0, p4);
+        COpenFoamFace* pf3 = new COpenFoamFace(p3->nInd, p0->nInd, p4->nInd);
         process_face(pElem, pf3);
 
-        COpenFoamFace* pf4 = new COpenFoamFace(p0, p3, p2, p1);
+        COpenFoamFace* pf4 = new COpenFoamFace(p0->nInd, p3->nInd, p2->nInd, p1->nInd);
         process_face(pElem, pf4);
 
         break;
@@ -738,19 +743,19 @@ void CExportOpenFOAM::collect_internal_faces()
         CNode3D* p4 = pElem->get_node(4);
         CNode3D* p5 = pElem->get_node(5);
 
-        COpenFoamFace* pf0 = new COpenFoamFace(p0, p2, p1);
+        COpenFoamFace* pf0 = new COpenFoamFace(p0->nInd, p2->nInd, p1->nInd);
         process_face(pElem, pf0);
 
-        COpenFoamFace* pf1 = new COpenFoamFace(p3, p4, p5);
+        COpenFoamFace* pf1 = new COpenFoamFace(p3->nInd, p4->nInd, p5->nInd);
         process_face(pElem, pf1);
 
-        COpenFoamFace* pf2 = new COpenFoamFace(p0, p1, p4, p3);
+        COpenFoamFace* pf2 = new COpenFoamFace(p0->nInd, p1->nInd, p4->nInd, p3->nInd);
         process_face(pElem, pf2);
        
-        COpenFoamFace* pf3 = new COpenFoamFace(p1, p2, p5, p4);
+        COpenFoamFace* pf3 = new COpenFoamFace(p1->nInd, p2->nInd, p5->nInd, p4->nInd);
         process_face(pElem, pf3);
 
-        COpenFoamFace* pf4 = new COpenFoamFace(p0, p3, p5, p2);
+        COpenFoamFace* pf4 = new COpenFoamFace(p0->nInd, p3->nInd, p5->nInd, p2->nInd);
         process_face(pElem, pf4);
 
         break;
@@ -766,22 +771,22 @@ void CExportOpenFOAM::collect_internal_faces()
         CNode3D* p6 = pElem->get_node(6);
         CNode3D* p7 = pElem->get_node(7);
 
-        COpenFoamFace* pf0 = new COpenFoamFace(p0, p1, p5, p4);
+        COpenFoamFace* pf0 = new COpenFoamFace(p0->nInd, p1->nInd, p5->nInd, p4->nInd);
         process_face(pElem, pf0);
 
-        COpenFoamFace* pf1 = new COpenFoamFace(p1, p3, p7, p5);
+        COpenFoamFace* pf1 = new COpenFoamFace(p1->nInd, p3->nInd, p7->nInd, p5->nInd);
         process_face(pElem, pf1);
 
-        COpenFoamFace* pf2 = new COpenFoamFace(p3, p2, p6, p7);
+        COpenFoamFace* pf2 = new COpenFoamFace(p3->nInd, p2->nInd, p6->nInd, p7->nInd);
         process_face(pElem, pf2);
        
-        COpenFoamFace* pf3 = new COpenFoamFace(p2, p0, p4, p6);
+        COpenFoamFace* pf3 = new COpenFoamFace(p2->nInd, p0->nInd, p4->nInd, p6->nInd);
         process_face(pElem, pf3);
 
-        COpenFoamFace* pf4 = new COpenFoamFace(p0, p2, p3, p1);
+        COpenFoamFace* pf4 = new COpenFoamFace(p0->nInd, p2->nInd, p3->nInd, p1->nInd);
         process_face(pElem, pf4);
 
-        COpenFoamFace* pf5 = new COpenFoamFace(p4, p5, p7, p6);
+        COpenFoamFace* pf5 = new COpenFoamFace(p4->nInd, p5->nInd, p7->nInd, p6->nInd);
         process_face(pElem, pf5);
 
         break;
@@ -807,6 +812,7 @@ bool CExportOpenFOAM::process_face(CElem3D* pElem, COpenFoamFace* pFace)
     correct_normal(pElem, pBndFace);  // correct the sense of rotation in the face if necessary.
 
     pBndFace->nOwnerIndex = pElem->nInd;
+    pBndFace->vFaceCenter = get_face_center(pBndFace);
     m_nBoundFaceCount++;
     delete pFace;
     return true;
@@ -836,6 +842,7 @@ bool CExportOpenFOAM::process_face(CElem3D* pElem, COpenFoamFace* pFace)
     correct_normal(pElem, pFace); // correct the sense of rotation in the face if necessary.
 
     pFace->nOwnerIndex = pElem->nInd;
+    pFace->vFaceCenter = get_face_center(pFace);  // this vector will be needed during exporting boundary values.
     m_Faces.push_back(pFace);
 
 // Find a proper place for the new face in the auxiliary array:
@@ -858,9 +865,9 @@ int CExportOpenFOAM::find_neighbour(CElem3D* pElem, COpenFoamFace* pFace)
   const CElementsCollection& vElems = *m_pElems;
 // It is enough to try any three vertices of the face. If all three of them belong to an element, 
 // this element is what we are looking for.
-  CNode3D* p0 = pFace->nodes.at(0);
-  CNode3D* p1 = pFace->nodes.at(1);
-  CNode3D* p2 = pFace->nodes.at(2);
+  CNode3D* p0 = &(m_pNodes->at(pFace->nodes[0]));
+  CNode3D* p1 = &(m_pNodes->at(pFace->nodes[1]));
+  CNode3D* p2 = &(m_pNodes->at(pFace->nodes[2]));
 
 // The element to be found must be among vNbrElems of any vertex of pFace. Try the neighbours of p0.
   size_t nNbrCount = p0->vNbrElems.size();
@@ -932,27 +939,25 @@ void CExportOpenFOAM::correct_normal(CElem3D* pOwnerElem, COpenFoamFace* pFace)
   vCellCenter /= (double)nNodeElemCount;
 
   Vector3D vFaceCenter(0, 0, 0);
-  size_t j, nFaceNodeCount = pFace->nodes.size();
+  size_t j, nFaceNodeCount = pFace->nNodesCount;
   for(j = 0; j < nFaceNodeCount; j++)
-    vFaceCenter += pFace->nodes.at(j)->pos;
+    vFaceCenter += m_pNodes->at(pFace->nodes[j]).pos;
 
   vFaceCenter /= (double)nFaceNodeCount;
 
   Vector3D vDir = (vFaceCenter - vCellCenter).normalized(); // direction out of the cell.
-  Vector3D vFaceNorm = (pFace->nodes.at(1)->pos - pFace->nodes.at(0)->pos) * (pFace->nodes.at(2)->pos - pFace->nodes.at(0)->pos);
+  Vector3D vFaceNorm = (m_pNodes->at(pFace->nodes[1]).pos - m_pNodes->at(pFace->nodes[0]).pos) * (m_pNodes->at(pFace->nodes[2]).pos - m_pNodes->at(pFace->nodes[0]).pos);
   double fDotProd = vDir & vFaceNorm;
   if(fDotProd > 0)
     return; // everything is OK, the normal points from the owner cell.
 
 // Change the order of the nodes in the face:
-  CNodesCollection vTmp;
+  size_t vTmp[4];
   for(j = 0; j < nFaceNodeCount; j++)
-    vTmp.push_back(pFace->nodes.at(j));
-
-  pFace->nodes.clear();
+    vTmp[j] = pFace->nodes[j];
 
   for(j = 0; j < nFaceNodeCount; j++)
-    pFace->nodes.push_back(vTmp.at(nFaceNodeCount - j - 1));
+    pFace->nodes[j] = vTmp[nFaceNodeCount - j - 1];
 }
 
 void CExportOpenFOAM::print_header(FILE* pStream)
@@ -972,16 +977,19 @@ void CExportOpenFOAM::export_internal_and_boundary_data()
   if(!PathFileExists(m_sBoundCondPath.c_str()))
     return;
 
-  CTracker bound_cond_obj;
-  bound_cond_obj.set_filename(m_sBoundCondPath.c_str());
-  bound_cond_obj.set_convert_to_cgs(false); // make sure that all the variables are in SI.
+// Instead of using a temporary CTracker object, we re-initialize the global CTracker.
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
 
-  bound_cond_obj.set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
+// Backup the data filename of the current CTracker.
+  CString sFileName(pObj->get_filename());
+  bool bConv2CGS = pObj->get_convert_to_cgs();
 
-  if(!bound_cond_obj.read_geometry())
-    return;
+  pObj->set_convert_to_cgs(false); // make sure that all the variables are in SI.
 
-  if(!bound_cond_obj.read_gasdyn_data())
+  pObj->clear();
+  pObj->set_filename(m_sBoundCondPath.c_str());
+  pObj->set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
+  if(!pObj->read_geometry() || !pObj->read_gasdyn_data())
     return;
 
   std::string sOutName = m_sPath + "\\boundaryT.dat";
@@ -1014,17 +1022,22 @@ void CExportOpenFOAM::export_internal_and_boundary_data()
   print_header_N(pFileN);
 
   if(m_bExportInternal)
-    export_internal_data(&bound_cond_obj, pFileT, pFileU, pFileN);
+    export_internal_data(pObj, pFileT, pFileU, pFileN);
   else
     write_uniform_internal_fields(pFileT, pFileU, pFileN);
 
-  export_boundary_data(&bound_cond_obj, pFileT, pFileU, pFileN);
-
-  bound_cond_obj.set_handlers(NULL, NULL);
+  export_boundary_data(pObj, pFileT, pFileU, pFileN);
 
   fclose(pFileT);
   fclose(pFileU);
   fclose(pFileN);
+
+// Restore the global CTracker to its original condition:
+  pObj->clear();
+  pObj->set_filename((const char*)sFileName);
+  pObj->set_convert_to_cgs(bConv2CGS);
+  pObj->read_data();
+  pObj->set_handlers(NULL, NULL);
 }
 
 void CExportOpenFOAM::write_uniform_internal_fields(FILE* pFileT, FILE* pFileU, FILE* pFileN)
@@ -1038,6 +1051,15 @@ void CExportOpenFOAM::write_uniform_internal_fields(FILE* pFileT, FILE* pFileU, 
 
 // Number density
   fprintf(pFileN, "internalField uniform %e;\n\n", m_fDefDen);
+}
+
+void CExportOpenFOAM::backup_element_centers()
+{
+  Vector3D vNull(0, 0, 0);
+  size_t nElemCount = m_pElems->size();
+  m_vElemCenters.resize(nElemCount, vNull);
+  for(size_t i = 0; i < nElemCount; i++)
+    m_vElemCenters[i] = get_elem_center(m_pElems->at(i));
 }
 
 void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* pFileU, FILE* pFileN)
@@ -1057,7 +1079,8 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
     fputs("Element number  Element center (mm)\n\n", pAuxFile);
 // END DEBUG
 
-  size_t nElemCount = m_pElems->size();
+  size_t nElemCount = m_vElemCenters.size();  // elements count in the DSMC mesh.
+
 // Temperature
   fputs("internalField nonuniform List<scalar>\n", pFileT);
   fprintf(pFileT, "%zd\n", nElemCount);
@@ -1072,7 +1095,6 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
   fputs("(\n", pFileN);
 
   Vector3D vPos;
-  const CElem3D* pElem = NULL;
   const CElem3D* pSearchElem = NULL;
   CNode3D node;   // this is just a container for interpolated data.
 
@@ -1080,8 +1102,7 @@ void CExportOpenFOAM::export_internal_data(CTracker* pObj, FILE* pFileT, FILE* p
   double fNumDens;
   for(size_t i = 0; i < nElemCount; i++)
   {
-    pElem = m_pElems->at(i);
-    vPos = get_elem_center(pElem);
+    vPos = m_vElemCenters.at(i);
     if(!box.inside(vPos) || !pObj->interpolate(vPos, 0, 0, node, pSearchElem) && bAuxOK)
     {
 // DEBUG
@@ -1127,7 +1148,10 @@ void CExportOpenFOAM::export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* p
   CBox box = pObj->get_box();
 
   Vector3D vFaceCenter, vElemCenter, vPos, vDefVel(m_fDefVx, 0, 0);
+
+  size_t nElemCount = m_vElemCenters.size();
   size_t nPatchCount = m_Patches.size();
+
   for(size_t i = 0; i < nPatchCount; i++)
   {
     CExportRegion* pReg = m_Patches.at(i);
@@ -1162,11 +1186,9 @@ void CExportOpenFOAM::export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* p
         for(size_t j = 0; j < nFaceCount; j++)
         {
           COpenFoamFace* pFace = pReg->vFaces.at(j);
-          vFaceCenter = get_face_center(pFace);
+          vFaceCenter = pFace->vFaceCenter;
 
-          const CElem3D* pElem = m_pElems->at(pFace->nOwnerIndex);
-          vElemCenter = get_elem_center(pElem);
-
+          vElemCenter = m_vElemCenters.at(pFace->nOwnerIndex);
           vPos = vFaceCenter + 0.1 * (vElemCenter - vFaceCenter);  // shift a bit from the center of the boundary face inside the volume.
           if(!box.inside(vPos) || !pObj->interpolate(vPos, 0, 0, node, pSearchElem))
           {
@@ -1277,9 +1299,9 @@ void CExportOpenFOAM::remove_bound_cond(CBoundaryConditions* pBoundCond)
 Vector3D CExportOpenFOAM::get_face_center(COpenFoamFace* pFace) const
 {
   Vector3D vC(0, 0, 0);
-  size_t nNodeCount = pFace->nodes.size();  // can be either 3 or 4.
+  size_t nNodeCount = pFace->nNodesCount;  // can be either 3 or 4.
   for(size_t k = 0; k < nNodeCount; k++)
-    vC += pFace->nodes.at(k)->pos;
+    vC += m_pNodes->at(pFace->nodes[k]).pos;
 
   return (vC / (double)nNodeCount);
 }
@@ -1519,6 +1541,225 @@ void CExportOpenFOAM::load(CArchive& ar)
       m_vBoundConditions.push_back(pBC);
     }
   }
+}
+
+
+//-------------------------------------------------------------------------------------------------
+// CExternalGridExport - export to grid nodes
+//-------------------------------------------------------------------------------------------------
+bool CExternalGridExport::do_export()
+{
+  FILE* pInFile = open_input_file();
+  if(pInFile == NULL)
+    return false;
+
+  set_job_name("Exporting ANSYS Data...");
+  set_progress(0);
+
+  CLocVector vPoints;
+  read_locations(pInFile, vPoints);
+  if(vPoints.size() == 0)
+    return false;
+
+  fclose(pInFile);
+
+  FILE* pOutFile = open_output_file();
+  if(pOutFile == NULL)
+    return false;
+
+  interpolate_and_write_data(pOutFile, vPoints);
+
+  fclose(pOutFile);
+  set_progress(100);
+  return true;
+}
+
+void CExternalGridExport::read_locations(FILE* pInFile, CLocVector& vLoc)
+{
+  int nRes = 0;
+  Vector3D vPos;
+  double x, y, z;
+
+  switch(m_nFmtType)
+  {
+    case fmtCSV:
+    {
+      int nLocCount = 0;
+      int nRes = fscanf_s(pInFile, "%d", &nLocCount);
+      if(nRes != 1)
+        return;
+
+      for(int i = 0; i < nLocCount; i++)
+      {
+        nRes = fscanf_s(pInFile, "%lf, %lf, %lf", &vPos.x, &vPos.y, &vPos.z);
+        if(nRes != 3)
+          continue;
+
+// I expect that if user set m_bUseSI to "true" the coordinates are in meters. 
+// Transfer them into CGS for future use in the interpolation procedure.
+        if(m_bUseSI)
+          vPos *= SI_to_CGS_Len;
+
+        vLoc.push_back(vPos);
+      }
+      break;
+    }
+    case fmtDAT4:
+    {
+      int n, nCount = 0;
+      while(nRes != EOF)
+      {
+        nRes = fscanf_s(pInFile, "%d %lf %lf %lf", &n, &vPos.x, &vPos.y, &vPos.z);
+        if(nRes != 4)
+          continue;
+
+// I expect that if user set m_bUseSI to "true" the coordinates are in meters. 
+// Transfer them into CGS for future use in the interpolation procedure.
+        if(m_bUseSI)
+          vPos *= SI_to_CGS_Len;
+
+        vLoc.push_back(vPos);
+      }
+      break;
+    }
+    case fmtDAT3:
+    {
+      int n, nCount = 0;
+      while(nRes != EOF)
+      {
+        nRes = fscanf_s(pInFile, "%lf %lf %lf", &vPos.x, &vPos.y, &vPos.z);
+        if(nRes != 3)
+          continue;
+
+// I expect that if user set m_bUseSI to "true" the coordinates are in meters. 
+// Transfer them into CGS for future use in the interpolation procedure.
+        if(m_bUseSI)
+          vPos *= SI_to_CGS_Len;
+
+        vLoc.push_back(vPos);
+      }
+      break;
+    }
+  }
+}
+
+static const Vector3F vNull(0, 0, 0);
+
+static const char sccHeader[] = 
+"    Node,        X,            Y,            Z,           Vx,           Vy,           Vz,        Press,       Density,        Temp,           Cp,       Therm Cond,     Dyn Visc\n";
+
+void CExternalGridExport::interpolate_and_write_data(FILE* pOutFile, const CLocVector& vLoc)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  fputs(sccHeader, pOutFile);
+
+// Interpolation errors handling:
+  std::string cPath = COutputEngine::get_full_path(pObj->get_filename());
+  CString sFailedLocFile = CString(cPath.c_str()) + CString("failed_points.csv");
+
+  FILE* pErrFile;
+  errno_t nErr = fopen_s(&pErrFile, (const char*)sFailedLocFile, (const char*)("w"));
+  bool bErrFileOk = (nErr == 0) && (pErrFile != NULL);
+
+  CNode3D node;
+  const CElem3D* pElem = NULL;
+  Vector3D vPos, vVel, vAccel;
+  size_t nLocCount = vLoc.size();
+  for(size_t i = 0; i < nLocCount; i++)
+  {
+    set_progress(int(100 * double(i) / nLocCount));
+    if(get_terminate_flag())
+      return;
+
+    vPos = vLoc.at(i);
+    CSymCorrData data = pObj->sym_corr_forward(vPos, vVel);
+    if(pObj->interpolate(vPos, 0, 0, node, pElem))
+    {
+      vVel = node.vel;
+      pObj->sym_corr_back(vPos, vVel, vAccel, data);
+      node.pos = vPos;
+      node.vel = vVel;
+    }
+    else
+    {
+      node.pos = vPos;
+      node.set_data(0, 0, 0, 0, 0, 0, vNull, vNull, vNull);
+      if(bErrFileOk)
+        fprintf(pErrFile, "%8d\n", (int)(i+1));   // write down the node numbers in which interpolation failed.
+    }
+
+    if(m_bUseSI)
+      convert_to_SI(node);
+
+    switch(m_nFmtType)
+    {
+      case fmtCSV:
+      {
+        fprintf(pOutFile, "%8d, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e\n", 
+          (int)(i+1), node.pos.x, node.pos.y, node.pos.z, node.vel.x, node.vel.y, node.vel.z, node.press, node.dens, node.temp, node.cp, node.cond, node.visc);
+        break;
+      }
+      case fmtDAT4:
+      case fmtDAT3:
+      {
+        fprintf(pOutFile, "%8d  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e  %12.5e\n", 
+          (int)(i+1), node.pos.x, node.pos.y, node.pos.z, node.vel.x, node.vel.y, node.vel.z, node.press, node.dens, node.temp, node.cp, node.cond, node.visc);
+        break;
+      }
+    }
+  }
+
+  if(bErrFileOk)
+    fclose(pErrFile);
+}
+
+void CExternalGridExport::convert_to_SI(CNode3D& node) const
+{
+  node.pos *= CGS_to_SI_Len;
+  node.vel *= CGS_to_SI_Len;
+
+  node.press *= CGS_to_SI_Press;
+  node.dens  *= CGS_to_SI_Dens;
+  node.cp    /= SI_to_CGS_Cp;
+  node.cond  *= CGS_to_SI_ThermCond;
+  node.visc  *= CGS_to_SI_DynVisc;
+}
+
+FILE* CExternalGridExport::open_input_file() const
+{
+  FILE* pFile;
+  errno_t nErr = fopen_s(&pFile, (const char*)m_sInputFile, (const char*)("r"));
+  if(nErr != 0 || pFile == 0)
+  {
+    AfxMessageBox("Can not open input file for reading data.");
+    return NULL;
+  }
+
+  return pFile;
+}
+
+FILE* CExternalGridExport::open_output_file() const
+{
+  FILE* pFile;
+  errno_t nErr = fopen_s(&pFile, (const char*)m_sOutputFile, (const char*)("w"));
+  if(nErr != 0 || pFile == 0)
+  {
+    AfxMessageBox("Can not open output file for writing.");
+    return NULL;
+  }
+
+  return pFile;
+}
+
+const char* CExternalGridExport::get_format_name(int nFmtType)
+{
+  switch(nFmtType)
+  {
+    case fmtCSV: return _T(" CSV (x, y, z)");
+    case fmtDAT4: return _T(" DAT-4 (n x y z)");
+    case fmtDAT3: return _T(" DAT-3 (x y z)");
+  }
+  return _T("");
 }
 
 };

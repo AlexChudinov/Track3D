@@ -1163,18 +1163,31 @@ bool CElectricFieldData::is_selected(CRegion* pReg) const
 
 CIndexVector CElectricFieldData::get_reg_nodes(CRegion* pReg) const
 {
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  size_t nNodesCount = pObj->get_nodes().size();
+  std::vector<bool> vbSel(nNodesCount, false);
+
   CIndexVector vInd;
   CFace* pFace = NULL;
   size_t nFaceCount = pReg->vFaces.size();
   for(size_t i = 0; i < nFaceCount; i++)
   {
     pFace = pReg->vFaces.at(i);
-    if(std::find(vInd.begin(), vInd.end(), pFace->p0->nInd) == vInd.end())
+    if(!vbSel[pFace->p0->nInd])
+    {
       vInd.push_back(pFace->p0->nInd);
-    if(std::find(vInd.begin(), vInd.end(), pFace->p1->nInd) == vInd.end())
+      vbSel[pFace->p0->nInd] = true;
+    }
+    if(!vbSel[pFace->p1->nInd])
+    {
       vInd.push_back(pFace->p1->nInd);
-    if(std::find(vInd.begin(), vInd.end(), pFace->p2->nInd) == vInd.end())
+      vbSel[pFace->p1->nInd] = true;
+    }
+    if(!vbSel[pFace->p2->nInd])
+    {
       vInd.push_back(pFace->p2->nInd);
+      vbSel[pFace->p2->nInd] = true;
+    }
   }
 
   return vInd;

@@ -3,7 +3,7 @@
 #define _Constant_
 
 const double
-  Const_Almost_Zero       = 1.e-14,
+  Const_Almost_Zero       = 1.e-16,
   Const_PI                = 3.14159265358979323846,
   Const_2PI               = 6.28318530717958647692,
   Const_1_PI              = 0.318309886183790671538,

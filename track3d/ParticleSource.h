@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <string>
+#include <random>
 
 class CArchive;
 
@@ -17,8 +18,8 @@ namespace EvaporatingParticle
 
 struct CPhasePoint
 {
-  CPhasePoint(const Vector3D& p, const Vector3D& v, double t = 0, double phs = 0., double tmp = 300., UINT id = 0, size_t ide = 0)
-    : pos(p), vel(v), time(t), phase(phs), temp(tmp), ind(id), elem(ide)
+  CPhasePoint(const Vector3D& p, const Vector3D& v, double t = 0, double phs = 0., double tmp = 300., double mb = 0, UINT id = 0, size_t ide = 0)
+    : pos(p), vel(v), time(t), phase(phs), temp(tmp), mob(mb), ind(id), elem(ide)
   {
   }
 
@@ -27,7 +28,8 @@ struct CPhasePoint
 
   double   time,
            phase, // for RF phases randomization.
-           temp;  // gas temperature.
+           temp,  // gas temperature.
+           mob;   // ion mobility (random diffusion support).
 
   UINT     ind;   // ensemble index.
   size_t   elem;  // index of the mesh element.
@@ -46,14 +48,13 @@ public:
 
   enum  // type of source
   {
-    stCone      = 0,  // point and full cone angle; the cone axis is m_vDir.
-    stSpot      = 1,  // a circular spot centered at m_vPos with a normal direction m_vDir.
-    stRect      = 2,  // a rectangular spot centered at m_vPos, m_vDir local X, Y dimensions equal to m_fWidth and m_fHeight, respectively.
-    stRing      = 3,  // a ring centered at m_vPos perpendicular to the axis of the system.
-    stSphere    = 4,  // in fact, this is a hemisphere.
-    stCylinder  = 5,  // a cylinder with the axis along Z direction, designed mainly for 2D applications (MEMS).
-    stSelReg    = 6,  // particles start from points randomly distributed on the selected 2D region(s).
-    stCount     = 7
+    stCone        = 0,  // point and full cone angle; the cone axis is m_vDir.
+    stSpot        = 1,  // a circular spot centered at m_vPos with a normal direction m_vDir.
+    stRect        = 2,  // a rectangular spot centered at m_vPos, m_vDir local X, Y dimensions equal to m_fWidth and m_fHeight, respectively.
+    stCylinder    = 3,  // a cylinder with the axis along Z direction, designed mainly for 2D applications (MEMS).
+    stSelReg      = 4,  // particles start from points randomly distributed on the selected 2D region(s).
+    stPosFromFile = 5,
+    stCount       = 6
   };
 
   const char* get_src_type_name(int nType) const;
@@ -75,6 +76,7 @@ public:
                           double&   fTime,
                           double&   fPhase,
                           double&   fTemp,
+                          double&   fIonMob,
                           UINT&     nEnsIndex,
                           size_t&   nElemId) const;
 
@@ -145,6 +147,10 @@ public:
   CString             get_selected_rgn_names() const;
   DWORD_PTR           get_selected_rgn_names_ptr() const;
 
+  const char*         get_filename() const;
+  DWORD_PTR           get_filename_ptr() const;
+  void                set_filename(const char* pFileName);
+
 // The tracks have been read from disk, set the initial conditions in accordance with these data.
   void                set_data_from_tracks(); 
 
@@ -160,7 +166,7 @@ public:
 protected:
   void                add_particle(const Vector3D& vPos, 
                                    const Vector3D& vVel,
-                                   double          fGasTemp,
+                                   const CNode3D&  node,
                                    double          fPeriodRF,
                                    size_t          nElemInd,
                                    UINT            nEnsSize, 
@@ -168,6 +174,21 @@ protected:
 
 // A triad of mutually orthogonal axes in the source spot plane.
   void                calc_loc_triad();
+
+  bool                gen_homogen_cone(double fPeriodRF, UINT nEnsSize);
+  bool                gen_random_cone(double fPeriodRF, UINT nEnsSize);
+
+  bool                gen_homogen_spot(double fPeriodRF, UINT nEnsSize);
+  bool                gen_random_spot(double fPeriodRF, UINT nEnsSize);
+
+  bool                gen_homogen_rect(double fPeriodRF, UINT nEnsSize);
+  bool                gen_random_rect(double fPeriodRF, UINT nEnsSize);
+
+  bool                gen_homogen_cyl(double fPeriodRF, UINT nEnsSize);
+  bool                gen_random_cyl(double fPeriodRF, UINT nEnsSize);
+
+  bool                gen_from_file(double fPeriodRF, UINT nEnsSize);
+  bool                read_pos_from_file(std::vector<Vector3D>& vPosColl);
 
 // Selected region stuff. In contrast to the other types of source, the points are settled at a region lying within the
 // domain. If the domain has symmetry, the points must be reflected. In the case of a single XY symmetry plane each point
@@ -182,9 +203,9 @@ protected:
   bool                calc_weights(double* pWeights) const;   // pWeights is an array of m_vFaces.size() length.
 
   void                populate_face(CFace* pFace, UINT nPntCount, bool bReflect = true);
-  void                reflect(const Vector3D& vPos, const Vector3D& vVel, double fTemp, size_t nElemId);
+  void                reflect(const Vector3D& vPos, const Vector3D& vVel, const CNode3D& node, size_t nElemId);
 
-  UINT                choose_face(UINT nFirst, UINT nLast) const;   // randomly select a number from a variety of nCount numbers.
+  UINT                choose_face(UINT nFirst, UINT nLast);   // randomly select a number from a variety of nCount numbers.
 
 // Termination
   bool                terminate();
@@ -219,7 +240,11 @@ protected:
 
   CSrcData            m_vData;
   CStringVector       m_vSelRegNames;
-  CFacesCollection    m_vFaces; // a run-time variable, collection of all faces from all the selected regions.
+  CFacesCollection    m_vFaces;     // a run-time variable, collection of all faces from all the selected regions.
+
+  CString             m_sFileName;  // reading positions from file support.
+
+  std::mt19937_64     m_RndGen;
 
 private:
   bool                m_bReady; // a run-time variable to follow changes in the user-specified data.
@@ -544,6 +569,26 @@ inline DWORD_PTR CSource::get_selected_rgn_names_ptr() const
 inline void CSource::invalidate()
 {
   m_bReady = false;
+}
+
+inline const char* CSource::get_filename() const
+{
+  return (const char*)m_sFileName;
+}
+
+inline DWORD_PTR CSource::get_filename_ptr() const
+{
+  return (DWORD_PTR)&m_sFileName;
+}
+
+inline void CSource::set_filename(const char* pFileName)
+{
+  CString sNewName(pFileName);
+  if(m_sFileName != sNewName)
+  {
+    m_sFileName = sNewName;
+    m_bReady = false;
+  }
 }
 
 };  // EvaporatingParticle

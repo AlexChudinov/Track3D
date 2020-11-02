@@ -172,6 +172,7 @@ CSolutionInfo CFiniteVolumesSolver::solve(float fTol, UINT nIterCount, CFloatArr
   return info;
 }
 
+static const double fEps = 0.15;
 static const Vector3D scvNull(0, 0, 0);
 
 float CFiniteVolumesSolver::one_iter()
@@ -212,7 +213,7 @@ float CFiniteVolumesSolver::one_iter()
 // Normalized neighbor vector. Note: in this function i is the global node index, but j is the local neighbor index of this node.
           vNbr = m_pTess->get_neighbor_vector(i, j) / pCell->pNbrDist[j];
 // Take into account only those neighbours, for which (vNorm, vNbr) < eps.
-          if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
+          if((vNorm & vNbr) > fEps)
             continue;
 
           vNbr /= pCell->pNbrDist[j];   // divide vNbr by pCell->pNbrDist[j] once again, OK, see equations.
@@ -237,7 +238,7 @@ float CFiniteVolumesSolver::single_node_iter(const CNode3D& node, CDirichletCell
     {
       float fSum = 0;
       for(size_t j = 0; j < nNbrCount; j++)
-        fSum += vU0.at(node.vNbrNodes.at(j)) * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
+        fSum += vU0[node.vNbrNodes[j]] * pCell->pFaceSquare[j] / pCell->pNbrDist[j];
 
       return fSum / fDiagCoeff;
     }
@@ -253,22 +254,22 @@ float CFiniteVolumesSolver::single_node_iter(const CNode3D& node, CDirichletCell
       Vector3D vF = mMtx * vNorm;
       for(size_t j = 0; j < nNbrCount; j++)
       {
-        nNbr = node.vNbrNodes.at(j);
+        nNbr = node.vNbrNodes[j];
 // Normalized neighbour vector.
-        vNbr = (vNodes.at(nNbr).pos - node.pos) / pCell->pNbrDist[j];
+        vNbr = (vNodes[nNbr].pos - node.pos) / pCell->pNbrDist[j];
 // Take into account only those neighbours, for which (vNorm, vNbr) < eps.
-        if(!CDirichletTesselation::bound_deriv_calc_cond(vNorm, vNbr))
+        if((vNorm & vNbr) > fEps)
             continue;
 
         vNbr /= pCell->pNbrDist[j]; // divide vNbr by pCell->pNbrDist[j] once again, OK, see equations.
-        vB += vNbr * vU0.at(nNbr);
+        vB += vNbr * vU0[nNbr];
       }
 
       return float(vF & vB) / fDiagCoeff;
     }
   }
 
-  return vU0.at(node.nInd);
+  return vU0[node.nInd];
 }
 
 void CFiniteVolumesSolver::prepare()

@@ -13,6 +13,8 @@ CAnsysMesh::CAnsysMesh(bool bAux)
   : m_bAux(bAux)
 {
   m_bReady = false;
+  m_bNeedReadAnsysField = true;
+
   m_bConv2CGS = true;
   m_nSymPlanes = spXY | spXZ;
   m_bMesh2D = false;
@@ -25,6 +27,9 @@ CAnsysMesh::~CAnsysMesh()
 
 void CAnsysMesh::clear()
 {
+  CDirichletTesselation* pTess = CParticleTrackingApp::Get()->GetDirichletTess();
+  pTess->clear();
+
   size_t nElemCount = m_vElems.size();
   for(size_t j = 0; j < nElemCount; j++)
   {
@@ -47,16 +52,7 @@ void CAnsysMesh::clear()
 
     delete pReg;
   }
-/*
-  size_t nNodeCount = m_vNodes.size();
-  for(size_t i = 0; i < nNodeCount; i++)
-  {
-    if(!m_bAux)
-      set_status("Deleting nodes", 100 * i / nNodeCount);
 
-    delete m_vNodes.at(i);
-  }
-*/
   m_vNodes.clear();
   m_vElems.clear();
   m_vRegions.clear();
@@ -68,7 +64,7 @@ void CAnsysMesh::clear()
   {
     CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
     pDrawObj->clear();
-    pDrawObj->invalidate_all();
+//    pDrawObj->invalidate_all();
   }
 
   if(!m_bAux)
@@ -419,6 +415,7 @@ bool CAnsysMesh::read_gasdyn_data(bool bFieldsOnly)
   }
 
   fclose(pStream);
+  m_bNeedReadAnsysField = false;
   return true;
 }
 
@@ -696,6 +693,7 @@ const CElem3D* CAnsysMesh::try_neighbors(const CElem3D* pElem, const Vector3D& v
 // Reflection of positions and velocities due to symmetry. If any of XY or XZ symmetry planes exist
 // POSITIVE z and y are supposed to be inside the domain.
 //-------------------------------------------------------------------------------------------------
+/*
 bool CAnsysMesh::sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool bForceReflect) const
 {
   bool bReflDone = false;
@@ -725,7 +723,131 @@ bool CAnsysMesh::sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, bool
 
   return bReflDone;
 }
+*/
 
+CSymCorrData CAnsysMesh::sym_corr_forward(Vector3D& vPos, Vector3D& vVel) const
+{
+  CSymCorrData data;
+  if(m_nSymPlanes & spAxial)
+  {
+// In the case of axial symmetry it is assumed that the domain is a narrow wedge (3 degree wide) symmetrical relative to the XY plane.
+    double r = sqrt(vPos.y * vPos.y + vPos.z * vPos.z);
+    if(r < Const_Almost_Zero)
+    {
+      data.fNrmY = 1;
+      data.fNrmZ = 0;
+    }
+    else
+    {
+      data.fNrmY = vPos.y / r;
+      data.fNrmZ = vPos.z / r;
+    }
+
+    vPos.y = r;
+    vPos.z = 0;
+
+    vVel.y = vVel.y * data.fNrmY + vVel.z * data.fNrmZ; // velocity projection onto the radius-vector r.
+    vVel.z = 0;
+
+    data.nSymFlag = spAxial;
+    return data;  // any other symmetry is not supposed in addition to the axial symmetry.
+  }
+
+  if((m_nSymPlanes & spXY) && vPos.z < 0)
+  {
+    vPos.z = -vPos.z;
+    vVel.z = -vVel.z;
+    data.nSymFlag |= spXY;
+  }
+
+  if((m_nSymPlanes & spXZ) && vPos.y < 0)
+  {
+    vPos.y = -vPos.y;
+    vVel.y = -vVel.y;
+    data.nSymFlag |= spXZ;
+  }
+
+  if((m_nSymPlanes & spYZ) && vPos.x < 0)
+  {
+    vPos.x = -vPos.x;
+    vVel.x = -vVel.x;
+    data.nSymFlag |= spYZ;
+  }
+
+  return data;
+}
+
+void CAnsysMesh::sym_corr_back(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, const CSymCorrData& data) const
+{
+  if(m_nSymPlanes & spAxial)
+  {
+    double r = vPos.y;
+    vPos.y = r * data.fNrmY;
+    vPos.z = r * data.fNrmZ;
+
+    double v = vVel.y;
+    vVel.y = v * data.fNrmY;
+    vVel.z = v * data.fNrmZ;
+
+    double a = vAccel.y;
+    vAccel.y = a * data.fNrmY;
+    vAccel.z = a * data.fNrmZ;
+
+    return; // any other symmetry is not supposed in addition to the axial symmetry.
+  }
+
+  if((m_nSymPlanes & spXY) && (data.nSymFlag & spXY))
+  {
+    vPos.z = -vPos.z;
+    vVel.z = -vVel.z;
+    vAccel.z = -vAccel.z;
+  }
+
+  if((m_nSymPlanes & spXZ) && (data.nSymFlag & spXZ))
+  {
+    vPos.y = -vPos.y;
+    vVel.y = -vVel.y;
+    vAccel.y = -vAccel.y;
+  }
+
+  if((m_nSymPlanes & spYZ) && (data.nSymFlag & spYZ))
+  {
+    vPos.x = -vPos.x;
+    vVel.x = -vVel.x;
+    vAccel.x = -vAccel.x;
+  }
+}
+/*
+int CAnsysMesh::sym_corr(Vector3D& vPos, Vector3D& vVel, Vector3D& vAccel, int nForceReflect) const
+{
+  int nReflDone = 0;
+  if((m_nSymPlanes & spXY) && (vPos.z < 0 || nForceReflect & spXY))
+  {
+    vPos.z = -vPos.z;
+    vVel.z = -vVel.z;
+    vAccel.z = -vAccel.z;
+    nReflDone |= spXY;
+  }
+
+  if((m_nSymPlanes & spXZ) && (vPos.y < 0 || nForceReflect & spXZ))
+  {
+    vPos.y = -vPos.y;
+    vVel.y = -vVel.y;
+    vAccel.y = -vAccel.y;
+    nReflDone |= spXZ;
+  }
+
+  if((m_nSymPlanes & spYZ) && (vPos.x < 0 || nForceReflect & spYZ))
+  {
+    vPos.x = -vPos.x;
+    vVel.x = -vVel.x;
+    vAccel.x = -vAccel.x;
+    nReflDone |= spYZ;
+  }
+
+  return nReflDone;
+}
+*/
 //-------------------------------------------------------------------------------------------------
 // Streaming:
 //-------------------------------------------------------------------------------------------------
@@ -800,15 +922,25 @@ CRegion* CAnsysMesh::get_region(const std::string& sName)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CRegionsCollection& vRegions = pObj->get_regions();
+  int nRegId = get_region_id(sName);
+  if(nRegId < 0)
+    return NULL;
+
+  return vRegions.at(nRegId);
+}
+
+int CAnsysMesh::get_region_id(const std::string& sName)
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CRegionsCollection& vRegions = pObj->get_regions();
   size_t nRegCount = vRegions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
-    CRegion* pReg = vRegions.at(i);
-    if(sName == pReg->sName)
-      return pReg;
+    if(sName == vRegions.at(i)->sName)
+      return i;
   }
 
-  return NULL;
+  return -1;
 }
 
 void CAnsysMesh::invalidate_calculators()

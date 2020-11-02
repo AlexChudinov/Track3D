@@ -17,6 +17,12 @@ void CPropertiesWnd::add_tracking_ctrls()
   CCheckBoxButton* pCheckBox = new CCheckBoxButton(this, _T("Enable"), (_variant_t)pObj->get_use_multi_thread(), _T("Turns ON/OFF multi-threrading support."), pObj->get_use_multi_thread_ptr());
   pMultiGroup->AddSubItem(pCheckBox);
 
+  COleVariant varPrior(pObj->get_priority_name(pObj->get_calc_thread_priority()));
+  CMFCPropertyGridProperty* pPriorProp = new CMFCPropertyGridProperty(_T("Calc Thread Priority"), varPrior, _T("Select the calculation threads run-time priority."), pObj->get_calc_thread_priority_ptr());
+  for(int i = EvaporatingParticle::CTracker::thpNormal; i < EvaporatingParticle::CTracker::thpCount; i++)
+    pPriorProp->AddOption(pObj->get_priority_name(i));
+
+  pMultiGroup->AddSubItem(pPriorProp);
   m_wndPropList.AddProperty(pMultiGroup);
 
 // Integrator type:
@@ -79,54 +85,80 @@ void CPropertiesWnd::add_tracking_ctrls()
   pOldIntegratorGroup->AddSubItem(pCheckBox);
 
 // ANSYS electric fields:
-  pCheckBox = new CCheckBoxButton(this, _T("Use ANSYS Electric Fields"), (_variant_t)pObj->get_enable_ansys_field(), _T("If this is true the electric fields computed in ANSYS are used."), pObj->get_enable_ansys_field_ptr());
-  pOldIntegratorGroup->AddSubItem(pCheckBox);
+  bool bAnsysFields = pObj->get_enable_ansys_field();
+  CUseAnsysFieldCheckBox* pAnsysFieldCheckBox = new CUseAnsysFieldCheckBox(this, _T("Use ANSYS Electric Fields"), (_variant_t)bAnsysFields, _T("If this is true the electric fields computed in ANSYS are used."), pObj->get_enable_ansys_field_ptr());
+  pOldIntegratorGroup->AddSubItem(pAnsysFieldCheckBox);
 
-  // DC Field:
-  CMFCPropertyGridProperty* pFieldGroup = new CMFCPropertyGridProperty(_T("DC Field"));
-  pCheckBox = new CCheckBoxButton(this, _T("Enable DC Field"), (_variant_t)pObj->get_enable_field(), _T("Turns ON/OFF application of DC electric field in particles tracking."), pObj->get_enable_field_ptr());
-  pFieldGroup->AddSubItem(pCheckBox);
-  pProp = new CMFCPropertyGridProperty(_T("DC Voltage, V"), COleVariant(pObj->get_dc_amplitude()), _T("DC potential applied to the emitter"), pObj->get_dc_amplitude_ptr());
-  pFieldGroup->AddSubItem(pProp);
+// DEBUG
+  CCheckBoxButton* pDbgCheckBox = new CCheckBoxButton(this, _T("Ignore Environ. Gas"), (_variant_t)pObj->get_ignore_env_gas(), _T("For test purposes only. If checked the ions will move in vacuum."), pObj->get_ignore_env_gas_ptr());
+  pOldIntegratorGroup->AddSubItem(pDbgCheckBox);
+// END DEBUG
 
-  pOldIntegratorGroup->AddSubItem(pFieldGroup);
+  if (bAnsysFields)
+  {
+// DC Field:
+    CMFCPropertyGridProperty* pFieldGroup = new CMFCPropertyGridProperty(_T("DC Field"));
+    pCheckBox = new CCheckBoxButton(this, _T("Enable DC Field"), (_variant_t)pObj->get_enable_field(), _T("Turns ON/OFF application of DC electric field in particles tracking."), pObj->get_enable_field_ptr());
+    pFieldGroup->AddSubItem(pCheckBox);
+
+    pProp = new CMFCPropertyGridProperty(_T("DC Voltage Scale, V"), COleVariant(pObj->get_DC_voltage()), _T("Scale of the DC voltage for electric field computed by ANSYS CFX solver."), pObj->get_DC_voltage_ptr());
+    pFieldGroup->AddSubItem(pProp);
+
+    pOldIntegratorGroup->AddSubItem(pFieldGroup);
 
 // Radio-Frequency field:
-  CMFCPropertyGridProperty* pRFGroup = new CMFCPropertyGridProperty(_T("Radio-Frequency Field"));
-  pCheckBox = new CCheckBoxButton(this, _T("Enable RF"), (_variant_t)pObj->get_enable_rf(), _T("Turns ON/OFF radio-frequency field."), pObj->get_enable_rf_ptr());
-  pRFGroup->AddSubItem(pCheckBox);
-  pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_amplitude()), _T("Amplitude of RF voltage applied to S-Lens electrodes."), pObj->get_rf_amplitude_ptr());
-  pRFGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_frequency()), _T("Frquency of RF voltage applied to S-Lens electrodes."), pObj->get_rf_frequency_ptr());
-  pRFGroup->AddSubItem(pProp);
+    CMFCPropertyGridProperty* pRFGroup = new CMFCPropertyGridProperty(_T("Radio-Frequency Field"));
+    pCheckBox = new CCheckBoxButton(this, _T("Enable RF"), (_variant_t)pObj->get_enable_rf(), _T("Turns ON/OFF radio-frequency field."), pObj->get_enable_rf_ptr());
+    pRFGroup->AddSubItem(pCheckBox);
+    pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_amplitude()), _T("Amplitude of RF voltage applied to S-Lens electrodes."), pObj->get_rf_amplitude_ptr());
+    pRFGroup->AddSubItem(pProp);
+    pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_frequency()), _T("Frquency of RF voltage applied to S-Lens electrodes."), pObj->get_rf_frequency_ptr());
+    pRFGroup->AddSubItem(pProp);
 
 // RF in Q00:
-  CMFCPropertyGridProperty* pRFQ00Group = new CMFCPropertyGridProperty(_T("RF in Q00 Region"));
-  pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_Q00_ampl()), _T("Amplitude of RF voltage applied to electrodes in Q00 region."), pObj->get_rf_Q00_ampl_ptr());
-  pRFQ00Group->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_Q00_freq()), _T("Frquency of RF voltage applied electrodes in Q00 region."), pObj->get_rf_Q00_freq_ptr());
-  pRFQ00Group->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Transition to Q00, mm"), COleVariant(10 * pObj->get_Q00_trans()), _T("X-coordinate of transition to Q00 region."), pObj->get_Q00_trans_ptr());
-  pRFQ00Group->AddSubItem(pProp);
-  pRFGroup->AddSubItem(pRFQ00Group);
+    CMFCPropertyGridProperty* pRFQ00Group = new CMFCPropertyGridProperty(_T("RF in Q00 Region"));
+    pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_Q00_ampl()), _T("Amplitude of RF voltage applied to electrodes in Q00 region."), pObj->get_rf_Q00_ampl_ptr());
+    pRFQ00Group->AddSubItem(pProp);
+    pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_Q00_freq()), _T("Frquency of RF voltage applied electrodes in Q00 region."), pObj->get_rf_Q00_freq_ptr());
+    pRFQ00Group->AddSubItem(pProp);
+    pProp = new CMFCPropertyGridProperty(_T("Transition to Q00, mm"), COleVariant(10 * pObj->get_Q00_trans()), _T("X-coordinate of transition to Q00 region."), pObj->get_Q00_trans_ptr());
+    pRFQ00Group->AddSubItem(pProp);
+    pRFGroup->AddSubItem(pRFQ00Group);
 
 // RF in flatapole:
-  CMFCPropertyGridProperty* pRFFlatapoleGroup = new CMFCPropertyGridProperty(_T("RF in Flatapole"));
-  pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_flatapole_ampl()), _T("Amplitude of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_ampl_ptr());
-  pRFFlatapoleGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_flatapole_freq()), _T("Frquency of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_freq_ptr());
-  pRFFlatapoleGroup->AddSubItem(pProp);
-  pProp = new CMFCPropertyGridProperty(_T("Transition to Flatapole, mm"), COleVariant(10 * pObj->get_flatapole_trans()), _T("X-coordinate of transition to flatapole region."), pObj->get_flatapole_trans_ptr());
-  pRFFlatapoleGroup->AddSubItem(pProp);
-  pRFGroup->AddSubItem(pRFFlatapoleGroup);
+    CMFCPropertyGridProperty* pRFFlatapoleGroup = new CMFCPropertyGridProperty(_T("RF in Flatapole"));
+    pProp = new CMFCPropertyGridProperty(_T("Amplitude, V"), COleVariant(pObj->get_rf_flatapole_ampl()), _T("Amplitude of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_ampl_ptr());
+    pRFFlatapoleGroup->AddSubItem(pProp);
+    pProp = new CMFCPropertyGridProperty(_T("Frequency, kHz"), COleVariant(0.001 * pObj->get_rf_flatapole_freq()), _T("Frquency of RF voltage applied to electrodes in flatapole region."), pObj->get_rf_flatapole_freq_ptr());
+    pRFFlatapoleGroup->AddSubItem(pProp);
+    pProp = new CMFCPropertyGridProperty(_T("Transition to Flatapole, mm"), COleVariant(10 * pObj->get_flatapole_trans()), _T("X-coordinate of transition to flatapole region."), pObj->get_flatapole_trans_ptr());
+    pRFFlatapoleGroup->AddSubItem(pProp);
+    pRFGroup->AddSubItem(pRFFlatapoleGroup);
 
-  pOldIntegratorGroup->AddSubItem(pRFGroup);
+    pOldIntegratorGroup->AddSubItem(pRFGroup);
+  }
+
   m_wndPropList.AddProperty(pOldIntegratorGroup);
 }
 
 void CPropertiesWnd::set_tracking_data()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+
+// Calc. threads priority:
+  CMFCPropertyGridProperty* pPriorProp = m_wndPropList.FindItemByData(pObj->get_calc_thread_priority_ptr());
+  if(pPriorProp != NULL)
+  {
+    CString cPrior = (CString)pPriorProp->GetValue();
+    for(int i = EvaporatingParticle::CTracker::thpNormal; i < EvaporatingParticle::CTracker::thpCount; i++)
+    {
+      if(pObj->get_priority_name(i) == cPrior)
+      {
+        pObj->set_calc_thread_priority(i);
+        break;
+      }
+    }
+  }
 
 // Integrator type:
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_integr_type_ptr());
@@ -158,9 +190,9 @@ void CPropertiesWnd::set_tracking_data()
    outEng.set_output_time_step(1.e-6 * pProp->GetValue().dblVal);
 
 // Electrostatics:
-  pProp = m_wndPropList.FindItemByData(pObj->get_dc_amplitude_ptr());
+  pProp = m_wndPropList.FindItemByData(pObj->get_DC_voltage_ptr());
   if(pProp != NULL)
-    pObj->set_dc_amplitude(pProp->GetValue().dblVal);
+    pObj->set_DC_voltage(pProp->GetValue().dblVal);
 
 // Radio-Frequency field:
   pProp = m_wndPropList.FindItemByData(pObj->get_rf_amplitude_ptr());
@@ -230,7 +262,13 @@ void CPropertiesWnd::set_tracking_data()
 void CPropertiesWnd::update_tracking_ctrls()
 {
   EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  bool bUseMultiThread = pObj->get_use_multi_thread();
   bool bUseAnsysFields = pObj->get_enable_ansys_field();
+
+// Threads priority selector is enabled if the multi-threading is allowed:
+  CMFCPropertyGridProperty* pPriorProp = m_wndPropList.FindItemByData(pObj->get_calc_thread_priority_ptr());
+  if(pPriorProp != NULL)
+    pPriorProp->Enable(bUseMultiThread);
 
   BOOL bEnable = FALSE;
   CMFCPropertyGridProperty* pProp = m_wndPropList.FindItemByData(pObj->get_enable_field_ptr());
@@ -239,10 +277,6 @@ void CPropertiesWnd::update_tracking_ctrls()
     bEnable = bUseAnsysFields && (BOOL)(pProp->GetValue().boolVal);
     pProp->Enable(bUseAnsysFields);
   }
-
-  pProp = m_wndPropList.FindItemByData(pObj->get_dc_amplitude_ptr());
-  if(pProp != NULL)
-    pProp->Enable(bEnable);
 
 // Radio-Frequency field:
   bool bEnableRF = FALSE;

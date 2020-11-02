@@ -25,6 +25,20 @@ void CalcThread::start_calc_thread()
 {
   if(m_hCalcThread == NULL)
     m_hCalcThread = (HANDLE)_beginthreadex(0, 0, m_pThreadFunc, this, 0, &m_nCalcThreadID);
+
+// Threads priority support:
+  CTracker* pObj = (CTracker*)m_pData;
+  if(pObj->get_use_multi_thread())
+  {
+    BOOL bRes = FALSE;
+    int nPriority = pObj->get_calc_thread_priority();
+    switch(nPriority)
+    {
+      case CTracker::thpNormal: bRes = ::SetThreadPriority(m_hCalcThread, THREAD_PRIORITY_NORMAL); break;
+      case CTracker::thpBelowNorm: bRes = ::SetThreadPriority(m_hCalcThread, THREAD_PRIORITY_BELOW_NORMAL); break;
+      case CTracker::thpLowest: bRes = ::SetThreadPriority(m_hCalcThread, THREAD_PRIORITY_LOWEST); break;
+    }
+  }
 }
 
 void CalcThread::stop_calc_thread()

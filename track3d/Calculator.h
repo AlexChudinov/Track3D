@@ -31,8 +31,10 @@ public:
     clcAveTemp    = 4,
     clcAveDens    = 5,
     clcAveVx      = 6,
-    clcAveRe      = 7,  // Reynolds number averaged over the cross-section.
-    clcCount      = 8
+    clcAveVy      = 7,
+    clcAveVz      = 8,
+    clcAveRe      = 9,  // Reynolds number averaged over the cross-section.
+    clcCount      = 10
   };
 
   enum  // calculator type.
@@ -44,11 +46,20 @@ public:
     ctTrackCrossSect = 4,
     ctAlongSelTracks = 5,
     ctTrackFaceCross = 6,
-    ctCount          = 7
+    ctEndTrackCalc   = 7,
+    ctCount          = 8
+  };
+
+  enum  // direction of sequence calculation, X by default.
+  {
+    dirX  = 0,
+    dirY  = 1,
+    dirZ  = 2
   };
 
   static CCalculator* create(int nType);
   static const char*  calc_name(int nType);
+  static const char*  plane_norm_name(int nDir);
 
   virtual void        run() = 0;
   virtual void        do_calculate() = 0;
@@ -77,6 +88,10 @@ public:
   DWORD_PTR           get_char_length_ptr() const;
   void                set_char_length(double fLen);
 
+  int                 get_seq_clc_dir() const;
+  DWORD_PTR           get_seq_clc_dir_ptr() const;
+  void                set_seq_clc_dir(int nDir);
+
   double              get_result() const;
   DWORD_PTR           get_result_ptr() const;
 
@@ -102,7 +117,9 @@ protected:
   bool                m_bEnable;
   int                 m_nClcVar;
 
-  double              m_fCharLength;   // specially for Reynolds number calculation.
+  double              m_fCharLength;  // specially for Reynolds number calculation.
+
+  int                 m_nCalcDir;     // direction, in which sequence calculations are performed, dirX by default.
 
   std::string         m_sCalcName;
 
@@ -134,7 +151,7 @@ public:
 };
 
 //-------------------------------------------------------------------------------------------------
-// CPlaneYZCalculator.
+// CPlaneYZCalculator - a tool for calculation of averaged (or integral) parameters of the gas.
 //-------------------------------------------------------------------------------------------------
 class CPlaneYZCalculator : public CCalculator
 {
@@ -282,6 +299,10 @@ public:
   DWORD_PTR           get_steps_count_ptr() const;
   void                set_steps_count(UINT nCount);
 
+  double              get_line_average() const;
+  DWORD_PTR           get_line_average_ptr() const;
+  void                set_line_average(double fAver);
+
 //-------------------------------------------------------------------------------------------------
 // Streaming:
 //-------------------------------------------------------------------------------------------------
@@ -299,6 +320,8 @@ private:
 
   Vector3D            m_vLineStart,
                       m_vLineEnd;
+
+  double              m_fLineAverage; // run-time value, average over all the points of the line.
 };
 
 struct CIonTrackItem;
@@ -384,6 +407,10 @@ protected:
 
 // Droplet tracks termination:
   double              calc_term_tracks(); // returns the percent of terminated tracks at a given cross-section.
+
+// Different cross-section orientations (cross-section normals can be CCalculator::dirX, dirY, dirZ) support.
+// This function returns "true" if the prev.pos and curr.pos are located on different sides of the cross-section plane.
+  bool                valid_items(const CTrackItem& prev, const CTrackItem& curr, double& fKsi) const;
 
 private:
 // User-defined:
@@ -566,6 +593,40 @@ private:
 };
 
 //-------------------------------------------------------------------------------------------------
+// Calculate ends of trajectories of those droplets, which either have reached the Rayleigh limit
+// or have fully evaporated.
+//-------------------------------------------------------------------------------------------------
+class CEndTrackCalculator : public CCalculator
+{
+public:
+  CEndTrackCalculator();
+
+  const char*         get_out_file() const;
+  DWORD_PTR           get_out_file_ptr() const;
+  void                set_out_file(const char* pFile);
+
+  bool                get_use_SI_units() const;
+  DWORD_PTR           get_use_SI_units_ptr() const;
+
+  virtual void        run();
+  virtual void        do_calculate();
+  virtual void        update();
+  virtual void        clear();
+
+  virtual int         type() const;
+
+  virtual void        save(CArchive& ar);
+  virtual void        load(CArchive& ar);
+
+protected:
+  void                set_default();
+
+private:
+  CString             m_sOutFileName;
+  bool                m_bSI;          // if true output the coordinates in meters.
+};
+
+//-------------------------------------------------------------------------------------------------
 // Inline implementation
 //-------------------------------------------------------------------------------------------------
 inline void CCalcCollection::invalidate_calcs()
@@ -628,6 +689,25 @@ inline void CCalculator::set_char_length(double fLen)
   m_fCharLength = fLen;
 }
 
+inline int CCalculator::get_seq_clc_dir() const
+{
+  return m_nCalcDir;
+}
+
+inline DWORD_PTR CCalculator::get_seq_clc_dir_ptr() const
+{
+  return (DWORD_PTR)&m_nCalcDir;
+}
+
+inline void CCalculator::set_seq_clc_dir(int nDir)
+{
+  if(m_nCalcDir != nDir)
+  {
+    m_nCalcDir = nDir;
+    m_bReady = false;
+  }
+}
+
 inline const char* CCalculator::get_name() const
 {
   return m_sCalcName.c_str();
@@ -651,23 +731,9 @@ inline int CCalculator::calc_vars_count() const
 //-------------------------------------------------------------------------------------------------
 // CPlaneYZCalculator
 //-------------------------------------------------------------------------------------------------
-inline double CPlaneYZCalculator::get_plane_x() const
-{
-  return m_CrossSect.get_plane_origin().x;
-}
-
 inline DWORD_PTR CPlaneYZCalculator::get_plane_x_ptr() const
 {
   return (DWORD_PTR)&m_CrossSect;
-}
-
-inline void CPlaneYZCalculator::set_plane_x(double fX)
-{
-  if(m_CrossSect.get_plane_origin().x != fX)
-  {
-    m_CrossSect.set_plane_origin(Vector3D(fX, 0, 0));
-    m_bReady = false;
-  }
 }
 
 // Sequential calculations support. 
@@ -810,6 +876,21 @@ inline DWORD_PTR CLineCalculator::get_steps_count_ptr() const
 inline void CLineCalculator::set_steps_count(UINT nCount)
 {
   m_nStepCount = nCount;
+}
+
+inline double CLineCalculator::get_line_average() const
+{
+  return m_fLineAverage;
+}
+
+inline DWORD_PTR CLineCalculator::get_line_average_ptr() const
+{
+  return (DWORD_PTR)&m_fLineAverage;
+}
+
+inline void CLineCalculator::set_line_average(double fAver)
+{
+  m_fLineAverage = fAver;
 }
 
 
@@ -1034,6 +1115,34 @@ inline DWORD_PTR CTackFaceCross::get_end_coord_ptr() const
 inline void CTackFaceCross::set_end_coord(double fX)
 {
   m_fEndX = fX;
+}
+
+//-------------------------------------------------------------------------------------------------
+//  CEndTrackCalculator.
+//-------------------------------------------------------------------------------------------------
+inline const char* CEndTrackCalculator::get_out_file() const
+{
+  return (const char*)m_sOutFileName;
+}
+
+inline DWORD_PTR CEndTrackCalculator::get_out_file_ptr() const
+{
+  return (DWORD_PTR)&m_sOutFileName;
+}
+
+inline void CEndTrackCalculator::set_out_file(const char* pFile)
+{
+  m_sOutFileName = pFile;
+}
+
+inline bool CEndTrackCalculator::get_use_SI_units() const
+{
+  return m_bSI;
+}
+
+inline DWORD_PTR CEndTrackCalculator::get_use_SI_units_ptr() const
+{
+  return (DWORD_PTR)&m_bSI;
 }
 
 };  // namespace EvaporatingParticle

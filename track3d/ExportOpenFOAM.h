@@ -45,26 +45,32 @@ typedef std::vector<CBoundaryConditions*> CBoundCondColl;
 //---------------------------------------------------------------------------------------
 struct COpenFoamFace
 {
-  COpenFoamFace(CNode3D* p0, CNode3D* p1, CNode3D* p2)
+  COpenFoamFace(size_t n0, size_t n1, size_t n2)
     : nNbrIndex(-1)
   {
-    nodes.push_back(p0);
-    nodes.push_back(p1);
-    nodes.push_back(p2);
+    nodes[0] = n0;
+    nodes[1] = n1;
+    nodes[2] = n2;
+    nNodesCount = 3;
   }
 
-  COpenFoamFace(CNode3D* p0, CNode3D* p1, CNode3D* p2, CNode3D* p3)
+  COpenFoamFace(size_t n0, size_t n1, size_t n2, size_t n3)
     : nNbrIndex(-1)
   {
-    nodes.push_back(p0);
-    nodes.push_back(p1);
-    nodes.push_back(p2);
-    nodes.push_back(p3);
+    nodes[0] = n0;
+    nodes[1] = n1;
+    nodes[2] = n2;
+    nodes[3] = n3;
+    nNodesCount = 4;
   }
 
-  CNodesCollection      nodes;        // may contain either 3 or 4 nodes.
+  size_t                nodes[4];
+  size_t                nNodesCount;  // can be 3 or 4.
+
   int                   nOwnerIndex;
   int                   nNbrIndex;
+
+  Vector3D              vFaceCenter;
 
   bool operator == (const COpenFoamFace& face) const;
 };
@@ -88,6 +94,7 @@ struct CExportRegion
 };
 
 typedef std::vector<CExportRegion*> CPatchCollection;
+typedef std::vector<Vector3D> CArrayVector3D;
 
 //---------------------------------------------------------------------------------------
 //
@@ -189,6 +196,7 @@ protected:
   void                  print_header(FILE* pStream);
 
 // Internal data and boundary conditions.
+  void                  backup_element_centers();
   void                  export_internal_and_boundary_data();
   void                  export_internal_data(CTracker* pObj, FILE* pFileT, FILE* pFileU, FILE* pFileN);
   void                  export_boundary_data(CTracker* pObj, FILE* pFileT, FILE* pFileU, FILE* pFileN);
@@ -215,6 +223,11 @@ private:
   CNodesVector*         m_pNodes;
   CElementsCollection*  m_pElems;
 
+// When the gas parameters at internal points or boundary conditions on inlet are exporting, the global CTracker object is
+// re-initialized by the data from the source file. Data in m_pNodes and m_pElems became unusable. Meanwhile, the 3D locations
+// of the centers of the elements are needed. These data are stored in m_vElemCenters array.
+  CArrayVector3D        m_vElemCenters;
+
 // Collection of pointers to boundary COpenFoamFace objects.
   CPatchCollection      m_Patches;
 
@@ -225,7 +238,7 @@ private:
   int                   m_nUnits;
 
 // As a rule only a low-press part of the mesh is exported, so that there must be a shift.
-// Note: if m_fShift == 0 the mesh is exported as a whole and m_sBoundCondPath can be empty.
+// Note: if the mesh is exported as a whole, m_sBoundCondPath can be empty.
   double                m_fShiftX;
 
 // Default internal and boundary values:
@@ -237,6 +250,64 @@ private:
   CBoundCondColl        m_vBoundConditions;
 };
 
+typedef std::vector<Vector3D> CLocVector;
+//-------------------------------------------------------------------------------------------------
+// CExternalGridExport - export to grid nodes
+//-------------------------------------------------------------------------------------------------
+class CExternalGridExport : public CObject
+{
+public:
+  CExternalGridExport()
+    : CObject(), m_sInputFile(_T("")), m_sOutputFile(_T("")), m_bUseSI(false)
+  {
+  }
+
+  enum  // output file format type (CSV or DAT).
+  {
+    fmtCSV    = 0,
+    fmtDAT4   = 1,
+    fmtDAT3   = 2,
+    fmtCount  = 3
+  };
+
+  static const char*    get_format_name(int nFmtType);
+
+  CString               get_input_file() const;
+  DWORD_PTR             get_input_file_ptr() const;
+  void                  set_input_file(const CString& sFile);
+
+  CString               get_output_file() const;
+  DWORD_PTR             get_output_file_ptr() const;
+  void                  set_output_file(const CString& sFile);
+
+  int                   get_format_type() const;
+  DWORD_PTR             get_format_type_ptr() const;
+  void                  set_format_type(int nType);
+
+  bool                  get_use_SI_units() const;
+  DWORD_PTR             get_use_SI_units_ptr() const;
+
+  bool                  do_export();
+
+protected:
+  FILE*                 open_input_file() const;
+  FILE*                 open_output_file() const;
+
+  void                  read_locations(FILE* pInFile, CLocVector& vLoc);
+  void                  interpolate_and_write_data(FILE* pOutFile, const CLocVector& vLoc);
+
+  void                  convert_to_SI(CNode3D& node) const;
+  
+private:
+  CString               m_sInputFile;
+  CString               m_sOutputFile;
+  bool                  m_bUseSI;
+  int                   m_nFmtType;
+};
+
+//-------------------------------------------------------------------------------------------------
+// Inline implementation. CExportOpenFOAM:
+//-------------------------------------------------------------------------------------------------
 inline const char* CExportOpenFOAM::get_path() const
 {
   return m_sPath.c_str();
@@ -367,6 +438,62 @@ inline size_t CExportOpenFOAM::get_bc_count() const
 inline CBoundaryConditions* CExportOpenFOAM::get_bound_cond(size_t nIndex) const
 {
   return nIndex < m_vBoundConditions.size() ? m_vBoundConditions.at(nIndex) : NULL;
+}
+
+// CExternalGridExport:
+inline CString CExternalGridExport::get_input_file() const
+{
+  return m_sInputFile;
+}
+
+inline DWORD_PTR CExternalGridExport::get_input_file_ptr() const
+{
+  return (DWORD_PTR)&m_sInputFile;
+}
+
+inline void CExternalGridExport::set_input_file(const CString& sFile)
+{
+  m_sInputFile = sFile;
+}
+
+inline CString CExternalGridExport::get_output_file() const
+{
+  return m_sOutputFile;
+}
+
+inline DWORD_PTR CExternalGridExport::get_output_file_ptr() const
+{
+  return (DWORD_PTR)&m_sOutputFile;
+}
+
+inline void CExternalGridExport::set_output_file(const CString& sFile)
+{
+  m_sOutputFile = sFile;
+}
+
+inline bool CExternalGridExport::get_use_SI_units() const
+{
+  return m_bUseSI;
+}
+
+inline DWORD_PTR CExternalGridExport::get_use_SI_units_ptr() const
+{
+  return (DWORD_PTR)&m_bUseSI;
+}
+
+inline int CExternalGridExport::get_format_type() const
+{
+  return m_nFmtType;
+}
+
+inline DWORD_PTR CExternalGridExport::get_format_type_ptr() const
+{
+  return (DWORD_PTR)&m_nFmtType;
+}
+
+inline void CExternalGridExport::set_format_type(int nType)
+{
+  m_nFmtType = nType;
 }
 
 };  // EvaporatingParticle

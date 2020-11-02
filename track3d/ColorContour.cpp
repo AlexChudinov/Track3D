@@ -40,17 +40,22 @@ bool CColorContour::build_draw_array()
   m_vFaceColors.clear();
   m_vFaceVert.clear();
 
-  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-  pDrawObj->set_phi_to_nodes();  // the electric potential visualization requires summation over all enabled fields.
-
   if(m_nLevelsCount < 2)
+  {
+    m_bReady = true;
     return false;
+  }
+
+  set_correct_phi_to_nodes(); // the electric potential visualization requires summation over all enabled fields.
 
   get_glob_min_max();  // minimum and maximum of the contoured parameter values over all simulation domain.
   
   get_values_array();
   if(m_vValues.size() == 0)
+  {
+    m_bReady = true;
     return false;
+  }
 
   get_colors_array();
 
@@ -65,8 +70,8 @@ bool CColorContour::build_draw_array()
   Vector3D* p12 = new Vector3D[m_nLevelsCount];
 
   CRegionsCollection vRegions = get_regions();
-  size_t nRegCount = vRegions.size();                     /*                                                                      */
-  for(size_t i = 0; i < nRegCount; i++)                   /*                P1, Umin <= U1 <= Umax                                */
+  size_t nRegCount = vRegions.size();                     /*           Umin <= U1 <= Umax                                         */
+  for(size_t i = 0; i < nRegCount; i++)                   /*                P1,                                                   */
   {                                                       /*                   /\                                                 */
     CRegion* pReg = vRegions.at(i);                       /*                  /  \  / Current Level                               */
     size_t nFaceCount = pReg->vFaces.size();              /*                 /    \/                                              */
@@ -567,6 +572,45 @@ const char* CColorContour::get_var_name(int nVar) const
   return _T("");
 }
 
+void CColorContour::set_correct_phi_to_nodes()
+{
+  CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
+  pDrawObj->set_phi_to_nodes();
+}
+
+void CColorContour::invalidate()
+{
+  CColorImage::invalidate();
+
+// 1. Accumulate the electric potential from all enabled fields in the mesh nodes.
+  set_correct_phi_to_nodes();
+
+// 2. If there is at least one cross-section plane among the regions, we need to interpolate updated phi values into its nodes,
+// which differ from the mesh nodes. The easiest way to do so is to build the cross-section anew.
+  CCrossSectColl* pPlanes = CParticleTrackingApp::Get()->GetPlanes();
+  size_t nPlanesCount = pPlanes->size();
+
+  CRegion* pReg = NULL;
+  size_t nRegCount = m_vRegNames.size();
+  for(size_t i = 0; i < nRegCount; i++)
+  {
+    pReg = CAnsysMesh::get_region(m_vRegNames.at(i));
+    if(pReg == NULL || !pReg->bCrossSection)
+      continue;
+
+    for(size_t j = 0; j < nPlanesCount; j++)
+    {
+      EvaporatingParticle::CDomainCrossSection* pObj = pPlanes->at(j);
+      if(pObj->get_name() == pReg->sName)
+      {
+        pObj->invalidate();
+        pReg = pObj->get_region();  // here the cross-section is rebuilt.
+        break;
+      }
+    }
+  }
+}
+
 
 //---------------------------------------------------------------------------------------
 // CColoredTracks.
@@ -730,16 +774,21 @@ double CColoredTracks::get_vert_value(const CTrackItem& item, size_t nTrackIndex
 {
   switch(m_nVarColorMap)
   {
-    case tcmIonTemp:     return item.temp;
-    case tcmIonEqTemp:   return item.tempinf;
-    case tcmIonConc:     return item.unfragm;
-    case tcmStartRadius: return get_start_radius(nTrackIndex);
+    case tcmIonTemp:        return item.temp;
+    case tcmIonEqTemp:      return item.tempinf;
+    case tcmIonConc:        return item.unfragm;
+    case tcmStartRadiusXY:  return get_start_radius(nTrackIndex, tcmStartRadiusXY);
+    case tcmStartRadiusYZ:  return get_start_radius(nTrackIndex, tcmStartRadiusYZ);
+    case tcmStartRadiusXZ:  return get_start_radius(nTrackIndex, tcmStartRadiusXZ);
+    case tcmStartX:
+    case tcmStartY:
+    case tcmStartZ:         return get_start_coord(nTrackIndex);
   }
 
   return 0;
 }
 
-double CColoredTracks::get_start_radius(size_t nTrackIndex)
+double CColoredTracks::get_start_radius(size_t nTrackIndex, int nVarIndex)
 {
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CTrackVector& vTracks = pObj->get_tracks();
@@ -751,7 +800,38 @@ double CColoredTracks::get_start_radius(size_t nTrackIndex)
     return 0;
 
   CBaseTrackItem* pItem = track.at(0);
-  return (pItem->pos - pObj->get_src()->get_src_pos()).length();
+  Vector3D vRelPos = pItem->pos - pObj->get_src()->get_src_pos();
+  switch(nVarIndex)
+  {
+    case tcmStartRadiusXY: vRelPos.z = 0; break;
+    case tcmStartRadiusYZ: vRelPos.x = 0; break;
+    case tcmStartRadiusXZ: vRelPos.y = 0; break;
+  }
+
+  return vRelPos.length();
+}
+
+double CColoredTracks::get_start_coord(size_t nTrackIndex) const
+{
+  CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  const CTrackVector& vTracks = pObj->get_tracks();
+  if(nTrackIndex >= vTracks.size())
+    return 0;
+
+  const CTrack& track = vTracks.at(nTrackIndex);
+  if(track.size() < 1)
+    return 0;
+
+  CBaseTrackItem* pItem = track.at(0);
+  Vector3D vPos = pItem->pos;
+  switch(m_nVarColorMap)
+  {
+    case tcmStartX: return vPos.x;
+    case tcmStartY: return vPos.y;
+    case tcmStartZ: return vPos.z;
+  }
+
+  return 0;
 }
 
 void CColoredTracks::get_min_max()
@@ -788,11 +868,16 @@ const char* CColoredTracks::get_var_name(int nVar) const
 {
   switch(nVar)
   {
-    case tcmDefault:     return _T("None");
-    case tcmIonTemp:     return _T("Ion Temperature");
-    case tcmIonEqTemp:   return _T("Equilibrium Ion Temperature");
-    case tcmIonConc:     return _T("Ion Concentration");
-    case tcmStartRadius: return _T("Ion Start Radius");
+    case tcmDefault:        return _T("None");
+    case tcmIonTemp:        return _T("Ion Temperature");
+    case tcmIonEqTemp:      return _T("Equilibrium Ion Temperature");
+    case tcmIonConc:        return _T("Ion Concentration");
+    case tcmStartRadiusXY:  return _T("Ion Start Radius in XY Plane");
+    case tcmStartRadiusYZ:  return _T("Ion Start Radius in YZ Plane");
+    case tcmStartRadiusXZ:  return _T("Ion Start Radius in XZ Plane");
+    case tcmStartX:         return _T("Ion Start X Coordinate");
+    case tcmStartY:         return _T("Ion Start Y Coordinate");
+    case tcmStartZ:         return _T("Ion Start Z Coordinate");
   }
 
   return _T("None");
@@ -920,6 +1005,7 @@ void CColoredCrossSection::set_default()
 
   m_fCrossSectX = 0;
   m_nVar = varIonTemp;
+  m_nDir = nrmDirX;
 }
 
 bool CColoredCrossSection::build_draw_array()
@@ -942,9 +1028,7 @@ void CColoredCrossSection::collect_intersections()
   CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
   const CTrackVector& vTracks = pObj->get_tracks();
 
-  double fKsi, fdX, fVal;
-  Vector3D vPoint(m_fCrossSectX, 0, 0);
-
+  double fVal;
   CTrackItem item;
   size_t nTrackCount = vTracks.size();
   for(size_t i = 0; i < nTrackCount; i++)
@@ -958,17 +1042,8 @@ void CColoredCrossSection::collect_intersections()
     for(size_t j = 1; j < nItemCount; j++)
     {
       vCurr = track.at(j)->pos;
-      if((vCurr.x >= m_fCrossSectX) && (vPrev.x < m_fCrossSectX) || (vCurr.x < m_fCrossSectX) && (vPrev.x >= m_fCrossSectX))
+      if(is_intersected(vPrev, vCurr))
       {
-        fdX = vCurr.x - vPrev.x;
-        if(fabs(fdX) < Const_Almost_Zero)
-          continue;
-
-        fKsi = (m_fCrossSectX - vPrev.x) / fdX;
-        vPoint.y = vPrev.y + fKsi * (vCurr.y - vPrev.y);
-        vPoint.z = vPrev.z + fKsi * (vCurr.z - vPrev.z);
-        m_vPoints.push_back(vPoint);
-
         track.get_track_item(j, item);
         fVal = get_vert_value(item, i);
         m_vCrossSectColors.push_back(get_color(fVal));
@@ -979,6 +1054,66 @@ void CColoredCrossSection::collect_intersections()
       vPrev = vCurr;
     }
   }
+}
+
+bool CColoredCrossSection::is_intersected(const Vector3D& vPrev, const Vector3D& vCurr)
+{
+  Vector3D vPoint;
+  double fKsi, fdX, fdY, fdZ;
+  switch(m_nDir)
+  {
+    case nrmDirX:
+    {
+      if((vCurr.x < m_fCrossSectX) && (vPrev.x < m_fCrossSectX) || (vCurr.x > m_fCrossSectX) && (vPrev.x > m_fCrossSectX))
+        return false;
+
+      fdX = vCurr.x - vPrev.x;
+      if(fabs(fdX) < Const_Almost_Zero)
+        return false;
+
+      fKsi = (m_fCrossSectX - vPrev.x) / fdX;
+
+      vPoint.x = m_fCrossSectX;
+      vPoint.y = vPrev.y + fKsi * (vCurr.y - vPrev.y);
+      vPoint.z = vPrev.z + fKsi * (vCurr.z - vPrev.z);
+      break;
+    }
+    case nrmDirY:
+    {
+      if((vCurr.y < m_fCrossSectX) && (vPrev.y < m_fCrossSectX) || (vCurr.y > m_fCrossSectX) && (vPrev.y > m_fCrossSectX))
+        return false;
+
+      fdY = vCurr.y - vPrev.y;
+      if(fabs(fdY) < Const_Almost_Zero)
+        return false;
+
+      fKsi = (m_fCrossSectX - vPrev.y) / fdY;
+
+      vPoint.y = m_fCrossSectX;
+      vPoint.x = vPrev.x + fKsi * (vCurr.x - vPrev.x);
+      vPoint.z = vPrev.z + fKsi * (vCurr.z - vPrev.z);
+      break;
+    }
+    case nrmDirZ:
+    {
+      if((vCurr.z < m_fCrossSectX) && (vPrev.z < m_fCrossSectX) || (vCurr.z > m_fCrossSectX) && (vPrev.z > m_fCrossSectX))
+        return false;
+
+      fdZ = vCurr.z - vPrev.z;
+      if(fabs(fdZ) < Const_Almost_Zero)
+        return false;
+
+      fKsi = (m_fCrossSectX - vPrev.z) / fdZ;
+
+      vPoint.z = m_fCrossSectX;
+      vPoint.y = vPrev.y + fKsi * (vCurr.y - vPrev.y);
+      vPoint.x = vPrev.x + fKsi * (vCurr.x - vPrev.x);
+      break;
+    }
+  }
+
+  m_vPoints.push_back(vPoint);
+  return true;
 }
 
 double CColoredCrossSection::get_vert_value(const CTrackItem& item, size_t nTrackIndex) const

@@ -19,12 +19,6 @@ void CSelectRegionButton::show_all_regions()
 {
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->show_all_regions();
-  CSelectRegionButton* pBtn = (CSelectRegionButton*)(m_pWndList->FindItemByData(pDrawObj->get_hidden_reg_names_ptr()));
-  if(pBtn != NULL)
-  {
-    pBtn->SetValue(CString("0 regions"));
-    pBtn->Redraw();
-  }
 }
 
 void CSelectRegionButton::process_click()
@@ -762,7 +756,8 @@ void CRemoveNamedAreaButton::OnClickButton(CPoint point)
 
   m_pWndProp->set_update_all();
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
-    pDrawObj->draw();
+  pDrawObj->invalidate_faces();
+  pDrawObj->draw();
 }
 
 bool CRemoveNamedAreaButton::ConfirmRemove() const
@@ -800,6 +795,7 @@ void CRemoveCrossSectionButton::OnClickButton(CPoint point)
   m_pWndProp->set_update_all();
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->invalidate_faces();
+  pDrawObj->invalidate_contours();
   pDrawObj->invalidate_aux();
   pDrawObj->draw();
 }
@@ -915,6 +911,38 @@ void CCalcFieldPtbButton::OnClickButton(CPoint point)
   EvaporatingParticle::CTrackDraw* pDrawObj = CParticleTrackingApp::Get()->GetDrawObj();
   pDrawObj->invalidate_contours();
   pDrawObj->draw();
+}
+
+//---------------------------------------------------------------------------------------
+// CExternalGridExportButton.
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CExternalGridExportButton, CCalcFieldButton)
+
+static UINT __stdcall export_ansys_data_func(LPVOID pData)
+{
+  CExecutionDialog* pDlg = (CExecutionDialog*)pData;
+  EvaporatingParticle::CExternalGridExport* pExporter = (EvaporatingParticle::CExternalGridExport*)(pDlg->GetDialogObject());
+  pExporter->do_export();
+
+  if(!pExporter->get_terminate_flag()) // if the user has not terminated the dialog manually, do it after calculations are over.
+    pDlg->PostMessage(WM_CLOSE);
+
+  return 0;
+}
+
+void CExternalGridExportButton::OnClickButton(CPoint point)
+{
+  if(m_pWndProp == NULL)
+    return;
+
+  m_pWndProp->set_data_to_model();
+
+  EvaporatingParticle::CExternalGridExport* pExporter = (EvaporatingParticle::CExternalGridExport*)m_dwData;
+  if(pExporter == NULL)
+    return;
+
+  CExecutionDialog dlg(&export_ansys_data_func, (EvaporatingParticle::CObject*)pExporter);
+  INT_PTR nRes = dlg.DoModal();
 }
 
 //---------------------------------------------------------------------------------------
@@ -1192,6 +1220,20 @@ void CInvalidateFieldCheckBox::OnClickButton(CPoint point)
   EvaporatingParticle::CElectricFieldData* pData = nCurrFieldId >= 0 ? pFields->at(nCurrFieldId) : NULL;
   if(pData != NULL)
     pData->invalidate();
+}
+
+//---------------------------------------------------------------------------------------
+// CUseAnsysFieldCheckBox
+//---------------------------------------------------------------------------------------
+IMPLEMENT_DYNAMIC(CUseAnsysFieldCheckBox, CCheckBoxButton)
+
+void CUseAnsysFieldCheckBox::OnClickButton(CPoint point)
+{
+  CCheckBoxButton::OnClickButton(point);
+
+  EvaporatingParticle::CTracker* pObj = CParticleTrackingApp::Get()->GetTracker();
+  if(pObj->get_enable_ansys_field())
+    pObj->set_need_read_ansys_field();
 }
 
 //---------------------------------------------------------------------------------------

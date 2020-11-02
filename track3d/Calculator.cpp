@@ -111,6 +111,7 @@ CCalculator::CCalculator()
   m_nClcVar = clcAveTemp;
   m_bClcVarChanged = false;
   m_fCharLength = 0.06;   // d = 0.6 mm by default for Reynolds number calculation in capillary.
+  m_nCalcDir = dirX;      // by default the sequence calculations are performed in X direction.
   m_bEnable = true;
 }
 
@@ -129,6 +130,7 @@ CCalculator* CCalculator::create(int nType)
     case ctTrackCrossSect: return new CTrackCrossSectionCalculator();
     case ctAlongSelTracks: return new CSelectedTracksCalculator();
     case ctTrackFaceCross: return new CTackFaceCross();
+    case ctEndTrackCalc: return new CEndTrackCalculator();
   }
 
   return NULL;
@@ -138,13 +140,26 @@ const char* CCalculator::calc_name(int nType)
 {
   switch(nType)
   {
-    case ctPlaneYZ: return _T("Calculator at YZ Plane");
+    case ctPlaneYZ: return _T("Calculator at a Domain Cross-Section");
     case ctSelRegions: return _T("Calculator at Selected Regions");
     case ctAlongLine: return _T("Line Calculator");
     case ctTrackCalc: return _T("Ion/Droplet Track Calculator");
     case ctTrackCrossSect: return _T("Track's Cross-Section Calculator");
     case ctAlongSelTracks: return _T("Forces at Selected Tracks");
     case ctTrackFaceCross: return _T("Faces Crossed by Tracks Calculator");
+    case ctEndTrackCalc: return _T("Coordinates of End Points of Tracks");
+  }
+
+  return _T("");
+}
+
+const char* CCalculator::plane_norm_name(int nDir)
+{
+  switch(nDir)
+  {
+    case CCalculator::dirX: return _T("X");
+    case CCalculator::dirY: return _T("Y");
+    case CCalculator::dirZ: return _T("Z");
   }
 
   return _T("");
@@ -226,6 +241,16 @@ bool CCalculator::process_face(CFace* pFace, double& fSquare, double& fRes) cons
       fRes = Const_One_Third * (pFace->p0->vel.x + pFace->p1->vel.x + pFace->p2->vel.x);
       break;
     }
+    case clcAveVy:
+    {
+      fRes = Const_One_Third * (pFace->p0->vel.y + pFace->p1->vel.y + pFace->p2->vel.y);
+      break;
+    }
+    case clcAveVz:
+    {
+      fRes = Const_One_Third * (pFace->p0->vel.z + pFace->p1->vel.z + pFace->p2->vel.z);
+      break;
+    }
     case clcAveRe:
     {
       double fFlowRate = Const_One_Third * 
@@ -253,6 +278,8 @@ void CCalculator::normalize_result(double fSumSquare, double fSumRes)
     case clcAveTemp:
     case clcAveDens:
     case clcAveVx:
+    case clcAveVy:
+    case clcAveVz:
     case clcAveRe:
     {
       if(fSumSquare > Const_Almost_Zero)
@@ -273,7 +300,13 @@ void CCalculator::convert_result()
     case clcEnergyFlow: fMult = CGS_to_SI_Energy; break;
     case clcAvePress:   fMult = CGS_to_SI_Press;  break;
     case clcAveDens:    fMult = CGS_to_SI_Dens;   break;
-    case clcAveVx:      fMult = CGS_to_SI_Vel;    break;
+    case clcAveVx:
+    case clcAveVy:
+    case clcAveVz:
+    {
+      fMult = CGS_to_SI_Vel;
+      break;
+    }
   }
 
   m_fResult *= fMult;
@@ -304,6 +337,8 @@ const char* CCalculator::units() const
     case clcAveDens:    return _T("Density,  kg/m3");
     case clcAveRe:      return _T("Reynolds Number");
     case clcAveVx:      return _T("Vx,  m/s");
+    case clcAveVy:      return _T("Vy,  m/s");
+    case clcAveVz:      return _T("Vz,  m/s");
   }
 
   return _T("");
@@ -320,7 +355,9 @@ const char* CCalculator::get_var_name(int nVar) const
     case clcAveTemp:    return _T("Average Temperature");
     case clcAveDens:    return _T("Average Density");
     case clcAveRe:      return _T("Average Reynolds Number");
-    case clcAveVx:      return _T("Average Velocity X");
+    case clcAveVx:      return _T("Average X-component of Velocity");
+    case clcAveVy:      return _T("Average Y-component of Velocity");
+    case clcAveVz:      return _T("Average Z-component of Velocity");
   }
 
   return _T("");
@@ -333,13 +370,14 @@ bool CCalculator::get_update_flag() const
 
 void CCalculator::save(CArchive& ar)
 {
-  UINT nVersion = 1;
+  UINT nVersion = 2;    // 2 - m_nCalcDir.
   ar << nVersion;
 
   ar << m_nClcVar;
   ar << m_bEnable;
 
   ar << m_fCharLength;
+  ar << m_nCalcDir;
 }
 
 void CCalculator::load(CArchive& ar)
@@ -352,6 +390,9 @@ void CCalculator::load(CArchive& ar)
 
   if(nVersion >= 1)
     ar >> m_fCharLength;
+
+  if(nVersion >= 2)
+    ar >> m_nCalcDir;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -385,7 +426,7 @@ void CPlaneYZCalculator::set_default()
 
   m_bReady = false; // force to build the plane mesh.
 
-// Sequential calculations support:
+// Sequential calculations support (since CCalculator nVersion 2 the sequence calculations can be done in all three directions, X, Y and Z):
   m_fStartX = 0.;
   m_fEndX = 1.;
   m_nSeqCalcCount = 100;
@@ -446,6 +487,13 @@ bool CPlaneYZCalculator::build_cs_mesh()
   if(!get_tracker_ptr())
     return false;
 
+  switch(m_nCalcDir)
+  {
+    case dirX: m_CrossSect.set_plane_type(CDomainCrossSection::ptPlaneYZ); break;
+    case dirY: m_CrossSect.set_plane_type(CDomainCrossSection::ptPlaneXZ); break;
+    case dirZ: m_CrossSect.set_plane_type(CDomainCrossSection::ptPlaneXY); break;
+  }
+
   m_CrossSect.invalidate();
   CRegion* pReg = m_CrossSect.get_region();  // here CDomainCrossSection::build_mesh() is called.
   if(pReg == NULL)
@@ -457,6 +505,52 @@ bool CPlaneYZCalculator::build_cs_mesh()
 
   m_bReady = true;
   return true;
+}
+
+double CPlaneYZCalculator::get_plane_x() const
+{
+  switch(m_nCalcDir)
+  {
+    case CCalculator::dirX: return m_CrossSect.get_plane_origin().x;
+    case CCalculator::dirY: return m_CrossSect.get_plane_origin().y;
+    case CCalculator::dirZ: return m_CrossSect.get_plane_origin().z;
+  }
+
+  return 0;
+}
+
+void CPlaneYZCalculator::set_plane_x(double fX)
+{
+  switch(m_nCalcDir)
+  {
+    case CCalculator::dirX: 
+    {
+      if(m_CrossSect.get_plane_origin().x != fX)
+      {
+        m_CrossSect.set_plane_origin(Vector3D(fX, 0, 0));
+        m_bReady = false;
+        break;
+      }
+    }
+    case CCalculator::dirY: 
+    {
+      if(m_CrossSect.get_plane_origin().y != fX)
+      {
+        m_CrossSect.set_plane_origin(Vector3D(0, fX, 0));
+        m_bReady = false;
+        break;
+      }
+    }
+    case CCalculator::dirZ: 
+    {
+      if(m_CrossSect.get_plane_origin().z != fX)
+      {
+        m_CrossSect.set_plane_origin(Vector3D(0, 0, fX));
+        m_bReady = false;
+        break;
+      }
+    }
+  }
 }
 
 //---------------------------------------------------------------------------------------
@@ -476,7 +570,8 @@ void CPlaneYZCalculator::do_sequence_calc()
   cAction += std::string(get_var_name(m_nClcVar));
   set_job_name(cAction.c_str());
 
-  std::string sHeader(_T("  x(mm),    "));
+  CString sCoordName = m_nCalcDir == dirX ? CString(_T("  x(mm),    ")) : (m_nCalcDir == dirY ? CString(_T("  y(mm),    ")) : CString(_T("  z(mm),    ")));
+  std::string sHeader((const char*)sCoordName);
   sHeader += units();
   fputs(sHeader.c_str(), pStream);
   fputs("\n\n", pStream);
@@ -707,6 +802,8 @@ void CLineCalculator::set_default()
   m_vLineStart = Vector3D(0, 0.001, 0.001);
   m_vLineEnd = Vector3D(5, 0.001, 0.001);
   m_nClcVar = lcTemp;
+
+  m_fLineAverage = 0;
 }
 
 void CLineCalculator::do_calculate()
@@ -739,6 +836,7 @@ void CLineCalculator::do_calculate()
   double fPhase = m_pObj->get_enable_ansys_field() ? 0.0 : Const_Half_PI; // for RF-fields presentation only.
   const CElem3D* pElem = NULL;
   CNode3D node;
+  m_fLineAverage = 0;
   for(UINT i = 0; i <= m_nStepCount; i++)
   {
     set_progress(100 * i / m_nStepCount);
@@ -755,8 +853,11 @@ void CLineCalculator::do_calculate()
       fprintf(pStream, "%f, %f, %f, %e\n", 10 * vPos.x, 10 * vPos.y, 10 * vPos.z, m_fResult);
     else
       fprintf(pStream, "%f, %f, %f, %f\n", 10 * vPos.x, 10 * vPos.y, 10 * vPos.z, m_fResult);
+
+    m_fLineAverage += m_fResult;
   }
 
+  m_fLineAverage /= (m_nStepCount + 1);
   fclose(pStream);
 }
 
@@ -936,6 +1037,55 @@ void CTrackCalculator::set_default()
   m_fPartHitWall = 0;
 }
 
+bool CTrackCalculator::valid_items(const CTrackItem& prev, const CTrackItem& curr, double& fKsi) const
+{
+  bool bValid = false;
+  switch(m_nCalcDir)
+  {
+    case CCalculator::dirX:
+    {
+      bValid = (curr.pos.x >= m_fPosCS) && (prev.pos.x < m_fPosCS) || (curr.pos.x < m_fPosCS) && (prev.pos.x >= m_fPosCS);
+      if(bValid)
+      {
+        double fdX = curr.pos.x - prev.pos.x;
+        if(fabs(fdX) < Const_Almost_Zero)
+          return false;
+
+        fKsi = (m_fPosCS - prev.pos.x) / fdX;
+      }
+      break;
+    }
+    case CCalculator::dirY:
+    {
+      bValid = (curr.pos.y >= m_fPosCS) && (prev.pos.y < m_fPosCS) || (curr.pos.y < m_fPosCS) && (prev.pos.y >= m_fPosCS);
+      if(bValid)
+      {
+        double fdY = curr.pos.y - prev.pos.y;
+        if(fabs(fdY) < Const_Almost_Zero)
+          return false;
+
+        fKsi = (m_fPosCS - prev.pos.y) / fdY;
+      }
+      break;
+    }
+    case CCalculator::dirZ:
+    {
+      bValid = (curr.pos.z >= m_fPosCS) && (prev.pos.z < m_fPosCS) || (curr.pos.z < m_fPosCS) && (prev.pos.z >= m_fPosCS);
+      if(bValid)
+      {
+        double fdZ = curr.pos.z - prev.pos.z;
+        if(fabs(fdZ) < Const_Almost_Zero)
+          return false;
+
+        fKsi = (m_fPosCS - prev.pos.z) / fdZ;
+      }
+      break;
+    }
+  }
+
+  return bValid;
+}
+
 void CTrackCalculator::do_calculate()
 {
   if(!get_tracker_ptr())
@@ -975,13 +1125,9 @@ void CTrackCalculator::do_calculate()
     {
       track.get_track_item(j, curr);
       track.get_track_item(j - 1, prev);
-      if((curr.pos.x >= m_fPosCS) && (prev.pos.x < m_fPosCS) || (curr.pos.x < m_fPosCS) && (prev.pos.x >= m_fPosCS))
-      {
-        fdX = curr.pos.x - prev.pos.x;
-        if(fabs(fdX) < Const_Almost_Zero)
-          continue;
 
-        fKsi = (m_fPosCS - prev.pos.x) / fdX;
+      if(valid_items(prev, curr, fKsi))
+      {
         m_nIntersectCount++;
 
         switch(m_nClcVar)
@@ -1100,18 +1246,19 @@ void CTrackCalculator::do_sequence_calc()
   set_job_name(cAction.c_str());
 
   std::string sHeader;
+  std::string sUnits = m_nCalcDir == dirX ? _T("  x(mm),") : (m_nCalcDir == dirY ? _T("  y(mm),") : _T("  z(mm),"));
   switch(m_nClcVar)
   {
-    case clcIonTemp:  sHeader = _T("  x(mm),      TI(K),      TIeq(K),    Tgas(K)"); break;
-    case clcCurrent:  sHeader = _T("  x(mm),   current(nA),   trans(percent)"); break;
-    case clcFragment: sHeader = _T("  x(mm),   fragmented(percent)"); break;
-    case clcDropDiameter: sHeader = _T("  x(mm),  DropD(mcm),  MaxDropD(mcm), Raylegh(%)"); break;
-    case clcDropTemp: sHeader = _T("  x(mm), AverDropletTemp(K), Tmin(K),  Tmax(K)"); break;
-    case clcTerminated: sHeader = _T("  x(mm), Term(%), OvrTime(%), Evapor(%), Rayleigh(%), HitWall(%)"); break;
-    case clcTime:     sHeader = _T("  x(mm),   time(ms)"); break;
+    case clcIonTemp:  sHeader = _T("      TI(K),      TIeq(K),    Tgas(K)"); break;
+    case clcCurrent:  sHeader = _T("   current(nA),   trans(percent)"); break;
+    case clcFragment: sHeader = _T("   fragmented(percent)"); break;
+    case clcDropDiameter: sHeader = _T("  DropD(mcm),  MaxDropD(mcm), Raylegh(%)"); break;
+    case clcDropTemp: sHeader = _T(" AverDropletTemp(K), Tmin(K),  Tmax(K)"); break;
+    case clcTerminated: sHeader = _T(" Term(%), OvrTime(%), Evapor(%), Rayleigh(%), HitWall(%)"); break;
+    case clcTime:     sHeader = _T("   time(ms)"); break;
   }
 
-  fputs(sHeader.c_str(), pStream);
+  fputs((sUnits + sHeader).c_str(), pStream);
   fputs("\n\n", pStream);
 
   if(m_nClcVar == clcTime)
@@ -1260,10 +1407,9 @@ bool CTrackCalculator::collect_elements()
 
 bool CTrackCalculator::calc_ion_temp(const Vector3D& vIonPos, const Vector3D& vIonVel, double& fIonTemp, double& fGasTemp) const
 {
-  Vector3D vAccel;
   Vector3D vReflPos = vIonPos;
   Vector3D vReflVel = vIonVel;
-  m_pObj->sym_corr(vReflPos, vReflVel, vAccel);
+  m_pObj->sym_corr_forward(vReflPos, vReflVel); // axial symmetry support.
 
   size_t nElemCount = m_vElements.size();
   for(size_t i = 0; i < nElemCount; i++)
@@ -1284,9 +1430,9 @@ bool CTrackCalculator::calc_ion_temp(const Vector3D& vIonPos, const Vector3D& vI
 
 bool CTrackCalculator::calc_gas_temp(const Vector3D& vIonPos, double& fGasTemp) const
 {
-  Vector3D vVel, vAccel;
+  Vector3D vVel;
   Vector3D vReflPos = vIonPos;
-  m_pObj->sym_corr(vReflPos, vVel, vAccel);
+  m_pObj->sym_corr_forward(vReflPos, vVel); 
 
   size_t nElemCount = m_vElements.size();
   for(size_t i = 0; i < nElemCount; i++)
@@ -1354,8 +1500,8 @@ bool CTrackCalculator::get_fragm_probability(CIonTrackItem* pItem, double& fFrag
   if(pElem == NULL)
     return false;
 
-  Vector3D vIonPos = pItem->pos, vIonVel = pItem->vel, vAccel;
-  m_pObj->sym_corr(vIonPos, vIonVel, vAccel);
+  Vector3D vIonPos = pItem->pos, vIonVel = pItem->vel;
+  m_pObj->sym_corr_forward(vIonPos, vIonVel);
 
   double pWeight[6];
   if(!pElem->coeff(vIonPos, pWeight))
@@ -1409,7 +1555,9 @@ double CTrackCalculator::calc_term_tracks()
 
     size_t nLast = nItemCount - 1;
     track.get_track_item(nLast, item);
-    if(item.pos.x > m_fPosCS)
+    bool bContinue =
+      (m_nCalcDir == dirX) && (item.pos.x > m_fPosCS) || (m_nCalcDir == dirY) && (item.pos.y > m_fPosCS) || (m_nCalcDir == dirZ) && (item.pos.z > m_fPosCS);
+    if(bContinue)
       continue;   // we are not interested in tracks that have reached the current cross-section.
 
     int nTermReason = track.get_term_reason();
@@ -1508,6 +1656,8 @@ void CTrackCrossSectionCalculator::do_calculate()
   if(m_sOutputFile.empty())
     default_filename();
 
+  m_Object.set_norm_dir(m_nCalcDir);
+
   FILE* pStream;
   errno_t nErr = fopen_s(&pStream, m_sOutputFile.c_str(), (const char*)("w"));
   if(nErr != 0 || pStream == 0)
@@ -1515,12 +1665,16 @@ void CTrackCrossSectionCalculator::do_calculate()
 
   m_Object.set_handlers(m_hJobNameHandle, m_hProgressBarHandle);
 
+  CString sCoord = m_nCalcDir == dirX ? CString(" y(mm),  z(mm),  ") : (m_nCalcDir == dirY ? CString(" x(mm),  z(mm),  ") : CString(" x(mm),  y(mm),  "));
+  CString sVar;
   int nVar = m_Object.get_var();
   switch(nVar)
   {
-    case CColoredCrossSection::varIonTemp: fprintf(pStream, "%s\n\n", " z(mm),  y(mm),  Color_Ti,   Ti(K)"); break;
-    case CColoredCrossSection::varStartRadius: fprintf(pStream, "%s\n\n", " z(mm),  y(mm),  Color_R0,  R0(cm)"); break;
+    case CColoredCrossSection::varIonTemp:  sVar = CString("Color_Ti,   Ti(K)"); break;
+    case CColoredCrossSection::varStartRadius: sVar = CString("Color_R0,  R0(cm)"); break;
   }
+
+  fprintf(pStream, "%s\n\n", (const char*)(sCoord + sVar));
 
   m_Object.draw();
 
@@ -1534,7 +1688,13 @@ void CTrackCrossSectionCalculator::do_calculate()
   for(size_t i = 0; i < nCount; i++)
   {
     m_Object.get_colored_point(i, vPoint, fVal, clr);
-    fprintf(pStream, "%f, %f, %d, %f\n", 10 * vPoint.z, 10 * vPoint.y, RGB(clr.red, clr.green, clr.blue), fVal);
+
+    switch(m_nCalcDir)
+    {
+      case dirX: fprintf(pStream, "%f, %f, %d, %f\n", 10 * vPoint.y, 10 * vPoint.z, RGB(clr.red, clr.green, clr.blue), fVal); break;
+      case dirY: fprintf(pStream, "%f, %f, %d, %f\n", 10 * vPoint.x, 10 * vPoint.z, RGB(clr.red, clr.green, clr.blue), fVal); break;
+      case dirZ: fprintf(pStream, "%f, %f, %d, %f\n", 10 * vPoint.x, 10 * vPoint.y, RGB(clr.red, clr.green, clr.blue), fVal); break;
+    }
   }
 
   fclose(pStream);
@@ -1568,10 +1728,12 @@ void CTrackCrossSectionCalculator::calculate_statistics()
   {
     m_Object.get_colored_point(i, vPoint, fVal, clr);
     vDiff = vPoint - m_vCenter;
+    m_vSigma.x += vDiff.x * vDiff.x;
     m_vSigma.y += vDiff.y * vDiff.y;
     m_vSigma.z += vDiff.z * vDiff.z;
   }
 
+  m_vSigma.x = sqrt(m_vSigma.x / nCount);
   m_vSigma.y = sqrt(m_vSigma.y / nCount);
   m_vSigma.z = sqrt(m_vSigma.z / nCount);
 }
@@ -1755,7 +1917,7 @@ void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStrea
     if(item.nElemId < 0 || item.nElemId >= nElemsCount)
       continue;
 
-    bool bReflDone = m_pObj->sym_corr(item.pos, item.vel, vAccel);  // vAccel is a dummy parameter here.
+    CSymCorrData data = m_pObj->sym_corr_forward(item.pos, item.vel);
 
     const CElem3D* pElem = elems.at(item.nElemId);
     if(!m_pObj->interpolate(item.pos, item.time, fPhase, node, pElem))
@@ -1779,11 +1941,11 @@ void CSelectedTracksCalculator::calc_ion_accel(const CTrack& track, FILE* pStrea
 
     vSum = vGasDrag + vDCField + vRFField + vClmb;
 
-    if(bReflDone)
+    if(data.nSymFlag)
     {
-      m_pObj->sym_corr(item.pos, item.vel, vAccel, true);
-      m_pObj->sym_corr(vGasDrag, vDCField, vRFField, true);
-      m_pObj->sym_corr(vClmb, vSum, vAccel, true);
+      m_pObj->sym_corr_back(item.pos, item.vel, vAccel, data);
+      m_pObj->sym_corr_back(vGasDrag, vDCField, vRFField, data);
+      m_pObj->sym_corr_back(vClmb, vSum, vAccel, data);
     }
 
     fprintf(pStream, "%f, %f, %f, %f, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e, %12.5e\n", 
@@ -1943,8 +2105,8 @@ void CTackFaceCross::do_calculate()
 			CTrack::const_reverse_iterator last = tracks[trackId].rbegin();
       last++; // we have to take the last but one item because the last item is out of the mesh (see Tracker.cpp, CTracker::main_thread_func)
 
-      Vector3D vPos = (*last)->pos, vVel = (*last)->vel, vAccel;
-      m_pObj->sym_corr(vPos, vVel, vAccel); // vAccel is a dummy variable here.
+      Vector3D vPos = (*last)->pos, vVel = (*last)->vel;
+      m_pObj->sym_corr_forward(vPos, vVel);
 			const CRay ray(vPos, vVel);
 
 			double minDist = DBL_MAX, fDist;
@@ -2007,6 +2169,112 @@ void CTackFaceCross::load(CArchive& ar)
 
   ar >> m_fStartX;
   ar >> m_fEndX;
+}
+
+//-------------------------------------------------------------------------------------------------
+// CEndTrackCalculator: 
+// look for endpoints of the (droplet) tracks that have ended with either "CTrack::ttrRayleighLim" 
+// reason or "CTrack::ttrFullyEvapor" reason and output their positions to the file.
+//-------------------------------------------------------------------------------------------------
+CEndTrackCalculator::CEndTrackCalculator()
+{
+  set_default();
+}
+
+void CEndTrackCalculator::do_calculate()
+{
+  CTrackVector& vTracks = m_pObj->get_tracks();
+  size_t nTrackCount = vTracks.size();
+
+  std::vector<Vector3D> vEndPoints;
+  vEndPoints.reserve(nTrackCount);
+
+  for(size_t i = 0; i < nTrackCount; i++)
+  {
+    const CTrack& track = vTracks.at(i);
+    if((track.get_term_reason() != CTrack::ttrRayleighLim) && (track.get_term_reason() != CTrack::ttrFullyEvapor))
+      continue;
+
+    size_t nItemCount = track.size();
+    vEndPoints.push_back(track.at(nItemCount - 1)->pos);
+  }
+
+  FILE* pStream;
+  errno_t nErr = fopen_s(&pStream, (const char*)m_sOutFileName, (const char*)("w"));
+  if(nErr != 0 || pStream == 0)
+    return;
+
+  Vector3D vPos;
+  size_t nEndPointCount = vEndPoints.size();
+  fprintf(pStream, "%zd\n", nEndPointCount);
+  for(size_t j = 0; j < nEndPointCount; j++)
+  {
+    vPos = vEndPoints.at(j);
+    if(m_bSI)
+      vPos *= CGS_to_SI_Len;
+
+    fprintf(pStream, "%12.8lf, %12.8lf, %12.8lf\n", vPos.x, vPos.y, vPos.z);
+  }
+
+  fclose(pStream);
+  vEndPoints.clear();
+}
+
+void CEndTrackCalculator::set_default()
+{
+  m_bSI = false;
+  m_sCalcName = calc_name(type());
+
+  if(!get_tracker_ptr())
+    return;
+
+  std::string cPath = COutputEngine::get_full_path(m_pObj->get_filename());
+  m_sOutFileName = CString(cPath.c_str()) + CString("end_points.csv");
+}
+
+void CEndTrackCalculator::run()
+{
+  if(!get_tracker_ptr())
+    return;
+
+  terminate(false);
+	do_calculate();
+}
+
+void CEndTrackCalculator::update()
+{
+}
+
+void CEndTrackCalculator::clear()
+{
+}
+
+int CEndTrackCalculator::type() const
+{
+	return ctEndTrackCalc;
+}
+
+void CEndTrackCalculator::save(CArchive& ar)
+{
+  UINT nVersion = 1;  // 1 - m_bSI;
+  ar << nVersion;
+
+  CCalculator::save(ar);
+
+  ar << m_sOutFileName;
+  ar << m_bSI;
+}
+
+void CEndTrackCalculator::load(CArchive& ar)
+{
+  UINT nVersion;
+  ar >> nVersion;
+
+  CCalculator::load(ar);
+
+  ar >> m_sOutFileName;
+  if(nVersion >= 1)
+    ar >> m_bSI;
 }
 
 };  // namespace EvaporatingParticle

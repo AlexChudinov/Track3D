@@ -16,6 +16,7 @@
 
 #include "DirichletTesselation.h"
 #include "TrajectSelector.h"
+#include "Primitives.h"
 
 namespace EvaporatingParticle
 {
@@ -36,6 +37,12 @@ CTrackDraw::CTrackDraw()
   m_bFacesReady = false;
   m_bNormReady = false;
   m_bAuxReady = false;
+
+// Material properties:
+  m_fMatAmbient = 0.3f;
+  m_fMatDiffuse = 0.2f;
+  m_fMatSpec = 0.3f;
+  m_fMatShininess = 0.3f;
 
 // Run-time:
   m_bNewData = true;
@@ -59,7 +66,7 @@ CTrackDraw::CTrackDraw()
 
 CTrackDraw::~CTrackDraw()
 {
-  m_vFaceVert.clear();
+  clear_clr_regions();
 
   HGLRC hRC = wglGetCurrentContext();
   if(m_hRC == hRC)
@@ -74,7 +81,8 @@ CTrackDraw::~CTrackDraw()
 
 void CTrackDraw::clear()
 {
-  m_vFaceVert.clear();
+  clear_clr_regions();
+
   m_vFacesSelRegionVert.clear();
   m_vSelFacesVert.clear();
 
@@ -83,6 +91,15 @@ void CTrackDraw::clear()
 
   m_vCrossSectVert.clear();
   m_vSelRegVert.clear();
+}
+
+void CTrackDraw::clear_clr_regions()
+{
+  size_t nClrCount = m_vClrFaceVert.size();
+  for(size_t i = 0; i < nClrCount; i++)
+    m_vClrFaceVert.at(i).clear();
+
+  m_vClrFaceVert.clear();
 }
 
 void CTrackDraw::set_window_handle(HWND hwnd)
@@ -354,45 +371,74 @@ void CTrackDraw::build_faces_array()
   CFace* pFace = NULL;
   CRegion* pReg = NULL;
 
-  m_vFaceVert.clear();
+  clear_clr_regions();
   m_vFaceCrossSectVert.clear();
-  const CRegionsCollection& regions = m_pTracker->get_regions();
 
+  const CRegionsCollection& regions = m_pTracker->get_regions();
+  size_t nRegCount = regions.size();
+
+  CSelAreasColl* pSelAreasColl = CParticleTrackingApp::Get()->GetSelAreas();
+  int nAreasCount = pSelAreasColl->size();
+  for(int k = -1; k < nAreasCount; k++)
+  {
+    CSelectedAreas* pArea = (k >= 0) ? pSelAreasColl->at(k) : pSelAreasColl->get_default_area();
+    size_t nCount = pArea->size();
+    CColoredRegVertices vFaceVert;
+    vFaceVert.set_reg_color(pArea->get_faces_color());
+    for(size_t l = 0; l < nCount; l++)
+    {
+      std::string sRegName = pArea->at(l);
+      int nRegId = CAnsysMesh::get_region_id(sRegName);
+      if(nRegId < 0)
+        continue;
+
+      pReg = regions.at(nRegId);
+      if(!pReg->bEnabled || pReg->bSelected || pReg->bCrossSection)
+        continue;
+
+      const CFacesCollection& faces = pReg->vFaces;
+      size_t nFaceCount = faces.size();
+      for(size_t j = 0; j < nFaceCount; j++)
+      {
+        pFace = faces.at(j);
+        vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+        vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+        vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+      }
+    }
+
+    m_vClrFaceVert.push_back(vFaceVert);
+  }
+
+  build_cs_faces_array();
+
+  m_bFacesReady = true;
+}
+
+void CTrackDraw::build_cs_faces_array()
+{
+  CFace* pFace = NULL;
+  CRegion* pReg = NULL;
+
+  const CRegionsCollection& regions = m_pTracker->get_regions();
   size_t nRegCount = regions.size();
   for(size_t i = 0; i < nRegCount; i++)
   {
     pReg = regions.at(i);
-    if(!pReg->bEnabled || pReg->bSelected)
+    if(!pReg->bCrossSection || !pReg->bEnabled || pReg->bSelected)
       continue;
 
     const CFacesCollection& faces = pReg->vFaces;
     size_t nFaceCount = faces.size();
-    if(pReg->bCrossSection)
-    {
-      for(size_t j = 0; j < nFaceCount; j++)
-      {
-        pFace = faces.at(j);
-        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
-        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
-        m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
-      }
-    }
-    else
-    {
-      for(size_t j = 0; j < nFaceCount; j++)
-      {
-        pFace = faces.at(j);
-        m_vFaceVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
-        m_vFaceVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
-        m_vFaceVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
-      }
-    }
 
-//    set_progress("Building faces", 100 * i / nRegCount);
-    CObject::set_progress(100 * i / nRegCount);
+    for(size_t j = 0; j < nFaceCount; j++)
+    {
+      pFace = faces.at(j);
+      m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p0->pos, pFace->norm));
+      m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p1->pos, pFace->norm));
+      m_vFaceCrossSectVert.push_back(CFaceVertex(pFace->p2->pos, pFace->norm));
+    }
   }
-
-  m_bFacesReady = true;
 }
 
 void CTrackDraw::build_aux_arrays()
@@ -491,6 +537,36 @@ void CTrackDraw::build_norm_array()
   test_obj.set_mesh((CAnsysMesh*)m_pTracker);
   CDirichletCell* pCell = test_obj.build_cell_in_node(TestNode, vNodes);
 
+// DEBUG - visualization of normals to the elliptical surface.
+/*
+  m_vAuxLines.clear();
+  CFieldPtbCollection& vPtbColl = m_pTracker->get_field_ptb();
+  size_t nPtbCount = vPtbColl.size();
+  for(size_t i = 0; i < nPtbCount; i++)
+  {
+    CFieldPerturbation* pPtb = vPtbColl.at(i);
+    if(pPtb->type() != CFieldPerturbation::ptbElliptSubstrRF)
+      continue;
+
+    Vector3F vPos, vNorm;
+    CEllipticalSubstrateRF* pElliptPtb = (CEllipticalSubstrateRF*)pPtb;
+    CEllipticalCylSector* pEllipse = (CEllipticalCylSector*)(pElliptPtb->get_bound_shape());
+    CNodesCollection* pNodesColl = pEllipse->get_reg_nodes();
+    size_t nNodesCount = pNodesColl->size();
+    for(size_t j = 0; j < nNodesCount; j++)
+    {
+      vPos = pNodesColl->at(j)->pos;
+      if(vPos.z > 0.01 || vPos.z < -0.01)
+        continue;
+
+      vNorm = pEllipse->get_loc_normal(vPos);
+
+      m_vAuxLines.push_back(CEdgeVertex(vPos));
+      m_vAuxLines.push_back(CEdgeVertex(vPos + vNorm * 0.1));
+    }
+  }
+*/
+// END DEBUG
   m_bNormReady = true;
 
 /*
@@ -775,7 +851,7 @@ void CTrackDraw::draw_wire()
 //  glLineWidth(1.5);
 //  glEnable(GL_LINE_SMOOTH);
 
-  glColor3ub(200, 200, 200);
+  glColor3ub(128, 128, 128);
   UINT nStride = 3 * sizeof(GLdouble);
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vWireFrame[0].x));
 
@@ -809,22 +885,79 @@ void CTrackDraw::draw_norm()
   glEnable(GL_DEPTH_TEST);
 }
 
+void CTrackDraw::set_lights()
+{
+  glEnable(GL_LIGHTING);
+  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+
+// The first light in the scene:
+  float pLight_0_Dir[4] = { 0.5f, -1.0f, 1.0f, 0.0f };  // this is direction of the parallel type of light.
+  float pLight_0_Ambient[4] = { m_fMatAmbient, m_fMatAmbient, m_fMatAmbient, 1.0f };
+  float pLight_0_Diffuse[4] = { m_fMatDiffuse, m_fMatDiffuse, m_fMatDiffuse, 1.0f };
+  float pLight_0_Spec[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+  glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
+  glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, pLight_0_Diffuse);
+  glLightfv(GL_LIGHT0, GL_SPECULAR, pLight_0_Spec);
+
+  glEnable(GL_LIGHT0);
+
+// The second light is of opposite direction:
+  float fDiff = 0.1 * m_fMatDiffuse;
+  float pLight_1_Dir[4] = { -0.5f, 1.0f, -1.0f, 0.0f };     // this is direction of the parallel type of light.
+  float pLight_1_Ambient[4] = { 0, 0, 0, 1.0f };
+  float pLight_1_Diffuse[4] = { fDiff, fDiff, fDiff, 1.0f };
+  float pLight_1_Spec[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+
+  glLightfv(GL_LIGHT1, GL_POSITION, pLight_1_Dir);
+  glLightfv(GL_LIGHT1, GL_AMBIENT, pLight_1_Ambient);
+  glLightfv(GL_LIGHT1, GL_DIFFUSE, pLight_1_Diffuse);
+  glLightfv(GL_LIGHT1, GL_SPECULAR, pLight_1_Spec);
+
+  glEnable(GL_LIGHT1);
+}
+
+void CTrackDraw::set_materials()
+{
+  glEnable(GL_COLOR_MATERIAL);
+    
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_NORMALIZE);
+
+  glEnable(GL_ALPHA_TEST);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  float specular[4] = { m_fMatSpec, m_fMatSpec, m_fMatSpec, 1.0f };
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular);
+
+  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 1.0f - m_fMatShininess);
+}
+
 void CTrackDraw::draw_flat()
 {
-  if(m_vFaceVert.size() == 0)
-    return;
-
   set_lights();
   set_materials();
-  glEnableClientState(GL_NORMAL_ARRAY);
 
   UINT nStride = 6 * sizeof(GLdouble);
-  glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].x));
-  glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceVert[0].nx));
+  glEnableClientState(GL_NORMAL_ARRAY);
 
-  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 200.0f);
-  glColor4ub(GetRValue(m_Color), GetGValue(m_Color), GetBValue(m_Color), (unsigned char)(255 * m_fOpacity));
-  glDrawArrays(GL_TRIANGLES, 0, m_vFaceVert.size());
+  size_t nAreasCount = m_vClrFaceVert.size();
+  for(size_t i = 0; i < nAreasCount; i++)
+  {
+    const CColoredRegVertices& vFaceVert = m_vClrFaceVert.at(i);
+    if(vFaceVert.size() == 0)
+      continue;
+
+    glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].x));
+    glNormalPointer(GL_DOUBLE, nStride, (const void*)(&vFaceVert[0].nx));
+
+    COLORREF clr = vFaceVert.get_reg_color();
+    glColor4ub(GetRValue(clr), GetGValue(clr), GetBValue(clr), (unsigned char)(255 * m_fOpacity));
+    glDrawArrays(GL_TRIANGLES, 0, vFaceVert.size());
+  }
 
   glDisableClientState(GL_NORMAL_ARRAY);
 }
@@ -842,7 +975,6 @@ void CTrackDraw::draw_cs_flat()
   glVertexPointer(3, GL_DOUBLE, nStride, (const void*)(&m_vFaceCrossSectVert[0].x));
   glNormalPointer(GL_DOUBLE, nStride, (const void*)(&m_vFaceCrossSectVert[0].nx));
 
-  glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 200.0f);
   glColor4ub(200, 200, 0, (unsigned char)(128 * m_fOpacity));
   glDrawArrays(GL_TRIANGLES, 0, m_vFaceCrossSectVert.size());
 
@@ -932,51 +1064,6 @@ void CTrackDraw::set_global()
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glShadeModel(GL_FLAT);
-}
-
-void CTrackDraw::set_lights()
-{
-  glEnable(GL_LIGHTING);
-  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-
-  float pLight_0_Dir[4] = { -0.5f, -1.0f, -1.0f, 0.0f };  // this is direction of the parallel type of light.
-  float pLight_0_Ambient[4] = { 0.2f, 0.2f, 0.3f, 1.0f };
-  float pLight_0_Diffuse[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-  float pLight_0_Spec[4] = { 3.0f, 3.0f, 3.0f, 1.0f };
-
-  glLightfv(GL_LIGHT0, GL_POSITION, pLight_0_Dir);
-  glLightfv(GL_LIGHT0, GL_AMBIENT, pLight_0_Ambient);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, pLight_0_Diffuse);
-  glLightfv(GL_LIGHT0, GL_SPECULAR, pLight_0_Spec);
-
-  glEnable(GL_LIGHT0);
-
-  float pLight_1_Dir[4] = { -0.5f, 1.0f, 1.0f, 0.0f };     // this is direction of the parallel type of light.
-  float pLight_1_Ambient[4] = { 0.12f, 0.1f, 0.1f, 1.0f };
-  float pLight_1_Diffuse[4] = { 0.5f, 0.5f, 0.5f, 1.0f };
-  float pLight_1_Spec[4] = { 1.8f, 1.8f, 1.8f, 1.0f };
-
-  glLightfv(GL_LIGHT1, GL_POSITION, pLight_1_Dir);
-  glLightfv(GL_LIGHT1, GL_AMBIENT, pLight_1_Ambient);
-  glLightfv(GL_LIGHT1, GL_DIFFUSE, pLight_1_Diffuse);
-  glLightfv(GL_LIGHT1, GL_SPECULAR, pLight_1_Spec);
-
-  glEnable(GL_LIGHT1);
-}
-
-void CTrackDraw::set_materials()
-{
-  glEnable(GL_COLOR_MATERIAL);
-    
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_NORMALIZE);
-
-  glEnable(GL_ALPHA_TEST);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-//  glShadeModel(GL_FLAT); moved to set_global().
 }
 
 // Mouse events support
@@ -1517,7 +1604,7 @@ void CTrackDraw::set_progress(const char* cJobName, int nPercent) const
 // Streaming:
 void CTrackDraw::save(CArchive& ar)
 {
-  const UINT nVersion = 7;  // 7 - m_vSelFaces; 6 - m_vSelTrackIds; 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
+  const UINT nVersion = 9;  // 9 - m_fMatShininess; 8 - m_fMatAmbient, m_fMatDiffuse and m_fMatSpec; 7 - m_vSelFaces; 6 - m_vSelTrackIds; 5 - m_nDrawMode instead of m_bDrawFaces; 4 - m_ColoredTracks; 3 - m_bDrawTracks and m_vContours.
   ar << nVersion;
 
   ar << m_nDrawMode; // ar << m_bDrawFaces;
@@ -1569,6 +1656,11 @@ void CTrackDraw::save(CArchive& ar)
     ar << face.nReg;
     ar << face.nFace;
   }
+
+  ar << m_fMatAmbient;
+  ar << m_fMatDiffuse;
+  ar << m_fMatSpec;
+  ar << m_fMatShininess;
 }
 
 void CTrackDraw::load(CArchive& ar)
@@ -1666,6 +1758,16 @@ void CTrackDraw::load(CArchive& ar)
       m_vSelFaces.push_back(CRegFacePair(nReg, nFace));
     }
   }
+
+  if(nVersion >= 8)
+  {
+    ar >> m_fMatAmbient;
+    ar >> m_fMatDiffuse;
+    ar >> m_fMatSpec;
+  }
+
+  if(nVersion >= 9)
+    ar >> m_fMatShininess;
 
   glMatrixMode(GL_MODELVIEW);
   glLoadMatrixd(pMtx);
@@ -1773,6 +1875,9 @@ void CTrackDraw::show_all_regions()
 
     pReg->bEnabled = true;
   }
+
+// Set visibility flags for all areas in the scene:
+  CParticleTrackingApp::Get()->GetSelAreas()->make_all_visible();
 
   m_vFacesSelRegionVert.clear();
   invalidate_faces();

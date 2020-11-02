@@ -227,7 +227,7 @@ CSpaceChargeDistrib::~CSpaceChargeDistrib()
 
 void CSpaceChargeDistrib::set_default()
 {
-  m_nDistribType = distInCubicMesh;
+  m_nDistribType = distAlongTraject;
   m_nPlanesCount = 100;
 
   m_fMeshStep = 0.01;   // cm.

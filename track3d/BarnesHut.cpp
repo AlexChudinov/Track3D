@@ -37,13 +37,13 @@ OctoTreeCell::~OctoTreeCell()
 //---------------------------------------------------------------------------
 CBarnesHut::CBarnesHut()
   : m_pTree(NULL),
-    m_fDistCoeff(1.5),
+    m_fDistCoeff(4.5),
     m_bEnableQuadTerms(false),
     m_bReady(false),
     m_b2D(false)
 {
   set_crit_radius(0.001);  // default value of m_fCritRadius is 0.001 cm.
-  set_max_rec_depth(12);
+  set_max_rec_depth(13);
   set_sym_type(symXYonly);
 }
 

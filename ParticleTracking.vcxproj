@@ -23,7 +23,7 @@
     <ProjectGuid>{9097A245-3F0E-4189-9BCE-49C6CE202042}</ProjectGuid>
     <RootNamespace>ParticleTracking</RootNamespace>
     <Keyword>MFCProj</Keyword>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -41,7 +41,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <UseOfMfc>Static</UseOfMfc>
     <UseOfAtl>Static</UseOfAtl>
     <CharacterSet>MultiByte</CharacterSet>
@@ -242,6 +242,7 @@
     <ClInclude Include="track3d\DirichletTesselation.h" />
     <ClInclude Include="track3d\DomainCrossSection.h" />
     <ClInclude Include="track3d\DrawTrack.h" />
+    <ClInclude Include="track3d\DropletSizeGen.h" />
     <ClInclude Include="track3d\ElectricField.h" />
     <ClInclude Include="track3d\Elements.h" />
     <ClInclude Include="track3d\EvaporationModel.h" />
@@ -253,8 +254,10 @@
     <ClInclude Include="track3d\Particle.h" />
     <ClInclude Include="track3d\ParticleSource.h" />
     <ClInclude Include="track3d\Perturbation.h" />
+    <ClInclude Include="track3d\Primitives.h" />
     <ClInclude Include="track3d\ScreenCapture.h" />
     <ClInclude Include="track3d\SelectedAreas.h" />
+    <ClInclude Include="track3d\SparseMatrix.h" />
     <ClInclude Include="track3d\Tracker.hpp" />
     <ClInclude Include="track3d\TrackItem.h" />
     <ClInclude Include="track3d\TrajectSelector.h" />
@@ -298,6 +301,7 @@
     <ClCompile Include="track3d\DirichletTesselation.cpp" />
     <ClCompile Include="track3d\DomainCrossSection.cpp" />
     <ClCompile Include="track3d\DrawTrack.cpp" />
+    <ClCompile Include="track3d\DropletSizeGen.cpp" />
     <ClCompile Include="track3d\ElectricField.cpp" />
     <ClCompile Include="track3d\Elements.cpp" />
     <ClCompile Include="track3d\EvaporationModel.cpp" />
@@ -309,8 +313,10 @@
     <ClCompile Include="track3d\Particle.cpp" />
     <ClCompile Include="track3d\ParticleSource.cpp" />
     <ClCompile Include="track3d\Perturbation.cpp" />
+    <ClCompile Include="track3d\Primitives.cpp" />
     <ClCompile Include="track3d\ScreenCapture.cpp" />
     <ClCompile Include="track3d\SelectedAreas.cpp" />
+    <ClCompile Include="track3d\SparseMatrix.cpp" />
     <ClCompile Include="track3d\Tracker.cpp" />
     <ClCompile Include="track3d\TrackItem.cpp" />
     <ClCompile Include="track3d\TrajectSelector.cpp" />
