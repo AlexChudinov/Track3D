@@ -92,6 +92,8 @@
 #define ID_INDICATOR_Y                  59143
 #define ID_INDICATOR_Y2                 59144
 #define ID_INDICATOR_Z                  59144
+#define IDS_STRING59145                 59145
+#define ID_INDICATOR_REG                59145
 
 // Next default values for new objects
 // 

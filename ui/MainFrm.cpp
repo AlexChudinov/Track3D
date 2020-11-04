@@ -25,6 +25,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_REGISTERED_MESSAGE(AFX_WM_CREATETOOLBAR, &CMainFrame::OnToolbarCreateNew)
 	ON_COMMAND_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_OFF_2007_AQUA, &CMainFrame::OnApplicationLook)
 	ON_UPDATE_COMMAND_UI_RANGE(ID_VIEW_APPLOOK_WIN_2000, ID_VIEW_APPLOOK_OFF_2007_AQUA, &CMainFrame::OnUpdateApplicationLook)
+  ON_UPDATE_COMMAND_UI(ID_INDICATOR_REG, &CMainFrame::OnUpdatePane)
   ON_UPDATE_COMMAND_UI(ID_INDICATOR_X, &CMainFrame::OnUpdatePane)  // [MS] 31-05-2013 to support the status bar update.
   ON_UPDATE_COMMAND_UI(ID_INDICATOR_Y, &CMainFrame::OnUpdatePane)  //
   ON_UPDATE_COMMAND_UI(ID_INDICATOR_Z, &CMainFrame::OnUpdatePane)  //
@@ -41,6 +42,7 @@ END_MESSAGE_MAP()
 static UINT indicators[] =
 {
 	ID_SEPARATOR,           // status line indicator
+  ID_INDICATOR_REG,
   ID_INDICATOR_X,
   ID_INDICATOR_Y,
   ID_INDICATOR_Z,
@@ -130,8 +132,11 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	m_wndStatusBar.SetIndicators(indicators, sizeof(indicators)/sizeof(UINT));
   m_wndStatusBar.SetPaneStyle(1, SBPS_NORMAL | SBPS_NOBORDERS);
+  m_wndStatusBar.SetPaneWidth(1, 150);  // the first pane is reserved for the region name.
+
   m_wndStatusBar.SetPaneStyle(2, SBPS_NORMAL | SBPS_NOBORDERS);
   m_wndStatusBar.SetPaneStyle(3, SBPS_NORMAL | SBPS_NOBORDERS);
+  m_wndStatusBar.SetPaneStyle(4, SBPS_NORMAL | SBPS_NOBORDERS);
 
 	// TODO: Delete these five lines if you don't want the toolbar and menubar to be dockable
   m_wndMenuBar.EnableDocking(CBRS_ALIGN_ANY);

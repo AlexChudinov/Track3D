@@ -16,13 +16,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Russian resources
+// Russian (Russia) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
-#ifdef _WIN32
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 #pragma code_page(1251)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -65,18 +63,16 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Russian resources
+#endif    // Russian (Russia) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -86,9 +82,13 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDR_MAINFRAME           ICON                    "res\\ParticleTracking.ico"
+
 IDR_TrackingTYPE        ICON                    "res\\ParticleTrackingDoc.ico"
+
 IDI_PROPERTIES_WND      ICON                    "res\\properties_wnd.ico"
+
 IDI_PROPERTIES_WND_HC   ICON                    "res\\properties_wnd_hc.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -96,17 +96,22 @@ IDI_PROPERTIES_WND_HC   ICON                    "res\\properties_wnd_hc.ico"
 //
 
 IDR_MAINFRAME           BITMAP                  "res\\Toolbar.bmp"
+
 IDR_MAINFRAME_256       BITMAP                  "res\\Toolbar256.bmp"
+
 IDR_PROPERTIES          BITMAP                  "res\\properties.bmp"
+
 IDB_PROPERTIES_HC       BITMAP                  "res\\properties_hc.bmp"
+
 IDR_TOOLBAR_MOVE_ROTATE BITMAP                  "res\\MoveRotateToolbar.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Toolbar
 //
 
-IDR_MAINFRAME TOOLBAR  16, 16
+IDR_MAINFRAME TOOLBAR 16, 16
 BEGIN
     BUTTON      ID_FILE_NEW
     BUTTON      ID_FILE_OPEN
@@ -120,7 +125,7 @@ BEGIN
     BUTTON      ID_APP_ABOUT
 END
 
-IDR_MAINFRAME_256 TOOLBAR  16, 16
+IDR_MAINFRAME_256 TOOLBAR 16, 16
 BEGIN
     BUTTON      ID_FILE_NEW
     BUTTON      ID_FILE_OPEN
@@ -134,7 +139,7 @@ BEGIN
     BUTTON      ID_APP_ABOUT
 END
 
-IDR_PROPERTIES TOOLBAR  21, 16
+IDR_PROPERTIES TOOLBAR 21, 16
 BEGIN
     BUTTON      ID_EXPAND_ALL
     BUTTON      ID_SORTPROPERTIES
@@ -150,7 +155,7 @@ BEGIN
     BUTTON      ID_PROPERTIES10
 END
 
-IDR_TOOLBAR_MOVE_ROTATE TOOLBAR  16, 15
+IDR_TOOLBAR_MOVE_ROTATE TOOLBAR 16, 15
 BEGIN
     BUTTON      ID_MOVE
     BUTTON      ID_ROTATE_X
@@ -164,7 +169,7 @@ END
 // Menu
 //
 
-IDR_MAINFRAME MENU 
+IDR_MAINFRAME MENU
 BEGIN
     POPUP "&File"
     BEGIN
@@ -215,7 +220,7 @@ BEGIN
     END
 END
 
-IDR_POPUP_EDIT MENU 
+IDR_POPUP_EDIT MENU
 BEGIN
     POPUP "Edit"
     BEGIN
@@ -225,7 +230,7 @@ BEGIN
     END
 END
 
-IDR_THEME_MENU MENU 
+IDR_THEME_MENU MENU
 BEGIN
     MENUITEM "Office 2007 (&Blue Style)",   ID_VIEW_APPLOOK_OFF_2007_BLUE
     MENUITEM "Office 2007 (B&lack Style)",  ID_VIEW_APPLOOK_OFF_2007_BLACK
@@ -239,7 +244,7 @@ END
 // Accelerator
 //
 
-IDR_MAINFRAME ACCELERATORS 
+IDR_MAINFRAME ACCELERATORS
 BEGIN
     "N",            ID_FILE_NEW,            VIRTKEY, CONTROL
     "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL
@@ -330,7 +335,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
@@ -356,18 +361,18 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDR_MAINFRAME           "Particle Tracking\n\nTracking\nParticleTracking Files (*.tsk)\n.tsk\nParticleTracking.Document\nParticleTracking.Document"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     AFX_IDS_APP_TITLE       "ParticleTracking"
     AFX_IDS_IDLEMESSAGE     "Ready"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_INDICATOR_EXT        "EXT"
     ID_INDICATOR_CAPS       "CAP"
@@ -378,9 +383,10 @@ BEGIN
     ID_INDICATOR_X          "X = -0.000000"
     ID_INDICATOR_Y          "Y = -0.000000"
     ID_INDICATOR_Z          "Z = -0.000000"
+    ID_INDICATOR_REG        " "
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_FILE_NEW             "Create a new document\nNew"
     ID_FILE_OPEN            "Open an existing document\nOpen"
@@ -390,13 +396,13 @@ BEGIN
     ID_PAN                  "Pan"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_APP_ABOUT            "Display program information, version number and copyright\nAbout"
     ID_APP_EXIT             "Quit the application; prompts to save documents\nExit"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_FILE_MRU_FILE1       "Open this document"
     ID_FILE_MRU_FILE2       "Open this document"
@@ -416,18 +422,18 @@ BEGIN
     ID_FILE_MRU_FILE16      "Open this document"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_NEXT_PANE            "Switch to the next window pane\nNext Pane"
     ID_PREV_PANE            "Switch back to the previous window pane\nPrevious Pane"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_WINDOW_SPLIT         "Split the active window into panes\nSplit"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_EDIT_CLEAR           "Erase the selection\nErase"
     ID_EDIT_CLEAR_ALL       "Erase everything\nErase All"
@@ -442,12 +448,12 @@ BEGIN
     ID_EDIT_REDO            "Redo the previously undone action\nRedo"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_VIEW_STATUS_BAR      "Show or hide the status bar\nToggle Status Bar"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     AFX_IDS_SCSIZE          "Change the window size"
     AFX_IDS_SCMOVE          "Change the window position"
@@ -458,13 +464,13 @@ BEGIN
     AFX_IDS_SCCLOSE         "Close the active window and prompts to save the documents"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     AFX_IDS_SCRESTORE       "Restore the window to normal size"
     AFX_IDS_SCTASKLIST      "Activate Task List"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_STATUS_PANE1        "Pane 1"
     IDS_STATUS_PANE2        "Pane 2"
@@ -472,14 +478,14 @@ BEGIN
     IDS_TOOLBAR_CUSTOMIZE   "Customize..."
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_PROPERTIES1          "Start Tracking"
     IDS_PROPERTIES_WND      "Properties"
     IDS_ROTATE_X            "Rotate X"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_EDIT_MENU           "Edit"
     IDS_TOOL_TIP_0          "Categorized"
@@ -497,19 +503,19 @@ BEGIN
     IDS_TOOL_TIP_12         "Add Field Perturbation"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_TOOL_TIP_13         "Add Electric Field"
     IDS_TOOL_TIP_14         "Cross-Section Plane"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_ROTATE_Y            "Rotate Y"
     IDS_MOVE_ROTATE         "Move and Rotate"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_ROTATE_X             "Rotate X"
     ID_PROPERTIES3          "Export OpenFOAM"
@@ -520,24 +526,22 @@ BEGIN
     ID_PROPERTIES8          "Add Field Perturbation"
 END
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_PROPERTIES9          "Add Field"
     ID_PROPERTIES10         "Cross-Section"
 END
 
-#endif    // English (U.S.) resources
+#endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.K.) resources
+// English (United Kingdom) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
 #pragma code_page(1252)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -545,6 +549,7 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
 //
 
 IDB_BITMAP1             BITMAP                  "MoveRotateToolbar.bmp"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -589,7 +594,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_TERMINATE_DIALOG, DIALOG
     BEGIN
@@ -623,13 +628,13 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     ID_BUTTON32771          "Pan"
     ID_BUTTON32772          "Rotate"
 END
 
-#endif    // English (U.K.) resources
+#endif    // English (United Kingdom) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
